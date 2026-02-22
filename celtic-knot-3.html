@@ -102,11 +102,23 @@ function getSegmentCrossings(p1, p2, W, H) {
   return crossings;
 }
 
-const COLORS = [
-  "#2E7D7D", "#B5541C", "#3D5A80", "#D4A017",
-  "#8B2E52", "#6B8E6B", "#5B8DB8", "#C25476",
-  "#C8804A", "#4A7C5E", "#A67C3C", "#5BA8A0",
+const JOAO = [
+  { name: "Black",         hex: "#1a1a1a" },
+  { name: "Rose Pink",     hex: "#e0738a" },
+  { name: "Chartreuse",    hex: "#a0b820" },
+  { name: "Lime Green",    hex: "#78b830" },
+  { name: "Purple",        hex: "#6b2d8b" },
+  { name: "Amber",         hex: "#d9a030" },
+  { name: "Hot Pink",      hex: "#e84690" },
+  { name: "Magenta",       hex: "#c8186e" },
+  { name: "Royal Blue",    hex: "#0e5cc0" },
+  { name: "Steel Blue",    hex: "#5a93b0" },
+  { name: "Light Gray",    hex: "#b0a89a" },
+  { name: "Emerald",       hex: "#109878" },
+  { name: "Crimson",       hex: "#b01840" },
 ];
+
+const COLORS = JOAO.map(c => c.hex);
 
 function CelticKnotMaker() {
   const [nailsW, setNailsW] = useState(21);
@@ -118,6 +130,7 @@ function CelticKnotMaker() {
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
   const [cycleColors, setCycleColors] = useState({});
+  const [editStrand, setEditStrand] = useState(null);
   const [winW, setWinW] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -351,27 +364,39 @@ function CelticKnotMaker() {
           GRID
         </button>
       </div>
-      {cycles.length > 0 && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 10, color: "#4a4d52", letterSpacing: 2, fontWeight: 500, marginRight: 4 }}>COLOURS</span>
-          {cycles.map((c, i) => {
-            const col = getCycleColor(i);
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.03)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                <div style={{ position: "relative", width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, flexShrink: 0 }}>
-                  <div style={{ position: "absolute", inset: 0, background: col, borderRadius: isMobile ? 5 : "5px 0 0 5px" }} />
-                  <input type="color" value={col} onChange={e => setCycleColor(i, e.target.value)}
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }} />
-                </div>
-                {!isMobile && <input type="text" value={col} spellCheck={false}
-                  onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setCycleColor(i, v); }}
-                  onBlur={e => { if (!/^#[0-9a-fA-F]{6}$/.test(e.target.value)) setCycleColor(i, COLORS[i % COLORS.length]); }}
-                  style={{ width: 62, padding: "4px 6px", fontSize: 10, fontFamily: "'DM Sans',monospace", color: "#8a8d92", background: "transparent", border: "none", outline: "none", letterSpacing: 0.5 }} />}
+      {cycles.length > 0 && (() => {
+        const sz = isMobile ? 36 : 30;
+        return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 12, maxWidth: svgW + 16 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+            <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500, marginRight: 2 }}>STRANDS</span>
+            {cycles.map((c, i) => {
+              const col = getCycleColor(i);
+              const sel = editStrand === i;
+              return (
+                <button key={i} onClick={() => setEditStrand(sel ? null : i)}
+                  style={{ width: sz, height: sz, borderRadius: 6, background: col, border: sel ? "2px solid #e8dcc8" : "2px solid transparent", cursor: "pointer", outline: sel ? "1px solid rgba(232,220,200,0.3)" : "none", outlineOffset: 2, transition: "all 0.15s", WebkitTapHighlightColor: "transparent", position: "relative" }}>
+                  <span style={{ position: "absolute", bottom: -1, right: 2, fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{i + 1}</span>
+                </button>
+              );
+            })}
+          </div>
+          {editStrand !== null && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>BARBANTE BEATRIZ</span>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: isMobile ? 280 : 400 }}>
+                {JOAO.map((swatch, j) => {
+                  const active = getCycleColor(editStrand) === swatch.hex;
+                  return (
+                    <button key={j} title={swatch.name} onClick={() => { setCycleColor(editStrand, swatch.hex); }}
+                      style={{ width: isMobile ? 40 : 34, height: isMobile ? 40 : 34, borderRadius: 6, background: swatch.hex, border: active ? "2px solid #e8dcc8" : "2px solid rgba(255,255,255,0.08)", cursor: "pointer", transition: "all 0.12s", WebkitTapHighlightColor: "transparent", boxShadow: active ? "0 0 8px rgba(232,220,200,0.3)" : "none" }} />
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
+              <span style={{ fontSize: 9, color: "#333740" }}>{JOAO.find(s => s.hex === getCycleColor(editStrand))?.name || ""}</span>
+            </div>
+          )}
+        </div>);
+      })()}
       <div style={{ fontSize: 12, color: "#3a3d42", marginBottom: 12, letterSpacing: 1, textAlign: "center" }}>
         T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
         <span style={{ color: "#2a2d32" }}> · {total} gaps</span>
