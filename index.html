@@ -350,14 +350,6 @@ function CelticKnotMaker() {
           style={{ padding: "8px 16px", background: showGrid ? "rgba(255,255,255,0.04)" : "transparent", color: showGrid ? "#7a7d82" : "#3a3d42", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
           GRID
         </button>
-        <button onClick={() => {
-          const url = window.location.href;
-          if (navigator.share) { navigator.share({ title: 'João\'s Knot', url }); }
-          else { navigator.clipboard.writeText(url).then(() => { const b = event.target; b.textContent = 'COPIED'; setTimeout(() => b.textContent = 'SHARE', 1500); }); }
-        }}
-          style={{ padding: "8px 16px", background: "rgba(46,125,125,0.15)", color: "#5BA8A0", border: "1px solid rgba(46,125,125,0.25)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
-          SHARE
-        </button>
       </div>
       {cycles.length > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
