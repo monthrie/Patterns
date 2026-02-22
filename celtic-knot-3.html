@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>João's Knot Maker</title>
+<title>Nós do João</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -103,19 +103,19 @@ function getSegmentCrossings(p1, p2, W, H) {
 }
 
 const JOAO = [
-  { name: "Black",         hex: "#1a1a1a" },
-  { name: "Rose Pink",     hex: "#e0738a" },
+  { name: "Preto",         hex: "#1a1a1a" },
+  { name: "Rosa",           hex: "#e0738a" },
   { name: "Chartreuse",    hex: "#a0b820" },
-  { name: "Lime Green",    hex: "#78b830" },
-  { name: "Purple",        hex: "#6b2d8b" },
-  { name: "Amber",         hex: "#d9a030" },
-  { name: "Hot Pink",      hex: "#e84690" },
+  { name: "Verde Lima",    hex: "#78b830" },
+  { name: "Roxo",           hex: "#6b2d8b" },
+  { name: "Âmbar",         hex: "#d9a030" },
+  { name: "Rosa Choque",   hex: "#e84690" },
   { name: "Magenta",       hex: "#c8186e" },
-  { name: "Royal Blue",    hex: "#0e5cc0" },
-  { name: "Steel Blue",    hex: "#5a93b0" },
-  { name: "Light Gray",    hex: "#b0a89a" },
-  { name: "Emerald",       hex: "#109878" },
-  { name: "Crimson",       hex: "#b01840" },
+  { name: "Azul Real",     hex: "#0e5cc0" },
+  { name: "Azul Aço",      hex: "#5a93b0" },
+  { name: "Cinza Claro",   hex: "#b0a89a" },
+  { name: "Esmeralda",     hex: "#109878" },
+  { name: "Carmesim",      hex: "#b01840" },
 ];
 
 const COLORS = JOAO.map(c => c.hex);
@@ -132,6 +132,13 @@ function CelticKnotMaker() {
   const [cycleColors, setCycleColors] = useState({});
   const [editStrand, setEditStrand] = useState(null);
   const [winW, setWinW] = useState(window.innerWidth);
+
+  // Animation state
+  const [animating, setAnimating] = useState(false);
+  const [animSeg, setAnimSeg] = useState(-1); // which segment index we're up to (-1 = show all)
+  const [animSpeed, setAnimSpeed] = useState(8); // segments per second
+  const animRef = useRef(null);
+  const animStartRef = useRef(null);
 
   useEffect(() => {
     const onResize = () => setWinW(window.innerWidth);
@@ -238,11 +245,12 @@ function CelticKnotMaker() {
     return lines;
   }, [W, H, cell, toX, toY]);
 
-  function renderStrandSVG(pts, color, isActive) {
+  function renderStrandSVG(pts, color, isActive, maxSeg) {
     const elements = [];
     const lineW = sw;
     const gap = sw / 2;
-    for (let seg = 0; seg < pts.length - 1; seg++) {
+    const segLimit = maxSeg !== undefined ? maxSeg : pts.length;
+    for (let seg = 0; seg < Math.min(pts.length - 1, segLimit); seg++) {
       const p1 = pts[seg], p2 = pts[seg + 1];
       const sx1 = toX(p1.x), sy1 = toY(p1.y);
       const sx2 = toX(p2.x), sy2 = toY(p2.y);
@@ -254,7 +262,7 @@ function CelticKnotMaker() {
       const p1Edge = p1.x < 0.01 || p1.y < 0.01 || Math.abs(p1.x - W) < 0.01 || Math.abs(p1.y - H) < 0.01;
       const p2Edge = p2.x < 0.01 || p2.y < 0.01 || Math.abs(p2.x - W) < 0.01 || Math.abs(p2.y - H) < 0.01;
       if (sdx === 0 || sdy === 0) {
-        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p1Edge || p2Edge, edgeStart: p1Edge, edgeEnd: p2Edge });
+        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p1Edge || p2Edge, edgeStart: p1Edge, edgeEnd: p2Edge, seg });
         continue;
       }
       const isBS = (sdx === sdy);
@@ -287,12 +295,12 @@ function CelticKnotMaker() {
       for (const cut of cuts) {
         const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
         const proj = (gsx - cx) * ux + (gsy - cy) * uy;
-        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2, edge: isFirst && p1Edge, edgeStart: isFirst && p1Edge, edgeEnd: false });
+        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2, edge: isFirst && p1Edge, edgeStart: isFirst && p1Edge, edgeEnd: false, seg });
         cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
         isFirst = false;
       }
       const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
-      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p2Edge || (isFirst && p1Edge), edgeStart: isFirst && p1Edge, edgeEnd: p2Edge });
+      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p2Edge || (isFirst && p1Edge), edgeStart: isFirst && p1Edge, edgeEnd: p2Edge, seg });
     }
     return elements;
   }
@@ -300,27 +308,76 @@ function CelticKnotMaker() {
   const getCycleColor = useCallback((i) => cycleColors[i] || COLORS[i % COLORS.length], [cycleColors]);
   const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
 
+  // Animation loop
+  const activeNumSegs = active ? active.points.length - 1 : 0;
+
+  useEffect(() => {
+    if (!animating || !active) return;
+    animStartRef.current = performance.now();
+    setAnimSeg(0);
+    const tick = (now) => {
+      const elapsed = (now - animStartRef.current) / 1000;
+      const seg = Math.floor(elapsed * animSpeed);
+      if (seg >= activeNumSegs) {
+        setAnimSeg(-1); // show all
+        setAnimating(false);
+        return;
+      }
+      setAnimSeg(seg + 1);
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [animating, active, animSpeed, activeNumSegs]);
+
+  // Stop animation when switching to show all
+  useEffect(() => {
+    if (showAll) { setAnimating(false); setAnimSeg(-1); }
+  }, [showAll]);
+
+  const startAnim = useCallback(() => {
+    if (!active) return;
+    setAnimSeg(0);
+    setAnimating(true);
+  }, [active]);
+
   const renderElements = useMemo(() => {
     const els = [];
-    const cyclesToRender = showAll
-      ? cycles.map((c, i) => ({ ...c, color: getCycleColor(i), isActive: false }))
-      : activeIdx >= 0
-        ? [{ ...cycles[activeIdx], color: getCycleColor(activeIdx), isActive: true }]
-        : [];
-    for (const c of cyclesToRender) {
-      els.push(...renderStrandSVG(c.points, c.color, c.isActive));
+    if (showAll) {
+      for (let i = 0; i < cycles.length; i++) {
+        els.push(...renderStrandSVG(cycles[i].points, getCycleColor(i), false));
+      }
+    } else if (activeIdx >= 0) {
+      const maxSeg = animSeg >= 0 ? animSeg : undefined;
+      els.push(...renderStrandSVG(cycles[activeIdx].points, getCycleColor(activeIdx), true, maxSeg));
     }
     els.sort((a, b) => a.z - b.z);
     return els;
-  }, [cycles, showAll, activeIdx, W, H, cell, toX, toY, sw, gapPx, cycleColors]);
+  }, [cycles, showAll, activeIdx, W, H, cell, toX, toY, sw, gapPx, cycleColors, animSeg]);
 
   const clickGap = useCallback(g => {
-    setSelGap(prev => prev === g ? null : g);
+    setSelGap(prev => {
+      if (prev === g) return null;
+      return g;
+    });
     setShowAll(false);
+    setAnimating(false);
+    setAnimSeg(-1);
   }, []);
 
+  const selectAndAnimate = useCallback((cycleIdx) => {
+    const cycle = cycles[cycleIdx];
+    if (!cycle) return;
+    const firstGap = cycle.startGap;
+    setSelGap(firstGap);
+    setShowAll(false);
+    setEditStrand(null);
+    // Start animation after state settles
+    setTimeout(() => setAnimating(true), 50);
+  }, [cycles]);
+
   const NailStepper = ({ label, nails, setNails, min, max }) => {
-    const bump = (d) => { const v = nails + d; if (v >= min && v <= max) { setNails(v); setSelGap(null); setShowAll(true); } };
+    const bump = (d) => { const v = nails + d; if (v >= min && v <= max) { setNails(v); setSelGap(null); setShowAll(true); setAnimating(false); setAnimSeg(-1); } };
     const canDec = nails > min, canInc = nails < max;
     const btnStyle = (enabled) => ({
       width: isMobile ? 44 : 32, height: isMobile ? 44 : 32,
@@ -345,36 +402,40 @@ function CelticKnotMaker() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0d10", color: "#d0cabb", fontFamily: "'DM Sans','Helvetica Neue',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "16px 8px" : "28px 16px" }}>
-      <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>João's Knot Maker</h1>
-      <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
+      <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Nós do João</h1>
+      <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>EXPLORADOR DE NÓS CELTAS</p>
       <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12, padding: isMobile ? "10px 12px" : "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", maxWidth: svgW + 16 }}>
-        <NailStepper label="NAILS ACROSS" nails={nailsW} setNails={setNailsW} min={3} max={81} />
-        <NailStepper label="NAILS DOWN" nails={nailsH} setNails={setNailsH} min={3} max={81} />
+        <NailStepper label="PREGOS LARGURA" nails={nailsW} setNails={setNailsW} min={3} max={81} />
+        <NailStepper label="PREGOS ALTURA" nails={nailsH} setNails={setNailsH} min={3} max={81} />
         <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, background: "rgba(255,255,255,0.02)", textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>CIRCUITS</div>
+          <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>CIRCUITOS</div>
           <div style={{ fontSize: 26, color: "#e8dcc8", fontWeight: 300, fontFamily: "'Cormorant Garamond',serif" }}>{nCyc}</div>
-          <div style={{ fontSize: 9, color: "#333740" }}>gcd({W},{H})</div>
+          <div style={{ fontSize: 9, color: "#333740" }}>mdc({W},{H})</div>
         </div>
-        <button onClick={() => { setShowAll(!showAll); setSelGap(null); }}
+        <button onClick={() => { setShowAll(!showAll); setSelGap(null); setAnimating(false); setAnimSeg(-1); }}
           style={{ padding: "8px 20px", background: showAll ? "rgba(232,220,200,0.12)" : "transparent", color: showAll ? "#e8dcc8" : "#6a6d72", border: "1px solid rgba(232,220,200,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
-          {showAll ? "SHOWING ALL" : "SHOW ALL"}
+          {showAll ? "MOSTRAR TODOS" : "VER TODOS"}
         </button>
         <button onClick={() => setShowGrid(!showGrid)}
           style={{ padding: "8px 16px", background: showGrid ? "rgba(255,255,255,0.04)" : "transparent", color: showGrid ? "#7a7d82" : "#3a3d42", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
-          GRID
+          GRELHA
         </button>
       </div>
       {cycles.length > 0 && (() => {
         const sz = isMobile ? 36 : 30;
         return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 12, maxWidth: svgW + 16 }}>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-            <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500, marginRight: 2 }}>STRANDS</span>
+            <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500, marginRight: 2 }}>FIOS</span>
             {cycles.map((c, i) => {
               const col = getCycleColor(i);
-              const sel = editStrand === i;
+              const isActive = !showAll && activeIdx === i;
               return (
-                <button key={i} onClick={() => setEditStrand(sel ? null : i)}
-                  style={{ width: sz, height: sz, borderRadius: 6, background: col, border: sel ? "2px solid #e8dcc8" : "2px solid transparent", cursor: "pointer", outline: sel ? "1px solid rgba(232,220,200,0.3)" : "none", outlineOffset: 2, transition: "all 0.15s", WebkitTapHighlightColor: "transparent", position: "relative" }}>
+                <button key={i} onClick={() => {
+                  if (editStrand === i) { setEditStrand(null); return; }
+                  selectAndAnimate(i);
+                }}
+                  onDoubleClick={(e) => { e.preventDefault(); setEditStrand(editStrand === i ? null : i); }}
+                  style={{ width: sz, height: sz, borderRadius: 6, background: col, border: isActive ? "2px solid #e8dcc8" : editStrand === i ? "2px solid rgba(232,220,200,0.6)" : "2px solid transparent", cursor: "pointer", outline: isActive ? "1px solid rgba(232,220,200,0.3)" : "none", outlineOffset: 2, transition: "all 0.15s", WebkitTapHighlightColor: "transparent", position: "relative", opacity: showAll || isActive ? 1 : 0.4 }}>
                   <span style={{ position: "absolute", bottom: -1, right: 2, fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{i + 1}</span>
                 </button>
               );
@@ -385,21 +446,39 @@ function CelticKnotMaker() {
               <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>BARBANTE BEATRIZ</span>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: isMobile ? 280 : 400 }}>
                 {JOAO.map((swatch, j) => {
-                  const active = getCycleColor(editStrand) === swatch.hex;
+                  const act = getCycleColor(editStrand) === swatch.hex;
                   return (
                     <button key={j} title={swatch.name} onClick={() => { setCycleColor(editStrand, swatch.hex); }}
-                      style={{ width: isMobile ? 40 : 34, height: isMobile ? 40 : 34, borderRadius: 6, background: swatch.hex, border: active ? "2px solid #e8dcc8" : "2px solid rgba(255,255,255,0.08)", cursor: "pointer", transition: "all 0.12s", WebkitTapHighlightColor: "transparent", boxShadow: active ? "0 0 8px rgba(232,220,200,0.3)" : "none" }} />
+                      style={{ width: isMobile ? 40 : 34, height: isMobile ? 40 : 34, borderRadius: 6, background: swatch.hex, border: act ? "2px solid #e8dcc8" : "2px solid rgba(255,255,255,0.08)", cursor: "pointer", transition: "all 0.12s", WebkitTapHighlightColor: "transparent", boxShadow: act ? "0 0 8px rgba(232,220,200,0.3)" : "none" }} />
                   );
                 })}
               </div>
               <span style={{ fontSize: 9, color: "#333740" }}>{JOAO.find(s => s.hex === getCycleColor(editStrand))?.name || ""}</span>
             </div>
           )}
+          {/* Animation controls - show when viewing a single circuit */}
+          {!showAll && activeIdx >= 0 && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 2 }}>
+              <button onClick={startAnim}
+                style={{ padding: isMobile ? "10px 24px" : "6px 18px", background: animating ? "rgba(232,220,200,0.12)" : "rgba(46,125,125,0.15)", color: animating ? "#e8dcc8" : "#5BA8A0", border: animating ? "1px solid rgba(232,220,200,0.2)" : "1px solid rgba(46,125,125,0.25)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, WebkitTapHighlightColor: "transparent" }}>
+                {animating ? "A DESENHAR..." : "ANIMAR"}
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 1 }}>VELOCIDADE</span>
+                {[4, 8, 16, 32].map(spd => (
+                  <button key={spd} onClick={() => setAnimSpeed(spd)}
+                    style={{ width: isMobile ? 36 : 28, height: isMobile ? 36 : 28, borderRadius: 4, background: animSpeed === spd ? "rgba(232,220,200,0.12)" : "rgba(255,255,255,0.03)", color: animSpeed === spd ? "#e8dcc8" : "#4a4d52", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", fontSize: 10, fontFamily: "inherit", fontWeight: 500, WebkitTapHighlightColor: "transparent" }}>
+                    {spd === 4 ? "1x" : spd === 8 ? "2x" : spd === 16 ? "4x" : "8x"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>);
       })()}
       <div style={{ fontSize: 12, color: "#3a3d42", marginBottom: 12, letterSpacing: 1, textAlign: "center" }}>
-        T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
-        <span style={{ color: "#2a2d32" }}> · {total} gaps</span>
+        T({W},{H}) — {nCyc === 1 ? "Nó de fio único" : `Elo de ${nCyc} fios`}
+        <span style={{ color: "#2a2d32" }}> · {total} espaços</span>
       </div>
       <div style={{ background: bgColor, borderRadius: isMobile ? 6 : 10, border: "1px solid rgba(255,255,255,0.05)", padding: isMobile ? 4 : 8, boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02)", maxWidth: "100%" }}>
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
@@ -453,7 +532,7 @@ function CelticKnotMaker() {
           {hoverGap !== null && (
             <text x={gapDots[hoverGap].x} y={gapDots[hoverGap].y - gr * 2.5}
               textAnchor="middle" fill="#e8dcc8" fontSize={10} fontFamily="'DM Sans',sans-serif" opacity={0.7} style={{ pointerEvents: "none" }}>
-              gap {hoverGap}
+              espaço {hoverGap}
             </text>
           )}
         </svg>
@@ -461,11 +540,12 @@ function CelticKnotMaker() {
       <div style={{ marginTop: 16, maxWidth: 640, textAlign: "center", lineHeight: 1.8, fontSize: 13 }}>
         {selGap !== null && active ? (
           <span style={{ color: "#6a6d72" }}>
-            <b style={{ color: "#e8dcc8", fontWeight: 500 }}>Gap {selGap}</b> — strand visits <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.gaps.size}</b> gaps
-            across <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.points.length - 1}</b> diagonal segments.
+            <b style={{ color: "#e8dcc8", fontWeight: 500 }}>Espaço {selGap}</b> — o fio passa por <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.gaps.size}</b> espaços
+            em <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.points.length - 1}</b> segmentos diagonais.
+            {animating && animSeg >= 0 && <span style={{ color: "#5BA8A0" }}> ({animSeg}/{activeNumSegs})</span>}
           </span>
         ) : (
-          <span style={{ color: "#3a3d42" }}>Click any gap to trace a single strand.</span>
+          <span style={{ color: "#3a3d42" }}>Toque num fio para ver a animação, ou num espaço para traçar.</span>
         )}
       </div>
     </div>
