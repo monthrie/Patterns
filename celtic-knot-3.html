@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Celtic Knot Maker</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -115,8 +116,35 @@ function CelticKnotMaker() {
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
   const [cycleColors, setCycleColors] = useState({});
+  const [winW, setWinW] = useState(window.innerWidth);
 
-  const svgW = 800, svgH = 540, pad = 56;
+  useEffect(() => {
+    const onResize = () => setWinW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Read URL hash on mount
+  useEffect(() => {
+    try {
+      const h = window.location.hash.slice(1);
+      if (!h) return;
+      const p = JSON.parse(decodeURIComponent(h));
+      if (p.W) setW(p.W);
+      if (p.H) setH(p.H);
+      if (p.c) setCycleColors(p.c);
+    } catch(e) {}
+  }, []);
+
+  // Write URL hash on state change
+  useEffect(() => {
+    const state = { W, H };
+    if (Object.keys(cycleColors).length > 0) state.c = cycleColors;
+    window.history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(state)));
+  }, [W, H, cycleColors]);
+
+  const isMobile = winW < 600;
+  const svgW = Math.min(800, winW - 32), svgH = Math.round(svgW * 0.675), pad = isMobile ? 24 : 56;
   const cell = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H);
   const ox = (svgW - W * cell) / 2, oy = (svgH - H * cell) / 2;
   const total = 2 * (W + H);
@@ -301,10 +329,10 @@ function CelticKnotMaker() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0d10", color: "#d0cabb", fontFamily: "'DM Sans','Helvetica Neue',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "28px 16px" }}>
-      <h1 style={{ fontSize: 32, fontWeight: 300, letterSpacing: 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Celtic Knot Maker</h1>
-      <p style={{ fontSize: 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 24px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
-      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 16, padding: "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0d10", color: "#d0cabb", fontFamily: "'DM Sans','Helvetica Neue',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "16px 8px" : "28px 16px" }}>
+      <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Celtic Knot Maker</h1>
+      <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
+      <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12, padding: isMobile ? "10px 12px" : "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", maxWidth: svgW + 16 }}>
         <DimensionInput label="Width" value={W} set={setW} min={2} max={80} />
         <DimensionInput label="Height" value={H} set={setH} min={2} max={80} />
         <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, background: "rgba(255,255,255,0.02)", textAlign: "center" }}>
@@ -320,24 +348,41 @@ function CelticKnotMaker() {
           style={{ padding: "8px 16px", background: showGrid ? "rgba(255,255,255,0.04)" : "transparent", color: showGrid ? "#7a7d82" : "#3a3d42", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
           GRID
         </button>
+        <button onClick={() => {
+          const url = window.location.href;
+          if (navigator.share) { navigator.share({ title: 'Celtic Knot', url }); }
+          else { navigator.clipboard.writeText(url).then(() => { const b = event.target; b.textContent = 'COPIED'; setTimeout(() => b.textContent = 'SHARE', 1500); }); }
+        }}
+          style={{ padding: "8px 16px", background: "rgba(46,125,125,0.15)", color: "#5BA8A0", border: "1px solid rgba(46,125,125,0.25)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
+          SHARE
+        </button>
       </div>
       {cycles.length > 0 && (
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 10, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>COLOURS</span>
-          {cycles.map((c, i) => (
-            <label key={i} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
-              <span style={{ fontSize: 11, color: "#5a5d62" }}>{i + 1}</span>
-              <input type="color" value={getCycleColor(i)} onChange={e => setCycleColor(i, e.target.value)}
-                style={{ width: 26, height: 26, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 50, background: "transparent", cursor: "pointer", padding: 0 }} />
-            </label>
-          ))}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 10, color: "#4a4d52", letterSpacing: 2, fontWeight: 500, marginRight: 4 }}>COLOURS</span>
+          {cycles.map((c, i) => {
+            const col = getCycleColor(i);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.03)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                <div style={{ position: "relative", width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, flexShrink: 0 }}>
+                  <div style={{ position: "absolute", inset: 0, background: col, borderRadius: isMobile ? 5 : "5px 0 0 5px" }} />
+                  <input type="color" value={col} onChange={e => setCycleColor(i, e.target.value)}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }} />
+                </div>
+                {!isMobile && <input type="text" value={col} spellCheck={false}
+                  onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setCycleColor(i, v); }}
+                  onBlur={e => { if (!/^#[0-9a-fA-F]{6}$/.test(e.target.value)) setCycleColor(i, COLORS[i % COLORS.length]); }}
+                  style={{ width: 62, padding: "4px 6px", fontSize: 10, fontFamily: "'DM Sans',monospace", color: "#8a8d92", background: "transparent", border: "none", outline: "none", letterSpacing: 0.5 }} />}
+              </div>
+            );
+          })}
         </div>
       )}
       <div style={{ fontSize: 12, color: "#3a3d42", marginBottom: 12, letterSpacing: 1, textAlign: "center" }}>
         T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
         <span style={{ color: "#2a2d32" }}> · {total} gaps</span>
       </div>
-      <div style={{ background: bgColor, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", padding: 8, boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02)" }}>
+      <div style={{ background: bgColor, borderRadius: isMobile ? 6 : 10, border: "1px solid rgba(255,255,255,0.05)", padding: isMobile ? 4 : 8, boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02)", maxWidth: "100%" }}>
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
           <defs>
             <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
