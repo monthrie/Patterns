@@ -462,7 +462,7 @@ function CelticKnotMaker() {
     }
   }, [isCycleVisible, animate]);
 
-  // Animation tick — time-based, ~1.5s per full cycle
+  // Animation tick — time-based, smooth sub-segment interpolation
   const animStartTime = useRef({});
   useEffect(() => {
     if (!animate) return;
@@ -481,9 +481,9 @@ function CelticKnotMaker() {
           const total = c.points.length - 1;
           if (isCycleVisible(i) && (prev[i] ?? Infinity) < total) {
             const elapsed = (now - (animStartTime.current[i] ?? now)) / 1000;
-            const duration = Math.max(1.5, total * 0.04); // at least 1.5s, longer for complex strands
+            const duration = Math.max(2.5, total * 0.06);
             const frac = Math.min(elapsed / duration, 1);
-            next[i] = Math.floor(frac * total);
+            next[i] = frac * total; // float! smooth interpolation
             if (frac >= 1) { next[i] = total; delete animStartTime.current[i]; }
           }
         });
@@ -493,12 +493,23 @@ function CelticKnotMaker() {
     return () => cancelAnimationFrame(id);
   }, [animate, animProgress, cycles, isCycleVisible]);
 
-  // Get the visible portion of a cycle's points based on animation progress
+  // Get the visible portion of a cycle's points based on animation progress (smooth float)
   const getVisiblePoints = useCallback((cycleIdx) => {
     const pts = cycles[cycleIdx].points;
     const prog = animProgress[cycleIdx] ?? Infinity;
     if (prog >= pts.length - 1) return pts;
-    return pts.slice(0, prog + 1);
+    const segIdx = Math.floor(prog);
+    const segFrac = prog - segIdx;
+    // All complete segments plus interpolated partial tip
+    const visible = pts.slice(0, segIdx + 1);
+    if (segIdx < pts.length - 1 && segFrac > 0) {
+      const p1 = pts[segIdx], p2 = pts[segIdx + 1];
+      visible.push({
+        x: p1.x + (p2.x - p1.x) * segFrac,
+        y: p1.y + (p2.y - p1.y) * segFrac,
+      });
+    }
+    return visible;
   }, [cycles, animProgress]);
 
   const renderElements = useMemo(() => {
