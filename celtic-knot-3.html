@@ -205,8 +205,10 @@ function CelticKnotMaker() {
       if (len < 0.5) continue;
       const ux = dx / len, uy = dy / len;
       const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      const p1Edge = p1.x < 0.01 || p1.y < 0.01 || Math.abs(p1.x - W) < 0.01 || Math.abs(p1.y - H) < 0.01;
+      const p2Edge = p2.x < 0.01 || p2.y < 0.01 || Math.abs(p2.x - W) < 0.01 || Math.abs(p2.y - H) < 0.01;
       if (sdx === 0 || sdy === 0) {
-        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2 });
+        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p1Edge || p2Edge, edgeStart: p1Edge, edgeEnd: p2Edge });
         continue;
       }
       const isBS = (sdx === sdy);
@@ -235,14 +237,16 @@ function CelticKnotMaker() {
       }
       cuts.sort((a, b) => (a.sx - sx1) * ux + (a.sy - sy1) * uy - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
       let cx = sx1, cy = sy1;
+      let isFirst = true;
       for (const cut of cuts) {
         const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
         const proj = (gsx - cx) * ux + (gsy - cy) * uy;
-        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2 });
+        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2, edge: isFirst && p1Edge, edgeStart: isFirst && p1Edge, edgeEnd: false });
         cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
+        isFirst = false;
       }
       const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
-      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2 });
+      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2, edge: p2Edge || (isFirst && p1Edge), edgeStart: isFirst && p1Edge, edgeEnd: p2Edge });
     }
     return elements;
   }
@@ -357,6 +361,13 @@ function CelticKnotMaker() {
               stroke={el.type === 'border' ? bgColor : el.color} strokeWidth={el.w} strokeLinecap="butt"
               filter={el.type === 'strand' && el.z === 3 ? "url(#glo)" : undefined} />
           ))}
+          {renderElements.filter(el => el.type === 'strand' && el.edge).map((el, i) => {
+            const r = el.w / 2;
+            const caps = [];
+            if (el.edgeStart) caps.push(<circle key={`es${i}`} cx={el.x1} cy={el.y1} r={r} fill={el.color} />);
+            if (el.edgeEnd) caps.push(<circle key={`ee${i}`} cx={el.x2} cy={el.y2} r={r} fill={el.color} />);
+            return caps;
+          })}
           {gapDots.map(g => {
             const sel = selGap === g.i;
             const inA = active?.gaps.has(g.i);
