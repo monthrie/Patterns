@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sock Simulator — L-Shape Celtic Knot Joining</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Palatino Linotype','Book Antiqua',Palatino,serif; background: #16130f; color: #e0d5c0; padding: 30px; }
+h1 { font-size: 22px; font-weight: 400; letter-spacing: 3px; color: #c8a96e; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+.sub { font-size: 11px; color: #6a6050; letter-spacing: 2px; text-align: center; margin-bottom: 20px; }
+.controls { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+.controls label { font-size: 12px; color: #9a8e78; }
+.controls input { width: 56px; padding: 5px 6px; font-size: 13px; font-weight: bold; color: #c8a96e; background: #1e1b16; border: 1px solid #332e24; border-radius: 4px; text-align: center; font-family: inherit; }
+button { padding: 8px 18px; background: #c8a96e; color: #16130f; border: 1px solid #c8a96e; border-radius: 4px; cursor: pointer; font-size: 12px; letter-spacing: 1px; font-family: inherit; font-weight: bold; }
+button:hover { background: #d4b87e; }
+.results { max-width: 700px; margin: 0 auto; }
+.section { background: #1e1b16; border: 1px solid #332e24; border-radius: 6px; padding: 16px 20px; margin-bottom: 14px; }
+.section h2 { font-size: 15px; color: #c8a96e; letter-spacing: 2px; margin-bottom: 10px; font-weight: 400; text-transform: uppercase; }
+.stat { font-size: 28px; color: #c8a96e; font-weight: bold; }
+.detail { font-size: 12px; color: #9a8e78; line-height: 1.8; margin-top: 6px; }
+.cycle-row { padding: 4px 0; border-bottom: 1px solid #28231b; }
+.cycle-row:last-child { border-bottom: none; }
+.opening-tag { display: inline-block; background: #332e24; color: #c8a96e; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin: 1px 2px; }
+</style>
+</head>
+<body>
+<h1>Sock Simulator</h1>
+<p class="sub">JOIN TWO L-SHAPES INTO A 3D SOCK</p>
+
+<div class="controls">
+  <label>W nails <input type="number" id="inW" value="19" min="4" max="61"></label>
+  <label>H nails <input type="number" id="inH" value="11" min="4" max="61"></label>
+  <label>Cut W <input type="number" id="inNw" value="11" min="1" max="60"></label>
+  <label>Cut H <input type="number" id="inNh" value="3" min="1" max="60"></label>
+  <button onclick="compute()">Compute</button>
+</div>
+
+<div class="results" id="results"></div>
+
+<script>
+// --- L-shape billiard core (from celtic-knot-L.html) ---
+
+function buildEdges(W, H, nw, nh) {
+  if (nw <= 0 || nh <= 0) return [
+    { y: 0, x0: 0, x1: W, type: 'h' },
+    { x: W, y0: 0, y1: H, type: 'v' },
+    { y: H, x0: 0, x1: W, type: 'h' },
+    { x: 0, y0: 0, y1: H, type: 'v' },
+  ];
+  return [
+    { y: 0, x0: 0, x1: W - nw, type: 'h' },
+    { x: W - nw, y0: 0, y1: nh, type: 'v' },
+    { y: nh, x0: W - nw, x1: W, type: 'h' },
+    { x: W, y0: nh, y1: H, type: 'v' },
+    { y: H, x0: 0, x1: W, type: 'h' },
+    { x: 0, y0: 0, y1: H, type: 'v' },
+  ];
+}
+
+function gapCenter(g, W, H, nw, nh) {
+  const hasNotch = nw > 0 && nh > 0;
+  const T = hasNotch ? 2*(W+H) : 2*(W+H);
+  const i = ((g % T) + T) % T;
+  if (!hasNotch) {
+    if (i < W) return { x: i + 0.5, y: 0 };
+    if (i < W + H) return { x: W, y: i - W + 0.5 };
+    if (i < 2*W + H) return { x: W - (i - W - H) - 0.5, y: H };
+    return { x: 0, y: H - (i - 2*W - H) - 0.5 };
+  }
+  let acc = 0;
+  const e1 = W - nw;
+  if (i < acc + e1) return { x: (i - acc) + 0.5, y: 0 };
+  acc += e1;
+  if (i < acc + nh) return { x: W - nw, y: (i - acc) + 0.5 };
+  acc += nh;
+  if (i < acc + nw) return { x: W - nw + (i - acc) + 0.5, y: nh };
+  acc += nw;
+  if (i < acc + (H - nh)) return { x: W, y: nh + (i - acc) + 0.5 };
+  acc += H - nh;
+  if (i < acc + W) return { x: W - (i - acc) - 0.5, y: H };
+  acc += W;
+  return { x: 0, y: H - (i - acc) - 0.5 };
+}
+
+function pointToGap(x, y, W, H, nw, nh) {
+  const E = 0.05;
+  const hasNotch = nw > 0 && nh > 0;
+  if (!hasNotch) {
+    if (Math.abs(y) < E && x > E && x < W - E) return Math.round(x - 0.5);
+    if (Math.abs(x - W) < E && y > E && y < H - E) return W + Math.round(y - 0.5);
+    if (Math.abs(y - H) < E && x > E && x < W - E) return W + H + Math.round(W - x - 0.5);
+    if (Math.abs(x) < E && y > E && y < H - E) return 2*W + H + Math.round(H - y - 0.5);
+    return -1;
+  }
+  let acc = 0;
+  if (Math.abs(y) < E && x > E && x < W - nw - E) return acc + Math.round(x - 0.5);
+  acc += W - nw;
+  if (Math.abs(x - (W - nw)) < E && y > E && y < nh - E) return acc + Math.round(y - 0.5);
+  acc += nh;
+  if (Math.abs(y - nh) < E && x > W - nw + E && x < W - E) return acc + Math.round(x - (W - nw) - 0.5);
+  acc += nw;
+  if (Math.abs(x - W) < E && y > nh + E && y < H - E) return acc + Math.round(y - nh - 0.5);
+  acc += H - nh;
+  if (Math.abs(y - H) < E && x > E && x < W - E) return acc + Math.round(W - x - 0.5);
+  acc += W;
+  if (Math.abs(x) < E && y > E && y < H - E) return acc + Math.round(H - y - 0.5);
+  return -1;
+}
+
+function getInitialDir(sx, sy, W, H, nw, nh) {
+  const EPS = 1e-9;
+  const hasNotch = nw > 0 && nh > 0;
+  if (!hasNotch) {
+    if (Math.abs(sy) < EPS) return { dx: 1, dy: 1 };
+    if (Math.abs(sx - W) < EPS) return { dx: -1, dy: 1 };
+    if (Math.abs(sy - H) < EPS) return { dx: -1, dy: -1 };
+    return { dx: 1, dy: -1 };
+  }
+  if (Math.abs(sy) < EPS) return { dx: 1, dy: 1 };
+  if (Math.abs(sx - (W - nw)) < EPS && sy < nh + EPS) return { dx: -1, dy: 1 };
+  if (Math.abs(sy - nh) < EPS && sx > W - nw - EPS) return { dx: 1, dy: 1 };
+  if (Math.abs(sx - W) < EPS) return { dx: -1, dy: 1 };
+  if (Math.abs(sy - H) < EPS) return { dx: -1, dy: -1 };
+  return { dx: 1, dy: -1 };
+}
+
+function tracePath(startGap, W, H, nw, nh) {
+  const EPS = 1e-9;
+  const edges = buildEdges(W, H, nw, nh);
+  const sc = gapCenter(startGap, W, H, nw, nh);
+  const pts = [{ x: sc.x, y: sc.y }];
+  let { dx, dy } = getInitialDir(sc.x, sc.y, W, H, nw, nh);
+  let x = sc.x, y = sc.y;
+  const maxIter = 4*(W+H) + 400;
+  for (let iter = 0; iter < maxIter; iter++) {
+    let minT = Infinity, hitH = false, hitV = false;
+    for (const edge of edges) {
+      let t;
+      if (edge.type === 'h') {
+        if (Math.abs(dy) < EPS) continue;
+        t = (edge.y - y) / dy;
+        if (t < EPS) continue;
+        const hx = x + dx * t;
+        if (hx < edge.x0 - EPS || hx > edge.x1 + EPS) continue;
+      } else {
+        if (Math.abs(dx) < EPS) continue;
+        t = (edge.x - x) / dx;
+        if (t < EPS) continue;
+        const hy = y + dy * t;
+        if (hy < edge.y0 - EPS || hy > edge.y1 + EPS) continue;
+      }
+      if (t < minT - EPS) { minT = t; hitH = edge.type === 'h'; hitV = edge.type === 'v'; }
+      else if (Math.abs(t - minT) < EPS * 100) {
+        if (edge.type === 'h') hitH = true;
+        if (edge.type === 'v') hitV = true;
+      }
+    }
+    if (minT === Infinity || minT > 1e6) break;
+    x += dx * minT; y += dy * minT;
+    x = Math.round(x * 1e6) / 1e6; y = Math.round(y * 1e6) / 1e6;
+    pts.push({ x, y });
+    if (pts.length > 2 && Math.abs(x - sc.x) < 0.01 && Math.abs(y - sc.y) < 0.01) break;
+    if (hitH && hitV) { dx = -dx; dy = -dy; }
+    else if (hitH) dy = -dy;
+    else if (hitV) dx = -dx;
+  }
+  return pts;
+}
+
+function getAllCycles(W, H, nw, nh) {
+  const T = 2*(W+H), vis = new Set(), cycles = [];
+  for (let g = 0; g < T; g++) {
+    if (vis.has(g)) continue;
+    const pts = tracePath(g, W, H, nw, nh);
+    const gaps = new Set();
+    for (const p of pts) {
+      const gi = pointToGap(p.x, p.y, W, H, nw, nh);
+      if (gi >= 0) { gaps.add(gi); vis.add(gi); }
+    }
+    cycles.push({ startGap: g, points: pts, gaps });
+  }
+  return cycles;
+}
+
+// --- Classify which edges a hit point is on ---
+// Returns { hEdge: 'opening'|'other'|null, vEdge: 'other'|null }
+// so we can handle corners (both h and v) properly.
+
+function classifyHit(x, y, W, H, nw, nh, hitH, hitV) {
+  const E = 0.05;
+  const hasNotch = nw > 0 && nh > 0;
+  let hEdge = null, vEdge = null;
+
+  if (hitH) {
+    // Which horizontal edge?
+    if (Math.abs(y) < E) {
+      // y=0: opening edge (x in 0..W-nw) — but only the opening portion
+      if (hasNotch) {
+        hEdge = (x < W - nw + E) ? 'opening' : 'other'; // shouldn't be >W-nw at y=0
+      } else {
+        hEdge = 'opening';
+      }
+    } else {
+      hEdge = 'other'; // y=H or y=nh
+    }
+  }
+
+  if (hitV) {
+    // All vertical edges are non-opening
+    vEdge = 'other';
+  }
+
+  return { hEdge, vEdge };
+}
+
+// Simple edge classifier for gap points (non-corner)
+function classifyEdge(x, y, W, H, nw, nh) {
+  const E = 0.05;
+  const hasNotch = nw > 0 && nh > 0;
+  if (Math.abs(y) < E && x > E && x < (hasNotch ? W - nw : W) - E) return 'opening';
+  return 'other';
+}
+
+// --- Direct sock tracing with proper corner handling ---
+//
+// At each boundary hit:
+//   For each edge component (h and v if corner):
+//     - If the edge is "opening": reflect that velocity component, stay on same side
+//     - If the edge is "other" (non-opening): do NOT reflect that component, switch sides
+//   If both edges are the same type, net effect:
+//     - Both opening: retroreflect, same side
+//     - Both other: retroreflect, same side (two switches cancel)
+//   If mixed:
+//     - Opening h + other v: flip dy only, switch sides once
+//     - Other h + opening v: flip dx only, switch sides once (shouldn't occur for L-shape)
+
+function traceSockPath(startSide, startX, startY, startDx, startDy, W, H, nw, nh) {
+  const EPS = 1e-9;
+  const edges = buildEdges(W, H, nw, nh);
+  const visited = []; // {side, x, y}
+  let side = startSide, x = startX, y = startY, dx = startDx, dy = startDy;
+  visited.push({ side, x, y });
+
+  const maxIter = 8*(W+H) + 800;
+  for (let iter = 0; iter < maxIter; iter++) {
+    let minT = Infinity, hitH = false, hitV = false;
+    for (const edge of edges) {
+      let t;
+      if (edge.type === 'h') {
+        if (Math.abs(dy) < EPS) continue;
+        t = (edge.y - y) / dy;
+        if (t < EPS) continue;
+        const hx = x + dx * t;
+        if (hx < edge.x0 - EPS || hx > edge.x1 + EPS) continue;
+      } else {
+        if (Math.abs(dx) < EPS) continue;
+        t = (edge.x - x) / dx;
+        if (t < EPS) continue;
+        const hy = y + dy * t;
+        if (hy < edge.y0 - EPS || hy > edge.y1 + EPS) continue;
+      }
+      if (t < minT - EPS) { minT = t; hitH = edge.type === 'h'; hitV = edge.type === 'v'; }
+      else if (Math.abs(t - minT) < EPS * 100) {
+        if (edge.type === 'h') hitH = true;
+        if (edge.type === 'v') hitV = true;
+      }
+    }
+    if (minT === Infinity || minT > 1e6) break;
+
+    x += dx * minT; y += dy * minT;
+    x = Math.round(x * 1e6) / 1e6;
+    y = Math.round(y * 1e6) / 1e6;
+
+    const { hEdge, vEdge } = classifyHit(x, y, W, H, nw, nh, hitH, hitV);
+
+    let switchCount = 0;
+
+    // Opening edges: reflect normally (real boundary, stay on same side)
+    // Non-opening edges: reflect normally + switch sides (pass-through to mirror copy)
+    if (hEdge === 'opening') {
+      dy = -dy;
+    } else if (hEdge === 'other') {
+      dy = -dy;
+      switchCount++;
+    }
+
+    if (vEdge === 'opening') {
+      dx = -dx;
+    } else if (vEdge === 'other') {
+      dx = -dx;
+      switchCount++;
+    }
+
+    if (switchCount % 2 === 1) {
+      side = (side === 'A') ? 'B' : 'A';
+    }
+
+    visited.push({ side, x, y });
+
+    // Check if we returned to start
+    if (visited.length > 2 &&
+        side === startSide &&
+        Math.abs(x - startX) < 0.01 &&
+        Math.abs(y - startY) < 0.01) {
+      break;
+    }
+  }
+  return visited;
+}
+
+function getAllSockCycles(W, H, nw, nh) {
+  const T = 2*(W+H);
+  const visited = new Set();
+  const cycles = [];
+
+  for (const startSide of ['A', 'B']) {
+    for (let g = 0; g < T; g++) {
+      const key = `${startSide}:${g}`;
+      if (visited.has(key)) continue;
+
+      const sc = gapCenter(g, W, H, nw, nh);
+      const { dx, dy } = getInitialDir(sc.x, sc.y, W, H, nw, nh);
+      const path = traceSockPath(startSide, sc.x, sc.y, dx, dy, W, H, nw, nh);
+
+      const cycleGapKeys = new Set();
+      const openingHits = new Set();
+      for (const pt of path) {
+        const gi = pointToGap(pt.x, pt.y, W, H, nw, nh);
+        if (gi >= 0) {
+          const k = `${pt.side}:${gi}`;
+          cycleGapKeys.add(k);
+          const ec = classifyEdge(pt.x, pt.y, W, H, nw, nh);
+          if (ec === 'opening') {
+            openingHits.add(`${pt.side}:gap${gi}(x=${pt.x.toFixed(1)})`);
+          }
+        }
+      }
+
+      if (visited.has(key)) continue;
+      for (const k of cycleGapKeys) visited.add(k);
+      cycles.push({ startSide, startGap: g, path, gapKeys: cycleGapKeys, openingHits });
+    }
+  }
+  return cycles;
+}
+
+function compute() {
+  const nailsW = parseInt(document.getElementById('inW').value) || 19;
+  const nailsH = parseInt(document.getElementById('inH').value) || 11;
+  const nailsNw = parseInt(document.getElementById('inNw').value) || 11;
+  const nailsNh = parseInt(document.getElementById('inNh').value) || 3;
+
+  const W = nailsW - 1;
+  const H = nailsH - 1;
+  const nw = nailsNw <= 1 ? 0 : Math.min(nailsNw - 1, W - 1);
+  const nh = nailsNh <= 1 ? 0 : Math.min(nailsNh - 1, H - 1);
+
+  // Single L-shape cycles
+  const singleCycles = getAllCycles(W, H, nw, nh);
+
+  // Identify opening gaps
+  const hasNotch = nw > 0 && nh > 0;
+  const openW = hasNotch ? W - nw : W;
+
+  // For single L: extract gap sequence and edge info for each cycle
+  const singleOpeningInfo = singleCycles.map((c, i) => {
+    const openGaps = [];
+    const gapSeq = [];
+    for (const p of c.points) {
+      const gi = pointToGap(p.x, p.y, W, H, nw, nh);
+      if (gi >= 0 && (gapSeq.length === 0 || gapSeq[gapSeq.length - 1] !== gi)) {
+        gapSeq.push(gi);
+      }
+    }
+    for (const gi of c.gaps) {
+      const gc = gapCenter(gi, W, H, nw, nh);
+      const ec = classifyEdge(gc.x, gc.y, W, H, nw, nh);
+      if (ec === 'opening') openGaps.push(gi);
+    }
+    const nonOpenCount = c.gaps.size - openGaps.length;
+    return { cycleIdx: i, totalGaps: c.gaps.size, openGaps, nonOpenCount, gapSeq };
+  });
+
+  // Joined sock cycles
+  const sockCycles = getAllSockCycles(W, H, nw, nh);
+
+  // Build output
+  let html = '';
+
+  html += `<div class="section">
+    <h2>L-Shape Dimensions</h2>
+    <div class="detail">
+      Nails: ${nailsW} &times; ${nailsH}, Cut: ${nailsNw} &times; ${nailsNh}<br>
+      Spaces (internal): W=${W}, H=${H}, nw=${nw}, nh=${nh}<br>
+      Opening width: ${openW} gaps (top edge, x=0 to x=${W-nw})<br>
+      Total perimeter gaps: ${2*(W+H)}
+    </div>
+  </div>`;
+
+  html += `<div class="section">
+    <h2>Single L-Shape</h2>
+    <div class="stat">${singleCycles.length} cycles</div>
+    <div class="detail">`;
+  for (const info of singleOpeningInfo) {
+    html += `<div class="cycle-row">Cycle ${info.cycleIdx + 1}: ${info.totalGaps} gaps (${info.openGaps.length} opening, ${info.nonOpenCount} pass-through)`;
+    if (info.openGaps.length > 0) {
+      html += ' — opening: ' + info.openGaps.map(g => `<span class="opening-tag">${g}</span>`).join(' ');
+    }
+    html += `<br><span style="color:#5a5244">Sequence: ${info.gapSeq.join(' → ')}</span>`;
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+
+  html += `<div class="section">
+    <h2>Joined 3D Sock</h2>
+    <div class="stat">${sockCycles.length} cycles</div>
+    <div class="detail" style="margin-bottom:8px;color:#5a5244;font-size:11px">
+      Model: Two identical L-shapes (A, B) glued at all non-opening edges.
+      At pass-through edges the strand reflects (to head inward) and switches sides.
+      At the opening edge the strand reflects normally, staying on the same side.
+    </div>
+    <div class="detail">`;
+  for (let i = 0; i < sockCycles.length; i++) {
+    const c = sockCycles[i];
+    const segCount = c.path.length - 1;
+    const openList = [...c.openingHits];
+    html += `<div class="cycle-row">Cycle ${i + 1}: ${c.gapKeys.size} gap-visits, ${segCount} segments`;
+    if (openList.length > 0) {
+      html += `<br>Opening hits: ${openList.map(h => `<span class="opening-tag">${h}</span>`).join(' ')}`;
+    }
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+
+  document.getElementById('results').innerHTML = html;
+}
+
+// Auto-compute on load
+compute();
+</script>
+</body>
+</html>

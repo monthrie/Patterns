@@ -17,7 +17,7 @@
 const { useState, useCallback, useMemo, useRef, useEffect } = React;
 
 // ========== SHAPE PRESETS ==========
-function makePreset(name) {
+function makePreset(name, curW, curH) {
   if (name === 'staircase-boot') {
     const gw = 18, gh = 10;
     const cells = Array.from({length: gh}, () => Array(gw).fill(false));
@@ -44,8 +44,8 @@ function makePreset(name) {
         if ((x >= 5 && x < 10) || (y >= 5 && y < 10)) cells[y][x] = true;
     return { cells, gw, gh };
   }
-  // rectangle
-  const gw = 18, gh = 10;
+  // rectangle — fills current grid size
+  const gw = curW || 18, gh = curH || 10;
   return { cells: Array.from({length: gh}, () => Array(gw).fill(true)), gw, gh };
 }
 
@@ -255,7 +255,7 @@ function CelticKnotCustom() {
   const [cycleColors, setCycleColors] = useState({});
   const [visibleCycles, setVisibleCycles] = useState({});
   const [animate, setAnimate] = useState(true);
-  const [fullView, setFullView] = useState(false);
+  const [strandMode, setStrandMode] = useState('thin'); // 'thin', 'full', 'string'
   const [animProgress, setAnimProgress] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [painting, setPainting] = useState(null);
@@ -264,7 +264,7 @@ function CelticKnotCustom() {
   const W = gridW, H = gridH;
 
   const loadPreset = useCallback((name) => {
-    const p = makePreset(name);
+    const p = makePreset(name, gridW, gridH);
     setCells(p.cells); setGridW(p.gw); setGridH(p.gh); setPresetName(name);
     setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); setAnimProgress({});
   }, []);
@@ -299,7 +299,7 @@ function CelticKnotCustom() {
   const gapDots = useMemo(() => gaps.map((g, i) => ({ i, x: toX(g.x), y: toY(g.y) })), [gaps, toX, toY]);
 
   const gr = Math.max(5, cellSz * 0.13);
-  const sw = cellSz * (fullView ? 0.707 : 0.45);
+  const sw = cellSz * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
   const bgColor = "#0c0f12";
 
   // ===== WEAVE GRID LINES — same logic as original, cell-based clipping =====
@@ -412,7 +412,7 @@ function CelticKnotCustom() {
   function renderStrandSVG(pts, color, cycleIdx, visibleSet, crossingMap) {
     const elements = [];
     const lineW = sw;
-    const gap = sw / 2;
+    const gap = strandMode === 'string' ? cellSz * 0.16 : sw / 2;
     for (let seg = 0; seg < pts.length - 1; seg++) {
       const p1 = pts[seg], p2 = pts[seg + 1];
       const sx1 = toX(p1.x), sy1 = toY(p1.y);
@@ -484,7 +484,10 @@ function CelticKnotCustom() {
   }
 
   // ===== All remaining logic identical to original =====
-  const getCycleColor = useCallback((i) => cycleColors[i] || COLORS[i % COLORS.length], [cycleColors]);
+  const getCycleColor = useCallback((i) => {
+    if (strandMode === 'string') return "#c8a96e";
+    return cycleColors[i] || COLORS[i % COLORS.length];
+  }, [cycleColors, strandMode]);
   const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
 
   const isCycleVisible = useCallback((i) => {
@@ -626,23 +629,25 @@ function CelticKnotCustom() {
           style={{ padding: "7px 12px", background: animate ? "#c8a96e" : "transparent", color: animate ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
           {animate ? "ANIM ON" : "ANIM OFF"}
         </button>
-        <button onClick={() => setFullView(!fullView)}
-          style={{ padding: "7px 12px", background: fullView ? "#c8a96e" : "transparent", color: fullView ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
-          {fullView ? "FULL" : "THIN"}
-        </button>
+        {['thin', 'full', 'string'].map(mode => (
+          <button key={mode} onClick={() => setStrandMode(mode)}
+            style={{ padding: "7px 12px", background: strandMode === mode ? "#c8a96e" : "transparent", color: strandMode === mode ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit", textTransform: "uppercase" }}>
+            {mode}
+          </button>
+        ))}
         <button onClick={() => setShowGrid(!showGrid)}
           style={{ padding: "7px 12px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
           GRID
         </button>
         <div style={{ padding: "5px 14px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
+          <div style={{ fontSize: 9, color: "#6a6050", letterSpacing: 1 }}>CYCLES</div>
           <div style={{ fontSize: 22, color: "#c8a96e", fontWeight: "bold" }}>{cycles.length}</div>
         </div>
       </div>
 
       {cycles.length > 0 && cycles.length <= 30 && (
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1, marginRight: 4 }}>STRANDS</span>
+          <span style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1, marginRight: 4 }}>CYCLES</span>
           {cycles.map((c, i) => {
             const vis = isCycleVisible(i);
             const col = getCycleColor(i);
@@ -663,17 +668,18 @@ function CelticKnotCustom() {
       )}
 
       <div style={{ fontSize: 12, color: "#6a6050", marginBottom: 8, letterSpacing: 1, textAlign: "center" }}>
-        {gridW}×{gridH} grid · {gaps.length} gaps · {cycles.length === 1 ? "Single-strand knot" : `${cycles.length}-component link`}
+        {gridW + 1}×{gridH + 1} nails · {gaps.length} gaps · {cycles.length === 1 ? "Single-strand knot" : `${cycles.length}-component link`}
       </div>
 
       {editMode && (
         <div style={{ marginBottom: 12, padding: 12, border: "1px solid #332e24", borderRadius: 6, background: "#1a1712" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, justifyContent: "center" }}>
-            <span style={{ fontSize: 11, color: "#6a6050" }}>Grid:</span>
-            <input type="number" min={3} max={30} value={gridW} onChange={e => { const v = parseInt(e.target.value); if (v >= 3 && v <= 30) resizeGrid(v, gridH); }}
+            <span style={{ fontSize: 11, color: "#6a6050" }}>W nails</span>
+            <input type="number" min={4} max={101} value={gridW + 1} onChange={e => { const v = parseInt(e.target.value); if (v >= 4 && v <= 101) resizeGrid(v - 1, gridH); }}
               style={{ width: 48, padding: "4px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
             <span style={{ color: "#6a6050" }}>×</span>
-            <input type="number" min={3} max={30} value={gridH} onChange={e => { const v = parseInt(e.target.value); if (v >= 3 && v <= 30) resizeGrid(gridW, v); }}
+            <span style={{ fontSize: 11, color: "#6a6050" }}>H nails</span>
+            <input type="number" min={4} max={101} value={gridH + 1} onChange={e => { const v = parseInt(e.target.value); if (v >= 4 && v <= 101) resizeGrid(gridW, v - 1); }}
               style={{ width: 48, padding: "4px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
             <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); setAnimProgress({}); }}
               style={{ padding: "4px 10px", background: "transparent", color: "#9a8e78", border: "1px solid #332e24", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>FILL</button>

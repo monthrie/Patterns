@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>String Art Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f; color: #e8e4dc;
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh; overflow-x: hidden;
+  }
+  .container {
+    max-width: 1200px; margin: 0 auto; padding: 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 28px;
+    letter-spacing: -1px; text-align: center;
+    background: linear-gradient(135deg, #c4846e, #bba87a, #7ab8a3);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subtitle { font-size: 12px; color: #666; text-align: center; max-width: 560px; line-height: 1.6; }
+  .controls-row {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    justify-content: center; align-items: center;
+  }
+  .control-panel {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 10px 14px;
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center;
+  }
+  .control-group { display: flex; align-items: center; gap: 6px; }
+  .control-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #888; }
+  .control-group input[type="number"] {
+    width: 50px; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+    color: #e8e4dc; font-family: 'Space Mono', monospace; font-size: 13px;
+    padding: 5px 6px; text-align: center; outline: none;
+  }
+  .control-group input[type="number"]:focus { border-color: #b07a6a; }
+  .btn {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: #b07a6a; color: #0a0a0f; }
+  .btn-secondary { background: rgba(255,255,255,0.06); color: #888; border: 1px solid rgba(255,255,255,0.12); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); color: #ccc; }
+  .btn-undo { background: rgba(255,255,255,0.08); color: #999; border: 1px solid rgba(255,255,255,0.15); }
+  .btn-auto { background: #8a7db3; color: #0a0a0f; }
+  .canvas-wrap {
+    position: relative; background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 16px;
+  }
+  canvas { display: block; border-radius: 8px; }
+  .toggle-btn {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer;
+    transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .toggle-btn.active-a { background: #b07a6a; color: #0a0a0f; }
+  .toggle-btn.active-b { background: #7ab096; color: #0a0a0f; }
+  .toggle-btn.active-c { background: #b0a37a; color: #0a0a0f; }
+  .toggle-btn.inactive { background: rgba(255,255,255,0.06); color: #666; border: 1px solid rgba(255,255,255,0.1); }
+  .toggle-btn.inactive:hover { background: rgba(255,255,255,0.1); color: #aaa; }
+  .mode-indicator {
+    font-size: 10px; padding: 4px 10px; border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+  .mode-manual { background: rgba(176,163,122,0.12); color: #b0a37a; }
+  .mode-auto { background: rgba(138,125,179,0.12); color: #8a7db3; }
+  .status-bar {
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    font-size: 10px; color: #666; letter-spacing: 0.5px;
+    padding: 8px 16px; border-radius: 8px;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  }
+  .status-bar span { display: flex; align-items: center; gap: 4px; }
+  .val-a { color: #b07a6a; font-weight: 700; }
+  .val-b { color: #7ab096; font-weight: 700; }
+  .val-c { color: #b0a37a; font-weight: 700; }
+  .hint {
+    font-size: 11px; color: #555; text-align: center; line-height: 1.7;
+    max-width: 600px; min-height: 20px;
+  }
+  .hint strong { color: #b07a6a; }
+  .hint em { color: #7ab096; font-style: normal; }
+  .switch { position: relative; width: 36px; height: 20px; cursor: pointer; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; background: rgba(255,255,255,0.1);
+    border-radius: 10px; transition: 0.3s;
+  }
+  .slider::before {
+    content: ''; position: absolute; width: 14px; height: 14px;
+    left: 3px; bottom: 3px; background: #666; border-radius: 50%; transition: 0.3s;
+  }
+  .switch input:checked + .slider { background: rgba(138,125,179,0.3); }
+  .switch input:checked + .slider::before { transform: translateX(16px); background: #8a7db3; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>String Art Builder</h1>
+  <p class="subtitle">Click border nails to build string paths. Use auto-45° mode for billiard bounces, or manual mode to go nail-to-nail.</p>
+
+  <div class="controls-row">
+    <div class="control-panel">
+      <div class="control-group">
+        <label>Nails wide</label>
+        <input type="number" id="gridW" value="6" min="3" max="31">
+      </div>
+      <div class="control-group">
+        <label>Nails tall</label>
+        <input type="number" id="gridH" value="11" min="3" max="31">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#888;">Auto 45°</label>
+        <label class="switch"><input type="checkbox" id="autoMode"><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <span style="font-size:10px;color:#888;letter-spacing:1px;text-transform:uppercase;">String:</span>
+    <button class="toggle-btn active-a" id="toggleA" onclick="setString('a')">A</button>
+    <button class="toggle-btn inactive" id="toggleB" onclick="setString('b')">B</button>
+    <button class="toggle-btn inactive" id="toggleC" onclick="setString('c')">C</button>
+    <button class="btn btn-undo" id="undoBtn">↩ Undo</button>
+    <button class="btn btn-secondary" id="clearOneBtn">Clear string</button>
+    <button class="btn btn-secondary" id="clearAllBtn">Clear all</button>
+    <button class="btn btn-primary" id="presetCeltic" title="Celtic knot — single loop visiting all nails">★ Celtic</button>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="status-bar">
+    <span>A: <span class="val-a" id="statusA">0 nails</span></span>
+    <span>B: <span class="val-b" id="statusB">0 nails</span></span>
+    <span>C: <span class="val-c" id="statusC">0 nails</span></span>
+    <span id="modeLabel" class="mode-indicator mode-manual">Manual</span>
+  </div>
+
+  <p class="hint" id="hint">Click a <strong>border nail</strong> to start building the path for string A.</p>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let nailsW = 6, nailsH = 11;
+let gridW = nailsW - 1, gridH = nailsH - 1;
+let activeString = 'a';
+let hoverNail = null; // { x, y } of nail under cursor
+
+const strings = {
+  a: { nails: [], color: '#b07a6a', glow: 'rgba(176,122,106,' },
+  b: { nails: [], color: '#7ab096', glow: 'rgba(122,176,150,' },
+  c: { nails: [], color: '#b0a37a', glow: 'rgba(176,163,122,' }
+};
+
+const NAIL_R = 5, PAD = 44, MAX_C = 800;
+
+// --- Grid helpers ---
+function getSize() {
+  const asp = gridW / gridH;
+  let cw, ch;
+  if (asp >= 1) { cw = Math.min(MAX_C, window.innerWidth - 80); ch = cw / asp; }
+  else { ch = Math.min(MAX_C, window.innerHeight - 340); cw = ch * asp; }
+  return { cw: Math.max(Math.round(cw), 200), ch: Math.max(Math.round(ch), 200) };
+}
+
+function cellSize() {
+  const { cw, ch } = getSize();
+  return Math.min((cw - PAD * 2) / gridW, (ch - PAD * 2) / gridH);
+}
+
+function toP(gx, gy) {
+  const c = cellSize(), { cw, ch } = getSize();
+  const ox = (cw - gridW * c) / 2, oy = (ch - gridH * c) / 2;
+  return { x: ox + gx * c, y: oy + (gridH - gy) * c };
+}
+
+function fromP(px, py) {
+  const c = cellSize(), { cw, ch } = getSize();
+  const ox = (cw - gridW * c) / 2, oy = (ch - gridH * c) / 2;
+  return { x: Math.round((px - ox) / c), y: Math.round(gridH - (py - oy) / c) };
+}
+
+function onBorder(gx, gy) {
+  return gx >= 0 && gx <= gridW && gy >= 0 && gy <= gridH && (gx === 0 || gx === gridW || gy === 0 || gy === gridH);
+}
+
+function isCorner(gx, gy) { return (gx === 0 || gx === gridW) && (gy === 0 || gy === gridH); }
+
+function getNailLabel(gx, gy) {
+  let idx = -1;
+  if (gy === 0) idx = gx;
+  else if (gx === gridW && gy > 0 && gy <= gridH) idx = gridW + gy;
+  else if (gy === gridH && gx < gridW) idx = gridW + gridH + (gridW - gx);
+  else if (gx === 0 && gy > 0 && gy < gridH) idx = 2 * gridW + gridH + (gridH - gy);
+  return idx >= 0 ? String(idx + 1) : null;
+}
+
+// --- Auto 45° path from a start nail ---
+function computeAutoPath(startX, startY) {
+  const path = [{ x: startX, y: startY }];
+  let x = startX, y = startY;
+  let dx = x === 0 ? 1 : x === gridW ? -1 : (x < gridW / 2 ? 1 : -1);
+  let dy = y === 0 ? 1 : y === gridH ? -1 : (y < gridH / 2 ? 1 : -1);
+  for (let i = 0; i < 10000; i++) {
+    let sx = dx > 0 ? gridW - x : x, sy = dy > 0 ? gridH - y : y;
+    let steps = Math.min(sx, sy);
+    if (steps === 0) break;
+    let nx = x + dx * steps, ny = y + dy * steps;
+    path.push({ x: nx, y: ny });
+    if (isCorner(nx, ny)) break;
+    if (nx === 0 || nx === gridW) dx = -dx;
+    if (ny === 0 || ny === gridH) dy = -dy;
+    x = nx; y = ny;
+  }
+  return path;
+}
+
+// --- Drawing ---
+function drawGrid() {
+  const { cw, ch } = getSize();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cw * dpr; canvas.height = ch * dpr;
+  canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#1a1a22'; ctx.fillRect(0, 0, cw, ch);
+
+  // --- Celtic weave board pattern ---
+  // The weave's diagonal lines pass BETWEEN nails (half-integer grid positions).
+  // Nails sit at the centers of the diamonds formed by the weave.
+  // '\' lines: y - x = k + 0.5 (half-integer offsets)
+  // '/' lines: y + x = k + 0.5 (half-integer offsets)
+
+  const c = cellSize();
+  const gapPx = c * 0.18;
+
+  // '\' diagonals at y - x = k + 0.5, for k from -(gridW+1) to gridH
+  const bsDiags = [];
+  for (let k = -gridW - 1; k <= gridH; k++) bsDiags.push(k + 0.5);
+  
+  // '/' diagonals at y + x = k + 0.5, for k from -1 to gridW + gridH
+  const fsDiags = [];
+  for (let k = -1; k <= gridW + gridH; k++) fsDiags.push(k + 0.5);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+
+  // Draw '\' lines (gy = gx + k) with gaps where '/' is on top
+  bsDiags.forEach((k, ki) => {
+    const gxMin = Math.max(-0.25, -k - 0.25);
+    const gxMax = Math.min(gridW + 0.25, gridH - k + 0.25);
+    if (gxMin >= gxMax) return;
+
+    const cuts = [];
+    fsDiags.forEach((m, mi) => {
+      // Intersection: gx = (m - k) / 2, gy = (m + k) / 2
+      const gx = (m - k) / 2;
+      const gy = (m + k) / 2;
+      if (gx >= gxMin - 0.5 && gx <= gxMax + 0.5) {
+        if ((ki + mi) % 2 === 1) {
+          cuts.push(toP(gx, gy));
+        }
+      }
+    });
+    cuts.sort((a, b) => a.x - b.x);
+
+    const startP = toP(gxMin, gxMin + k);
+    const endP = toP(gxMax, gxMax + k);
+    const dx = endP.x - startP.x, dy = endP.y - startP.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return;
+    const ux = dx / len, uy = dy / len;
+
+    let curX = startP.x, curY = startP.y;
+    cuts.forEach(p => {
+      const arrX = p.x - ux * gapPx, arrY = p.y - uy * gapPx;
+      if ((arrX - curX) * ux + (arrY - curY) * uy > 0) {
+        ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(arrX, arrY); ctx.stroke();
+      }
+      curX = p.x + ux * gapPx;
+      curY = p.y + uy * gapPx;
+    });
+    if ((endP.x - curX) * ux + (endP.y - curY) * uy > 0) {
+      ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(endP.x, endP.y); ctx.stroke();
+    }
+  });
+
+  // Draw '/' lines (gy = -gx + m) with gaps where '\' is on top
+  fsDiags.forEach((m, mi) => {
+    const gxMin = Math.max(-0.25, m - gridH - 0.25);
+    const gxMax = Math.min(gridW + 0.25, m + 0.25);
+    if (gxMin >= gxMax) return;
+
+    const cuts = [];
+    bsDiags.forEach((k, ki) => {
+      const gx = (m - k) / 2;
+      const gy = (m + k) / 2;
+      if (gx >= gxMin - 0.5 && gx <= gxMax + 0.5) {
+        if ((ki + mi) % 2 === 0) {
+          cuts.push(toP(gx, gy));
+        }
+      }
+    });
+    cuts.sort((a, b) => a.x - b.x);
+
+    const startP = toP(gxMin, -gxMin + m);
+    const endP = toP(gxMax, -gxMax + m);
+    const dx = endP.x - startP.x, dy = endP.y - startP.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return;
+    const ux = dx / len, uy = dy / len;
+
+    let curX = startP.x, curY = startP.y;
+    cuts.forEach(p => {
+      const arrX = p.x - ux * gapPx, arrY = p.y - uy * gapPx;
+      if ((arrX - curX) * ux + (arrY - curY) * uy > 0) {
+        ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(arrX, arrY); ctx.stroke();
+      }
+      curX = p.x + ux * gapPx;
+      curY = p.y + uy * gapPx;
+    });
+    if ((endP.x - curX) * ux + (endP.y - curY) * uy > 0) {
+      ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(endP.x, endP.y); ctx.stroke();
+    }
+  });
+
+  // Border
+  const bl = toP(0, 0), tr = toP(gridW, gridH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(Math.min(bl.x, tr.x), Math.min(bl.y, tr.y), Math.abs(tr.x - bl.x), Math.abs(tr.y - bl.y));
+
+  // Nail holes at the center of every cell (half-integer positions)
+  for (let gx = 0; gx < gridW; gx++) {
+    for (let gy = 0; gy < gridH; gy++) {
+      const p = toP(gx + 0.5, gy + 0.5);
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fill();
+    }
+  }
+
+  // Border nails
+  for (let gx = 0; gx <= gridW; gx++) {
+    for (let gy = 0; gy <= gridH; gy++) {
+      if (!onBorder(gx, gy)) continue;
+      const p = toP(gx, gy), corn = isCorner(gx, gy);
+
+      // Check if this nail is used by any string
+      let usedBy = null;
+      for (const k of ['a', 'b', 'c']) {
+        if (strings[k].nails.some(n => n.x === gx && n.y === gy)) { usedBy = k; break; }
+      }
+
+      // Check if hovered
+      const isHover = hoverNail && hoverNail.x === gx && hoverNail.y === gy;
+
+      const r = corn ? NAIL_R + 1 : NAIL_R - 1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, isHover ? r + 2 : r, 0, Math.PI * 2);
+
+      if (isHover) {
+        ctx.fillStyle = strings[activeString].color;
+      } else if (usedBy) {
+        ctx.fillStyle = strings[usedBy].color;
+      } else {
+        ctx.fillStyle = corn ? 'rgba(176,163,122,0.5)' : 'rgba(255,255,255,0.25)';
+      }
+      ctx.fill();
+
+      if (isHover) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = strings[activeString].glow + '0.4)';
+        ctx.lineWidth = 1.5; ctx.stroke();
+      } else if (corn) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, NAIL_R + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(176,163,122,0.12)';
+        ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      // Label
+      const label = getNailLabel(gx, gy);
+      if (label !== null) {
+        ctx.font = '9px "Space Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        let lx = p.x, ly = p.y;
+        const off = 12;
+        if (gy === 0) ly += off;
+        else if (gy === gridH) ly -= off;
+        else if (gx === 0) lx -= off;
+        else if (gx === gridW) lx += off;
+        ctx.fillStyle = isHover ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)';
+        ctx.fillText(label, lx, ly);
+      }
+    }
+  }
+}
+
+// --- Segment intersection: returns {x,y} in pixel coords or null ---
+function segIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+  const dABx = bx - ax, dABy = by - ay;
+  const dCDx = dx - cx, dCDy = dy - cy;
+  const denom = dABx * dCDy - dABy * dCDx;
+  if (Math.abs(denom) < 1e-10) return null; // parallel
+  const t = ((cx - ax) * dCDy - (cy - ay) * dCDx) / denom;
+  const u = ((cx - ax) * dABy - (cy - ay) * dABx) / denom;
+  if (t < 0.01 || t > 0.99 || u < 0.01 || u > 0.99) return null; // not within segments (with margin)
+  return { x: ax + t * dABx, y: ay + t * dABy, t };
+}
+
+// --- Convert pixel coords to grid coords ---
+function toG(px, py) {
+  const c = cellSize(), { cw, ch } = getSize();
+  const ox = (cw - gridW * c) / 2, oy = (ch - gridH * c) / 2;
+  return { gx: (px - ox) / c, gy: gridH - (py - oy) / c };
+}
+
+// --- At a crossing point, determine which string is over ---
+// Returns true if a '\'-like segment is on top at this grid location
+function isBackslashOnTop(px, py) {
+  const g = toG(px, py);
+  const cx = Math.floor(g.gx), cy = Math.floor(g.gy);
+  return (cx + cy) % 2 === 0;
+}
+
+// --- Determine if a segment (in grid coords) is more '\'-like or '/'-like ---
+// '\' means dx and dy have same sign (both positive or both negative in grid space)
+// '/' means dx and dy have opposite signs
+function isSegBackslash(gx1, gy1, gx2, gy2) {
+  const dgx = gx2 - gx1, dgy = gy2 - gy1;
+  return (dgx * dgy) > 0; // same sign = backslash in grid coords
+}
+
+function drawStrings() {
+  const nailR = cellSize() * 0.35;
+  const GAP = cellSize() * 0.22; // gap half-width at crossings
+  const keys = ['a', 'b', 'c'];
+
+  // --- Build path geometry for each string ---
+  // Returns { segments: [{x1,y1,x2,y2,gx1,gy1,gx2,gy2}], arcs: [...], centers }
+  function buildGeometry(k) {
+    const s = strings[k];
+    if (s.nails.length < 2) return null;
+    const centers = s.nails.map(n => toP(n.x, n.y));
+    const segments = [];
+    const arcs = [];
+
+    if (s.nails.length === 2) {
+      segments.push({
+        x1: centers[0].x, y1: centers[0].y, x2: centers[1].x, y2: centers[1].y,
+        gx1: s.nails[0].x, gy1: s.nails[0].y, gx2: s.nails[1].x, gy2: s.nails[1].y
+      });
+      return { segments, arcs, centers, nails: s.nails };
+    }
+
+    let lastDepX = centers[0].x, lastDepY = centers[0].y;
+
+    for (let i = 1; i < centers.length - 1; i++) {
+      const prev = centers[i-1], cur = centers[i], next = centers[i+1];
+      const inDx = cur.x-prev.x, inDy = cur.y-prev.y;
+      const outDx = next.x-cur.x, outDy = next.y-cur.y;
+      const cross = inDx*outDy - inDy*outDx;
+      const side = cross > 0 ? -1 : 1;
+      const inLen = Math.hypot(inDx, inDy);
+      const inPx = -inDy/inLen*nailR*side, inPy = inDx/inLen*nailR*side;
+      const outLen = Math.hypot(outDx, outDy);
+      const outPx = -outDy/outLen*nailR*side, outPy = outDx/outLen*nailR*side;
+
+      const arrX = cur.x+inPx, arrY = cur.y+inPy;
+
+      // Straight segment from previous departure to this arrival
+      segments.push({
+        x1: lastDepX, y1: lastDepY, x2: arrX, y2: arrY,
+        gx1: s.nails[i-1].x, gy1: s.nails[i-1].y, gx2: s.nails[i].x, gy2: s.nails[i].y
+      });
+
+      // Arc around this nail
+      const arrAng = Math.atan2(inPy, inPx);
+      const depAng = Math.atan2(outPy, outPx);
+      arcs.push({ cx: cur.x, cy: cur.y, r: nailR, startAng: arrAng, endAng: depAng, ccw: cross < 0 });
+
+      lastDepX = cur.x + outPx;
+      lastDepY = cur.y + outPy;
+    }
+
+    // Final segment from last departure to last nail center
+    const li = centers.length - 1;
+    segments.push({
+      x1: lastDepX, y1: lastDepY, x2: centers[li].x, y2: centers[li].y,
+      gx1: s.nails[li-1].x, gy1: s.nails[li-1].y, gx2: s.nails[li].x, gy2: s.nails[li].y
+    });
+
+    return { segments, arcs, centers, nails: s.nails };
+  }
+
+  const geom = {};
+  for (const k of keys) geom[k] = buildGeometry(k);
+
+  // --- Find crossings for a segment against all other strings ---
+  function getCrossings(k, seg) {
+    const crossings = [];
+    const segIsBS = isSegBackslash(seg.gx1, seg.gy1, seg.gx2, seg.gy2);
+    for (const ok of keys) {
+      if (ok === k) continue;
+      if (!geom[ok]) continue;
+      for (const oSeg of geom[ok].segments) {
+        const hit = segIntersect(seg.x1, seg.y1, seg.x2, seg.y2,
+                                  oSeg.x1, oSeg.y1, oSeg.x2, oSeg.y2);
+        if (!hit) continue;
+        const bsOnTop = isBackslashOnTop(hit.x, hit.y);
+        const thisIsOver = segIsBS ? bsOnTop : !bsOnTop;
+        crossings.push({ t: hit.t, x: hit.x, y: hit.y, isOver: thisIsOver });
+      }
+    }
+    crossings.sort((a, b) => a.t - b.t);
+    return crossings;
+  }
+
+  // --- Draw a straight segment with gaps where this string goes under ---
+  function drawSegWithGaps(seg, crossings, color) {
+    const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return;
+    const ux = dx / len, uy = dy / len;
+
+    ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+
+    let curX = seg.x1, curY = seg.y1;
+    for (const cr of crossings) {
+      if (!cr.isOver) {
+        const gapStartX = cr.x - ux * GAP, gapStartY = cr.y - uy * GAP;
+        const gapEndX = cr.x + ux * GAP, gapEndY = cr.y + uy * GAP;
+        if ((gapStartX - curX) * ux + (gapStartY - curY) * uy > 0) {
+          ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(gapStartX, gapStartY); ctx.stroke();
+        }
+        curX = gapEndX; curY = gapEndY;
+      }
+    }
+    if ((seg.x2 - curX) * ux + (seg.y2 - curY) * uy > 0) {
+      ctx.beginPath(); ctx.moveTo(curX, curY); ctx.lineTo(seg.x2, seg.y2); ctx.stroke();
+    }
+  }
+
+  // --- Pass 1: Draw all strings with under-gaps ---
+  for (const k of keys) {
+    if (!geom[k]) continue;
+    const s = strings[k];
+    ctx.strokeStyle = s.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+
+    // Draw each straight segment with gap logic
+    for (const seg of geom[k].segments) {
+      const crossings = getCrossings(k, seg);
+      drawSegWithGaps(seg, crossings, s.color);
+    }
+
+    // Draw arcs around nails (these wrap tight around nails, no crossings here)
+    for (const arc of geom[k].arcs) {
+      ctx.beginPath();
+      ctx.arc(arc.cx, arc.cy, arc.r, arc.startAng, arc.endAng, arc.ccw);
+      ctx.strokeStyle = s.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+
+  // --- Pass 2: Redraw over portions at crossings (paints on top of other string's gaps) ---
+  for (const k of keys) {
+    if (!geom[k]) continue;
+    const s = strings[k];
+    for (const seg of geom[k].segments) {
+      const crossings = getCrossings(k, seg);
+      const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
+      const len = Math.hypot(dx, dy);
+      if (len === 0) continue;
+      const ux = dx / len, uy = dy / len;
+      ctx.strokeStyle = s.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (const cr of crossings) {
+        if (cr.isOver) {
+          const ext = GAP * 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cr.x - ux * ext, cr.y - uy * ext);
+          ctx.lineTo(cr.x + ux * ext, cr.y + uy * ext);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // --- Nail dots on top ---
+  for (const k of keys) {
+    if (!geom[k]) continue;
+    const s = strings[k];
+    for (let i = 0; i < geom[k].centers.length; i++) {
+      const p = geom[k].centers[i];
+      const isEnd = i === 0 || i === geom[k].centers.length - 1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, isEnd ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = s.color; ctx.fill();
+    }
+  }
+
+  // --- Preview line ---
+  const active = strings[activeString];
+  if (active.nails.length > 0 && hoverNail && !isAutoMode()) {
+    const last = active.nails[active.nails.length - 1];
+    if (hoverNail.x !== last.x || hoverNail.y !== last.y) {
+      const p1 = toP(last.x, last.y);
+      const p2 = toP(hoverNail.x, hoverNail.y);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = active.glow + '0.25)'; ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+}
+
+function fullRedraw() {
+  drawGrid();
+  drawStrings();
+}
+
+function isAutoMode() {
+  return document.getElementById('autoMode').checked;
+}
+
+function updateStatus() {
+  for (const k of ['a', 'b', 'c']) {
+    const n = strings[k].nails.length;
+    const el = document.getElementById('status' + k.toUpperCase());
+    el.textContent = n === 0 ? 'empty' : n + ' nail' + (n !== 1 ? 's' : '');
+  }
+
+  const modeEl = document.getElementById('modeLabel');
+  if (isAutoMode()) {
+    modeEl.textContent = 'Auto 45°';
+    modeEl.className = 'mode-indicator mode-auto';
+  } else {
+    modeEl.textContent = 'Manual';
+    modeEl.className = 'mode-indicator mode-manual';
+  }
+
+  updateHint();
+}
+
+function updateHint() {
+  const el = document.getElementById('hint');
+  const s = strings[activeString];
+  const name = activeString.toUpperCase();
+
+  if (isAutoMode()) {
+    if (s.nails.length === 0) {
+      el.innerHTML = `<em>Auto 45°</em> — click a border nail to generate string ${name}'s full bounce path.`;
+    } else {
+      el.innerHTML = `String ${name} has its path. Switch to another string or toggle to manual mode.`;
+    }
+  } else {
+    if (s.nails.length === 0) {
+      el.innerHTML = `Click a <strong>border nail</strong> to start string ${name}.`;
+    } else {
+      el.innerHTML = `Click the next nail for string ${name}, or switch strings. <strong>↩ Undo</strong> to remove the last nail.`;
+    }
+  }
+}
+
+// --- Interaction ---
+function findNearestBorderNail(px, py) {
+  const g = fromP(px, py);
+  if (!onBorder(g.x, g.y)) return null;
+  const p = toP(g.x, g.y);
+  const dist = Math.hypot(px - p.x, py - p.y);
+  return dist < 20 ? g : null;
+}
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const nail = findNearestBorderNail(mx, my);
+  if (!nail) return;
+
+  const s = strings[activeString];
+
+  if (isAutoMode()) {
+    // Auto mode: click sets the start, auto-computes the full path
+    const path = computeAutoPath(nail.x, nail.y);
+    s.nails = path;
+  } else {
+    // Manual mode: append nail to path
+    // Don't add if same as last nail
+    if (s.nails.length > 0) {
+      const last = s.nails[s.nails.length - 1];
+      if (last.x === nail.x && last.y === nail.y) return;
+    }
+    s.nails.push({ x: nail.x, y: nail.y });
+  }
+
+  fullRedraw();
+  updateStatus();
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const nail = findNearestBorderNail(mx, my);
+
+  const changed = (!nail && hoverNail) || (nail && !hoverNail) ||
+    (nail && hoverNail && (nail.x !== hoverNail.x || nail.y !== hoverNail.y));
+
+  hoverNail = nail;
+  canvas.style.cursor = nail ? 'pointer' : 'default';
+
+  if (changed) fullRedraw();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (hoverNail) { hoverNail = null; fullRedraw(); }
+});
+
+// --- Buttons ---
+function setString(k) {
+  activeString = k;
+  document.getElementById('toggleA').className = k === 'a' ? 'toggle-btn active-a' : 'toggle-btn inactive';
+  document.getElementById('toggleB').className = k === 'b' ? 'toggle-btn active-b' : 'toggle-btn inactive';
+  document.getElementById('toggleC').className = k === 'c' ? 'toggle-btn active-c' : 'toggle-btn inactive';
+  updateStatus();
+  fullRedraw();
+}
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  const s = strings[activeString];
+  if (s.nails.length > 0) {
+    if (isAutoMode()) {
+      s.nails = []; // auto mode: clear entire path
+    } else {
+      s.nails.pop();
+    }
+    fullRedraw(); updateStatus();
+  }
+});
+
+document.getElementById('clearOneBtn').addEventListener('click', () => {
+  strings[activeString].nails = [];
+  fullRedraw(); updateStatus();
+});
+
+document.getElementById('clearAllBtn').addEventListener('click', () => {
+  for (const k of ['a', 'b', 'c']) strings[k].nails = [];
+  fullRedraw(); updateStatus();
+});
+
+document.getElementById('autoMode').addEventListener('change', () => {
+  updateStatus(); fullRedraw();
+});
+
+document.getElementById('gridW').addEventListener('change', e => {
+  nailsW = Math.max(3, Math.min(31, parseInt(e.target.value) || 6)); e.target.value = nailsW;
+  gridW = nailsW - 1;
+  for (const k of ['a', 'b', 'c']) strings[k].nails = [];
+  fullRedraw(); updateStatus();
+});
+
+document.getElementById('gridH').addEventListener('change', e => {
+  nailsH = Math.max(3, Math.min(31, parseInt(e.target.value) || 11)); e.target.value = nailsH;
+  gridH = nailsH - 1;
+  for (const k of ['a', 'b', 'c']) strings[k].nails = [];
+  fullRedraw(); updateStatus();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    document.getElementById('undoBtn').click();
+  }
+  if (e.key === '1') setString('a');
+  if (e.key === '2') setString('b');
+  if (e.key === '3') setString('c');
+});
+
+window.addEventListener('resize', fullRedraw);
+
+// --- L-shape (standard 45° billiard) presets ---
+// Each pass starts from a different corner or offset, creating one of the
+// 4 cycles needed to fill the board. Standard billiard reflection at walls.
+
+function generateLPass(startX, startY, dx, dy) {
+  const W = gridW, H = gridH;
+  let x = startX, y = startY;
+  const path = [{x, y}];
+  for (let i = 0; i < 500; i++) {
+    let sx = dx > 0 ? W - x : x;
+    let sy = dy > 0 ? H - y : y;
+    let s = Math.min(sx, sy);
+    if (s === 0) break;
+    x += dx * s; y += dy * s;
+    path.push({x, y});
+    const atCorner = (x === 0 || x === W) && (y === 0 || y === H);
+    if (atCorner) break;
+    if (x === 0 || x === W) dx = -dx;
+    if (y === 0 || y === H) dy = -dy;
+  }
+  return path;
+}
+
+// The 4 L-shape passes use strings A, B, C, and back to A
+// --- Celtic Knot Pattern Generator ---
+// Two-phase 45° billiard: shift +1 on one pair of walls, then the other.
+// Phase 1: shift on short walls in direction of travel
+// Transition: bounce through corners (no shift)
+// Phase 2: shift on the opposite short walls
+// Returns to start — single continuous loop visiting ALL border nails.
+
+function generateCelticKnot() {
+  const W = gridW, H = gridH;
+  let x = 0, y = 0, dx = 1, dy = 1;
+  let phase = 1;
+  const path = [{x, y}];
+  const shiftH = (W >= H); // true = shift on top/bottom walls
+
+  for (let i = 0; i < 500; i++) {
+    let sx = dx > 0 ? W - x : x;
+    let sy = dy > 0 ? H - y : y;
+    let s = Math.min(sx, sy);
+    if (s === 0) {
+      if (x === 0) dx = 1; else if (x === W) dx = -1;
+      if (y === 0) dy = 1; else if (y === H) dy = -1;
+      continue;
+    }
+    x += dx * s; y += dy * s;
+    const hT = y===H, hB = y===0, hL = x===0, hR = x===W;
+    const corner = (hL||hR)&&(hT||hB);
+
+    if (shiftH) {
+      const doS = !corner && ((phase===1&&hT)||(phase===3&&hB));
+      if (doS) {
+        x += dx; path.push({x,y}); dy = -dy;
+        if (x===0||x===W) phase = phase===1?2:4;
+      } else {
+        path.push({x,y});
+        if (corner) {
+          if (phase===2&&hT&&hL) phase=3;
+          dx=-dx; dy=-dy;
+        } else if (hT||hB) dy=-dy;
+        else dx=-dx;
+      }
+    } else {
+      const doS = !corner && ((phase===1&&hR)||(phase===3&&hL));
+      if (doS) {
+        y += dy; path.push({x,y}); dx = -dx;
+        if (y===0||y===H) phase = phase===1?2:4;
+      } else {
+        path.push({x,y});
+        if (corner) {
+          if (phase===2&&hR&&hB) phase=3;
+          dx=-dx; dy=-dy;
+        } else if (hL||hR) dx=-dx;
+        else dy=-dy;
+      }
+    }
+    if (x===0&&y===0&&i>2) break;
+  }
+  return path;
+}
+
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+document.getElementById('presetCeltic').addEventListener('click', () => {
+  const path = generateCelticKnot();
+  // Validate: did it return to start and visit all border nails?
+  const last = path[path.length - 1];
+  const borderSet = new Set();
+  for (let xx = 0; xx <= gridW; xx++) for (let yy = 0; yy <= gridH; yy++) {
+    if (xx === 0 || xx === gridW || yy === 0 || yy === gridH) borderSet.add(`${xx},${yy}`);
+  }
+  const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
+  const covered = [...borderSet].filter(k => pathSet.has(k)).length;
+  if (last.x !== 0 || last.y !== 0 || covered < borderSet.size) {
+    alert(`Celtic knot doesn't form a single loop on ${gridW+1}×${gridH+1} nails. Try 6×11, 7×10, 5×8, or other compatible sizes.`);
+    return;
+  }
+  strings[activeString].nails = path;
+  fullRedraw(); updateStatus();
+});
+
+fullRedraw();
+updateStatus();
+</script>
+</body>
+</html>

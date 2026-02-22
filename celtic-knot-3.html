@@ -109,8 +109,10 @@ const COLORS = [
 ];
 
 function CelticKnotMaker() {
-  const [W, setW] = useState(20);
-  const [H, setH] = useState(12);
+  const [nailsW, setNailsW] = useState(21);
+  const [nailsH, setNailsH] = useState(13);
+  const W = nailsW - 1;
+  const H = nailsH - 1;
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
   const [hoverGap, setHoverGap] = useState(null);
@@ -130,8 +132,8 @@ function CelticKnotMaker() {
       const h = window.location.hash.slice(1);
       if (!h) return;
       const p = JSON.parse(decodeURIComponent(h));
-      if (p.W) setW(p.W);
-      if (p.H) setH(p.H);
+      if (p.W) setNailsW(p.W + 1);
+      if (p.H) setNailsH(p.H + 1);
       if (p.c) setCycleColors(p.c);
     } catch(e) {}
   }, []);
@@ -333,10 +335,10 @@ function CelticKnotMaker() {
       <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>João's Knot Maker</h1>
       <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
       <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12, padding: isMobile ? "10px 12px" : "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", maxWidth: svgW + 16 }}>
-        <DimensionInput label="Width" value={W} set={setW} min={2} max={80} />
-        <DimensionInput label="Height" value={H} set={setH} min={2} max={80} />
+        <DimensionInput label="W nails" value={nailsW} set={setNailsW} min={3} max={81} />
+        <DimensionInput label="H nails" value={nailsH} set={setNailsH} min={3} max={81} />
         <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, background: "rgba(255,255,255,0.02)", textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>STRANDS</div>
+          <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>CIRCUITS</div>
           <div style={{ fontSize: 26, color: "#e8dcc8", fontWeight: 300, fontFamily: "'Cormorant Garamond',serif" }}>{nCyc}</div>
           <div style={{ fontSize: 9, color: "#333740" }}>gcd({W},{H})</div>
         </div>
