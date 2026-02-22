@@ -105,12 +105,13 @@ const COLORS = [
 ];
 
 function CelticKnotMaker() {
-  const [W, setW] = useState(5);
-  const [H, setH] = useState(3);
+  const [W, setW] = useState(20);
+  const [H, setH] = useState(12);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [cycleColors, setCycleColors] = useState({});
 
   const svgW = 800, svgH = 540, pad = 56;
   const cell = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H);
@@ -132,7 +133,7 @@ function CelticKnotMaker() {
   }, [W, H, total, toX, toY]);
 
   const gr = Math.max(5, cell * 0.13);
-  const sw = Math.max(3, cell * 0.08);
+  const sw = cell * 0.707;
   const gapPx = cell * 0.2;
   const bgColor = "#110f0b";
 
@@ -193,8 +194,8 @@ function CelticKnotMaker() {
 
   function renderStrandSVG(pts, color, isActive) {
     const elements = [];
-    const lineW = isActive ? sw * 1.2 : sw;
-    const gap = cell * 0.16;
+    const lineW = sw;
+    const gap = sw / 2;
     for (let seg = 0; seg < pts.length - 1; seg++) {
       const p1 = pts[seg], p2 = pts[seg + 1];
       const sx1 = toX(p1.x), sy1 = toY(p1.y);
@@ -246,19 +247,22 @@ function CelticKnotMaker() {
     return elements;
   }
 
+  const getCycleColor = useCallback((i) => cycleColors[i] || COLORS[i % COLORS.length], [cycleColors]);
+  const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
+
   const renderElements = useMemo(() => {
     const els = [];
     const cyclesToRender = showAll
-      ? cycles.map((c, i) => ({ ...c, color: COLORS[i % COLORS.length], isActive: false }))
+      ? cycles.map((c, i) => ({ ...c, color: getCycleColor(i), isActive: false }))
       : activeIdx >= 0
-        ? [{ ...cycles[activeIdx], color: "#c8a96e", isActive: true }]
+        ? [{ ...cycles[activeIdx], color: getCycleColor(activeIdx), isActive: true }]
         : [];
     for (const c of cyclesToRender) {
       els.push(...renderStrandSVG(c.points, c.color, c.isActive));
     }
     els.sort((a, b) => a.z - b.z);
     return els;
-  }, [cycles, showAll, activeIdx, W, H, cell, toX, toY, sw, gapPx]);
+  }, [cycles, showAll, activeIdx, W, H, cell, toX, toY, sw, gapPx, cycleColors]);
 
   const clickGap = useCallback(g => {
     setSelGap(prev => prev === g ? null : g);
@@ -294,8 +298,8 @@ function CelticKnotMaker() {
       <h1 style={{ fontSize: 26, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 2px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
       <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 18px" }}>RECTANGULAR TORUS LINK EXPLORER</p>
       <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
-        <DimensionInput label="Width" value={W} set={setW} min={2} max={20} />
-        <DimensionInput label="Height" value={H} set={setH} min={2} max={14} />
+        <DimensionInput label="Width" value={W} set={setW} min={2} max={80} />
+        <DimensionInput label="Height" value={H} set={setH} min={2} max={80} />
         <div style={{ padding: "6px 16px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
           <div style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
           <div style={{ fontSize: 24, color: "#c8a96e", fontWeight: "bold" }}>{nCyc}</div>
@@ -310,6 +314,18 @@ function CelticKnotMaker() {
           {showGrid ? "GRID" : "GRID"}
         </button>
       </div>
+      {cycles.length > 0 && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: "#6a6050", letterSpacing: 1 }}>STRAND COLORS</span>
+          {cycles.map((c, i) => (
+            <label key={i} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+              <span style={{ fontSize: 12, color: "#9a8e78" }}>{i + 1}</span>
+              <input type="color" value={getCycleColor(i)} onChange={e => setCycleColor(i, e.target.value)}
+                style={{ width: 28, height: 28, border: "1px solid #332e24", borderRadius: 4, background: "transparent", cursor: "pointer", padding: 0 }} />
+            </label>
+          ))}
+        </div>
+      )}
       <div style={{ fontSize: 13, color: "#6a6050", marginBottom: 10, letterSpacing: 1, textAlign: "center" }}>
         T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
         <span style={{ color: "#4a4438" }}> · {total} gaps</span>
@@ -338,14 +354,14 @@ function CelticKnotMaker() {
           })}
           {renderElements.map((el, i) => (
             <line key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
-              stroke={el.type === 'border' ? bgColor : el.color} strokeWidth={el.w} strokeLinecap="round"
+              stroke={el.type === 'border' ? bgColor : el.color} strokeWidth={el.w} strokeLinecap="butt"
               filter={el.type === 'strand' && el.z === 3 ? "url(#glo)" : undefined} />
           ))}
           {gapDots.map(g => {
             const sel = selGap === g.i;
             const inA = active?.gaps.has(g.i);
             const ci = showAll ? cycles.findIndex(c => c.gaps.has(g.i)) : -1;
-            const col = showAll && ci >= 0 ? COLORS[ci % COLORS.length] : sel ? "#c8a96e" : inA ? "#c8a96e" : hoverGap === g.i ? "#8a7e6b" : "#2e2920";
+            const col = showAll && ci >= 0 ? getCycleColor(ci) : sel ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : inA ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : hoverGap === g.i ? "#8a7e6b" : "#2e2920";
             return (
               <g key={`g${g.i}`}>
                 <circle cx={g.x} cy={g.y} r={gr * 1.8} fill="transparent" style={{ cursor: "pointer" }}
