@@ -228,8 +228,9 @@ function CelticKnotMaker() {
   const [cycleColors, setCycleColors] = useState({});
   const [visibleCycles, setVisibleCycles] = useState({}); // {index: bool} toggle map
   const [animate, setAnimate] = useState(true);
-  const [animProgress, setAnimProgress] = useState({}); // {cycleIdx: segCount} — how many segments revealed
-  const animRef = useRef(null);
+  const [fullView, setFullView] = useState(false);
+  const [animProgress, setAnimProgress] = useState({}); // {cycleIdx: float} — animation progress
+  const [cyclePointOverrides, setCyclePointOverrides] = useState({}); // {cycleIdx: points} — custom start
 
   const hasNotch = nw > 0 && nh > 0;
   const svgW = 800, svgH = 560, pad = 56;
@@ -254,7 +255,7 @@ function CelticKnotMaker() {
   }, [W, H, nw, nh, total, toX, toY]);
 
   const gr = Math.max(5, cell * 0.13);
-  const sw = cell * 0.45;
+  const sw = cell * (fullView ? 0.707 : 0.45);
   const bgColor = "#0c0f12";
 
   // Build weave grid lines clipped to L-shape
@@ -467,7 +468,8 @@ function CelticKnotMaker() {
     if (!animate) return;
     let animating = false;
     cycles.forEach((c, i) => {
-      if (isCycleVisible(i) && (animProgress[i] ?? Infinity) < c.points.length - 1) {
+      const pts = cyclePointOverrides[i] || c.points;
+      if (isCycleVisible(i) && (animProgress[i] ?? Infinity) < pts.length - 1) {
         animating = true;
         if (animStartTime.current[i] == null) animStartTime.current[i] = performance.now();
       }
@@ -477,12 +479,13 @@ function CelticKnotMaker() {
       setAnimProgress(prev => {
         const next = { ...prev };
         cycles.forEach((c, i) => {
-          const total = c.points.length - 1;
+          const pts = cyclePointOverrides[i] || c.points;
+          const total = pts.length - 1;
           if (isCycleVisible(i) && (prev[i] ?? Infinity) < total) {
             const elapsed = (now - (animStartTime.current[i] ?? now)) / 1000;
             const duration = Math.max(2.5, total * 0.06);
             const frac = Math.min(elapsed / duration, 1);
-            next[i] = frac * total; // float! smooth interpolation
+            next[i] = frac * total;
             if (frac >= 1) { next[i] = total; delete animStartTime.current[i]; }
           }
         });
@@ -490,12 +493,12 @@ function CelticKnotMaker() {
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [animate, animProgress, cycles, isCycleVisible]);
+  }, [animate, animProgress, cycles, isCycleVisible, cyclePointOverrides]);
 
   // Get the visible portion of a cycle's points based on animation progress (smooth float)
   const getVisiblePoints = useCallback((cycleIdx) => {
     if (!cycles[cycleIdx]) return [];
-    const pts = cycles[cycleIdx].points;
+    const pts = cyclePointOverrides[cycleIdx] || cycles[cycleIdx].points;
     if (!pts || pts.length < 2) return pts || [];
     const prog = animProgress[cycleIdx];
     if (prog == null || prog >= pts.length - 1) return pts;
@@ -512,33 +515,43 @@ function CelticKnotMaker() {
       });
     }
     return visible;
-  }, [cycles, animProgress]);
+  }, [cycles, animProgress, cyclePointOverrides]);
 
   const renderElements = useMemo(() => {
-    const visibleSet = new Set();
-    cycles.forEach((c, i) => { if (isCycleVisible(i)) visibleSet.add(i); });
-    // Build crossing map from only the currently drawn portions of visible cycles
-    const pointsPerCycle = new Map();
-    for (const i of visibleSet) pointsPerCycle.set(i, getVisiblePoints(i));
-    const crossingMap = buildCrossingMap(pointsPerCycle);
-    const els = [];
-    for (const i of visibleSet) {
-      const pts = pointsPerCycle.get(i);
-      if (pts && pts.length >= 2) {
-        els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet, crossingMap));
+    try {
+      const visibleSet = new Set();
+      cycles.forEach((c, i) => { if (isCycleVisible(i)) visibleSet.add(i); });
+      const pointsPerCycle = new Map();
+      for (const i of visibleSet) pointsPerCycle.set(i, getVisiblePoints(i));
+      const crossingMap = buildCrossingMap(pointsPerCycle);
+      const els = [];
+      for (const i of visibleSet) {
+        const pts = pointsPerCycle.get(i);
+        if (pts && pts.length >= 2) {
+          els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet, crossingMap));
+        }
       }
-    }
-    els.sort((a, b) => a.z - b.z);
-    return els;
+      els.sort((a, b) => a.z - b.z);
+      return els;
+    } catch(e) { console.error('RENDER ERROR:', e); return []; }
   }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors, animProgress, getVisiblePoints]);
 
   const clickGap = useCallback(g => {
-    setSelGap(prev => prev === g ? null : g);
-    setShowAll(false);
-  }, []);
+    const ci = cycles.findIndex(c => c.gaps.has(g));
+    if (ci < 0) return;
+    setSelGap(g);
+    if (showAll) setShowAll(false);
+    setVisibleCycles(prev => ({ ...prev, [ci]: true }));
+    if (animate) {
+      animStartTime.current[ci] = performance.now();
+      setAnimProgress(prev => ({ ...prev, [ci]: 0 }));
+    } else {
+      setAnimProgress(prev => ({ ...prev, [ci]: Infinity }));
+    }
+  }, [cycles, animate, showAll]);
 
   // Reset selection when dimensions change
-  useEffect(() => { setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); setAnimProgress({}); }, [nailsW, nailsH, nailsNw, nailsNh]);
+  useEffect(() => { setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); setAnimProgress({}); setCyclePointOverrides({}); }, [nailsW, nailsH, nailsNw, nailsNh]);
 
   const DimensionInput = ({ label, value, set, min, max }) => {
     const [inputVal, setInputVal] = useState(String(value));
@@ -577,6 +590,22 @@ function CelticKnotMaker() {
       <h1 style={{ fontSize: 24, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 2px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
       <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 14px" }}>L-SHAPE BILLIARD EXPLORER</p>
 
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1 }}>PRESETS</span>
+        {[
+          { label: "2-cycle", w: 9, h: 7, cw: 1, ch: 1 },
+          { label: "4-cycle", w: 19, h: 13, cw: 11, ch: 3 },
+          { label: "8-cycle", w: 19, h: 11, cw: 11, ch: 3 },
+        ].map(p => (
+          <button key={p.label} onClick={() => { setNailsW(p.w); setNailsH(p.h); setNailsNw(p.cw); setNailsNh(p.ch); }}
+            style={{ padding: "5px 12px", background: (nailsW===p.w && nailsH===p.h && nailsNw===p.cw && nailsNh===p.ch) ? "#c8a96e" : "transparent",
+              color: (nailsW===p.w && nailsH===p.h && nailsNw===p.cw && nailsNh===p.ch) ? "#16130f" : "#9a8e78",
+              border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+            {p.label}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 28, background: "#332e24" }} />
+      </div>
       <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
         <DimensionInput label="W nails" value={nailsW} set={setNailsW} min={4} max={61} />
         <DimensionInput label="H nails" value={nailsH} set={setNailsH} min={4} max={61} />
@@ -599,6 +628,10 @@ function CelticKnotMaker() {
         <button onClick={() => setAnimate(!animate)}
           style={{ padding: "7px 12px", background: animate ? "#c8a96e" : "transparent", color: animate ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
           {animate ? "ANIM ON" : "ANIM OFF"}
+        </button>
+        <button onClick={() => setFullView(!fullView)}
+          style={{ padding: "7px 12px", background: fullView ? "#c8a96e" : "transparent", color: fullView ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+          {fullView ? "FULL" : "THIN"}
         </button>
         <button onClick={() => setShowGrid(!showGrid)}
           style={{ padding: "7px 12px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
