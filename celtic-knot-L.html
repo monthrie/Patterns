@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Celtic Knot Maker — L-Shape</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const { useState, useCallback, useMemo, useRef, useEffect } = React;
+
+// L-shape: rectangle W×H with notch nw×nh removed from top-right
+// Vertices (CW on screen): (0,0)→(W-nw,0)→(W-nw,nh)→(W,nh)→(W,H)→(0,H)
+// When nw=0 or nh=0, reduces to plain rectangle.
+
+function isInside(x, y, W, H, nw, nh) {
+  if (x < 0 || x > W || y < 0 || y > H) return false;
+  if (nw > 0 && nh > 0 && x > W - nw && y < nh) return false;
+  return true;
+}
+
+function isInteriorCrossing(ix, iy, W, H, nw, nh) {
+  if (ix < 1 || ix > W - 1 || iy < 1 || iy > H - 1) return false;
+  if (nw > 0 && nh > 0 && ix >= W - nw && iy <= nh) return false;
+  return true;
+}
+
+function buildEdges(W, H, nw, nh) {
+  if (nw <= 0 || nh <= 0) return [
+    { y: 0, x0: 0, x1: W, type: 'h' },
+    { x: W, y0: 0, y1: H, type: 'v' },
+    { y: H, x0: 0, x1: W, type: 'h' },
+    { x: 0, y0: 0, y1: H, type: 'v' },
+  ];
+  return [
+    { y: 0, x0: 0, x1: W - nw, type: 'h' },
+    { x: W - nw, y0: 0, y1: nh, type: 'v' },
+    { y: nh, x0: W - nw, x1: W, type: 'h' },
+    { x: W, y0: nh, y1: H, type: 'v' },
+    { y: H, x0: 0, x1: W, type: 'h' },
+    { x: 0, y0: 0, y1: H, type: 'v' },
+  ];
+}
+
+function gapCenter(g, W, H, nw, nh) {
+  const hasNotch = nw > 0 && nh > 0;
+  const T = 2 * (W + H);
+  const i = ((g % T) + T) % T;
+  if (!hasNotch) {
+    if (i < W) return { x: i + 0.5, y: 0 };
+    if (i < W + H) return { x: W, y: i - W + 0.5 };
+    if (i < 2 * W + H) return { x: W - (i - W - H) - 0.5, y: H };
+    return { x: 0, y: H - (i - 2 * W - H) - 0.5 };
+  }
+  let acc = 0;
+  const e1 = W - nw;
+  if (i < acc + e1) return { x: (i - acc) + 0.5, y: 0 };
+  acc += e1;
+  const e2 = nh;
+  if (i < acc + e2) return { x: W - nw, y: (i - acc) + 0.5 };
+  acc += e2;
+  const e3 = nw;
+  if (i < acc + e3) return { x: W - nw + (i - acc) + 0.5, y: nh };
+  acc += e3;
+  const e4 = H - nh;
+  if (i < acc + e4) return { x: W, y: nh + (i - acc) + 0.5 };
+  acc += e4;
+  const e5 = W;
+  if (i < acc + e5) return { x: W - (i - acc) - 0.5, y: H };
+  acc += e5;
+  return { x: 0, y: H - (i - acc) - 0.5 };
+}
+
+function pointToGap(x, y, W, H, nw, nh) {
+  const E = 0.05;
+  const hasNotch = nw > 0 && nh > 0;
+  if (!hasNotch) {
+    if (Math.abs(y) < E && x > E && x < W - E) return Math.round(x - 0.5);
+    if (Math.abs(x - W) < E && y > E && y < H - E) return W + Math.round(y - 0.5);
+    if (Math.abs(y - H) < E && x > E && x < W - E) return W + H + Math.round(W - x - 0.5);
+    if (Math.abs(x) < E && y > E && y < H - E) return 2 * W + H + Math.round(H - y - 0.5);
+    return -1;
+  }
+  let acc = 0;
+  if (Math.abs(y) < E && x > E && x < W - nw - E) return acc + Math.round(x - 0.5);
+  acc += W - nw;
+  if (Math.abs(x - (W - nw)) < E && y > E && y < nh - E) return acc + Math.round(y - 0.5);
+  acc += nh;
+  if (Math.abs(y - nh) < E && x > W - nw + E && x < W - E) return acc + Math.round(x - (W - nw) - 0.5);
+  acc += nw;
+  if (Math.abs(x - W) < E && y > nh + E && y < H - E) return acc + Math.round(y - nh - 0.5);
+  acc += H - nh;
+  if (Math.abs(y - H) < E && x > E && x < W - E) return acc + Math.round(W - x - 0.5);
+  acc += W;
+  if (Math.abs(x) < E && y > E && y < H - E) return acc + Math.round(H - y - 0.5);
+  return -1;
+}
+
+function getInitialDir(sx, sy, W, H, nw, nh) {
+  const EPS = 1e-9;
+  const hasNotch = nw > 0 && nh > 0;
+  if (!hasNotch) {
+    if (Math.abs(sy) < EPS) return { dx: 1, dy: 1 };
+    if (Math.abs(sx - W) < EPS) return { dx: -1, dy: 1 };
+    if (Math.abs(sy - H) < EPS) return { dx: -1, dy: -1 };
+    return { dx: 1, dy: -1 };
+  }
+  if (Math.abs(sy) < EPS) return { dx: 1, dy: 1 };
+  if (Math.abs(sx - (W - nw)) < EPS && sy < nh + EPS) return { dx: -1, dy: 1 };
+  if (Math.abs(sy - nh) < EPS && sx > W - nw - EPS) return { dx: 1, dy: 1 };
+  if (Math.abs(sx - W) < EPS) return { dx: -1, dy: 1 };
+  if (Math.abs(sy - H) < EPS) return { dx: -1, dy: -1 };
+  return { dx: 1, dy: -1 };
+}
+
+function tracePath(startGap, W, H, nw, nh) {
+  const EPS = 1e-9;
+  const edges = buildEdges(W, H, nw, nh);
+  const sc = gapCenter(startGap, W, H, nw, nh);
+  const pts = [{ x: sc.x, y: sc.y }];
+  let { dx, dy } = getInitialDir(sc.x, sc.y, W, H, nw, nh);
+  let x = sc.x, y = sc.y;
+  const maxIter = 4 * (W + H) + 400;
+  for (let iter = 0; iter < maxIter; iter++) {
+    let minT = Infinity;
+    let hitH = false, hitV = false;
+    for (const edge of edges) {
+      let t;
+      if (edge.type === 'h') {
+        if (Math.abs(dy) < EPS) continue;
+        t = (edge.y - y) / dy;
+        if (t < EPS) continue;
+        const hx = x + dx * t;
+        if (hx < edge.x0 - EPS || hx > edge.x1 + EPS) continue;
+      } else {
+        if (Math.abs(dx) < EPS) continue;
+        t = (edge.x - x) / dx;
+        if (t < EPS) continue;
+        const hy = y + dy * t;
+        if (hy < edge.y0 - EPS || hy > edge.y1 + EPS) continue;
+      }
+      if (t < minT - EPS) { minT = t; hitH = edge.type === 'h'; hitV = edge.type === 'v'; }
+      else if (Math.abs(t - minT) < EPS * 100) {
+        if (edge.type === 'h') hitH = true;
+        if (edge.type === 'v') hitV = true;
+      }
+    }
+    if (minT === Infinity || minT > 1e6) break;
+    x += dx * minT; y += dy * minT;
+    x = Math.round(x * 1e6) / 1e6; y = Math.round(y * 1e6) / 1e6;
+    pts.push({ x, y });
+    if (pts.length > 2 && Math.abs(x - sc.x) < 0.01 && Math.abs(y - sc.y) < 0.01) break;
+    if (hitH && hitV) { dx = -dx; dy = -dy; }
+    else if (hitH) dy = -dy;
+    else if (hitV) dx = -dx;
+  }
+  return pts;
+}
+
+function getAllCycles(W, H, nw, nh) {
+  const T = 2 * (W + H), vis = new Set(), cycles = [];
+  for (let g = 0; g < T; g++) {
+    if (vis.has(g)) continue;
+    const pts = tracePath(g, W, H, nw, nh);
+    const gaps = new Set();
+    for (const p of pts) {
+      const gi = pointToGap(p.x, p.y, W, H, nw, nh);
+      if (gi >= 0) { gaps.add(gi); vis.add(gi); }
+    }
+    cycles.push({ startGap: g, points: pts, gaps });
+  }
+  return cycles;
+}
+
+const COLORS = [
+  "#2E7D7D", "#B5541C", "#3D5A80", "#D4A017",
+  "#8B2E52", "#6B8E6B", "#5B8DB8", "#C25476",
+  "#C8804A", "#4A7C5E", "#A67C3C", "#5BA8A0",
+];
+
+function subtractInterval(a0, a1, b0, b1) {
+  if (b0 >= a1 || b1 <= a0) return [[a0, a1]];
+  const r = [];
+  if (a0 < b0) r.push([a0, b0]);
+  if (b1 < a1) r.push([b1, a1]);
+  return r;
+}
+
+function CelticKnotMaker() {
+  const [W, setW] = useState(16);
+  const [H, setH] = useState(10);
+  const [nw, setNw] = useState(8);
+  const [nh, setNh] = useState(5);
+  const [selGap, setSelGap] = useState(null);
+  const [showAll, setShowAll] = useState(true);
+  const [hoverGap, setHoverGap] = useState(null);
+  const [showGrid, setShowGrid] = useState(true);
+  const [cycleColors, setCycleColors] = useState({});
+  const [visibleCycles, setVisibleCycles] = useState({}); // {index: bool} toggle map
+
+  const hasNotch = nw > 0 && nh > 0;
+  const svgW = 800, svgH = 560, pad = 56;
+  const cell = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H);
+  const ox = (svgW - W * cell) / 2, oy = (svgH - H * cell) / 2;
+  const total = 2 * (W + H);
+
+  const cycles = useMemo(() => getAllCycles(W, H, nw, nh), [W, H, nw, nh]);
+  const active = useMemo(() => selGap !== null ? cycles.find(c => c.gaps.has(selGap)) : null, [selGap, cycles]);
+  const activeIdx = useMemo(() => selGap !== null ? cycles.findIndex(c => c.gaps.has(selGap)) : -1, [selGap, cycles]);
+
+  const toX = useCallback(x => ox + x * cell, [ox, cell]);
+  const toY = useCallback(y => oy + y * cell, [oy, cell]);
+
+  const gapDots = useMemo(() => {
+    const a = [];
+    for (let i = 0; i < total; i++) {
+      const c = gapCenter(i, W, H, nw, nh);
+      a.push({ i, x: toX(c.x), y: toY(c.y) });
+    }
+    return a;
+  }, [W, H, nw, nh, total, toX, toY]);
+
+  const gr = Math.max(5, cell * 0.13);
+  const sw = cell * 0.45;
+  const bgColor = "#0c0f12";
+
+  // Build weave grid lines clipped to L-shape
+  const weaveLines = useMemo(() => {
+    const lines = [];
+    // Backslash family: y = x + kVal, kVal = k + 0.5
+    for (let k = -W; k <= H; k++) {
+      const kVal = k + 0.5;
+      // Big rect range
+      let rx0 = Math.max(0, -kVal), rx1 = Math.min(W, H - kVal);
+      if (rx0 >= rx1) continue;
+      // Subtract notch
+      let segments;
+      if (hasNotch) {
+        const nxMin = W - nw;
+        const nxMax = Math.min(W, nh - kVal);
+        segments = (nxMin < nxMax) ? subtractInterval(rx0, rx1, nxMin, nxMax) : [[rx0, rx1]];
+      } else {
+        segments = [[rx0, rx1]];
+      }
+      for (const [x0, x1] of segments) {
+        if (x1 - x0 < 0.01) continue;
+        const sx0 = toX(x0), sy0 = toY(x0 + kVal);
+        const sx1 = toX(x1), sy1 = toY(x1 + kVal);
+        const ddx = sx1 - sx0, ddy = sy1 - sy0;
+        const len = Math.hypot(ddx, ddy);
+        if (len < 1) continue;
+        const ux = ddx / len, uy = ddy / len;
+        const cuts = [];
+        for (let m = -1; m <= W + H; m++) {
+          const mVal = m + 0.5;
+          const ix = (mVal - kVal) / 2;
+          const iy = (mVal + kVal) / 2;
+          if (ix > x0 + 0.01 && ix < x1 - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
+            if ((k + m + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+        lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts });
+      }
+    }
+    // Forward-slash family: y = -x + mVal, mVal = m + 0.5
+    for (let m = 0; m <= W + H - 1; m++) {
+      const mVal = m + 0.5;
+      let rx0 = Math.max(0, mVal - H), rx1 = Math.min(W, mVal);
+      if (rx0 >= rx1) continue;
+      let segments;
+      if (hasNotch) {
+        const nxMin = Math.max(W - nw, mVal - nh);
+        const nxMax = Math.min(W, mVal);
+        segments = (nxMin < nxMax) ? subtractInterval(rx0, rx1, nxMin, nxMax) : [[rx0, rx1]];
+      } else {
+        segments = [[rx0, rx1]];
+      }
+      for (const [x0, x1] of segments) {
+        if (x1 - x0 < 0.01) continue;
+        const sx0 = toX(x0), sy0 = toY(mVal - x0);
+        const sx1 = toX(x1), sy1 = toY(mVal - x1);
+        const ddx = sx1 - sx0, ddy = sy1 - sy0;
+        const len = Math.hypot(ddx, ddy);
+        if (len < 1) continue;
+        const ux = ddx / len, uy = ddy / len;
+        const cuts = [];
+        for (let k = -W; k <= H; k++) {
+          const kVal2 = k + 0.5;
+          const ix = (mVal - kVal2) / 2;
+          const iy = (mVal + kVal2) / 2;
+          if (ix > x0 + 0.01 && ix < x1 - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
+            if ((k + m + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+        lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts });
+      }
+    }
+    return lines;
+  }, [W, H, nw, nh, cell, toX, toY, hasNotch]);
+
+  function isOnBoundary(px, py) {
+    const E = 0.01;
+    if (px < E || Math.abs(px - W) < E || py < E || Math.abs(py - H) < E) return true;
+    if (hasNotch) {
+      if (Math.abs(px - (W - nw)) < E && py < nh + E) return true;
+      if (Math.abs(py - nh) < E && px > W - nw - E) return true;
+    }
+    return false;
+  }
+
+  function renderStrandSVG(pts, color) {
+    const elements = [];
+    const lineW = sw;
+    const gap = sw / 2;
+    for (let seg = 0; seg < pts.length - 1; seg++) {
+      const p1 = pts[seg], p2 = pts[seg + 1];
+      const sx1 = toX(p1.x), sy1 = toY(p1.y);
+      const sx2 = toX(p2.x), sy2 = toY(p2.y);
+      const ddx = sx2 - sx1, ddy = sy2 - sy1;
+      const len = Math.hypot(ddx, ddy);
+      if (len < 0.5) continue;
+      const ux = ddx / len, uy = ddy / len;
+      const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      const p1Edge = isOnBoundary(p1.x, p1.y);
+      const p2Edge = isOnBoundary(p2.x, p2.y);
+      if (sdx === 0 || sdy === 0) {
+        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edgeStart: p1Edge, edgeEnd: p2Edge });
+        continue;
+      }
+      const isBS = (sdx === sdy);
+      const cuts = [];
+      const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      if (isBS) {
+        const kVal = p1.y - p1.x;
+        const ki = Math.round(kVal - 0.5);
+        for (let mi = -1; mi <= W + H; mi++) {
+          const mVal = mi + 0.5;
+          const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
+            if ((ki + mi + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      } else {
+        const mVal = p1.y + p1.x;
+        const mi = Math.round(mVal - 0.5);
+        for (let ki = -W; ki <= H; ki++) {
+          const kVal2 = ki + 0.5;
+          const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
+            if ((ki + mi + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      }
+      cuts.sort((a, b) => (a.sx - sx1) * ux + (a.sy - sy1) * uy - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
+      let cx = sx1, cy = sy1;
+      let isFirst = true;
+      for (const cut of cuts) {
+        const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
+        const proj = (gsx - cx) * ux + (gsy - cy) * uy;
+        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2, edgeStart: isFirst && p1Edge, edgeEnd: false });
+        cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
+        isFirst = false;
+      }
+      const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
+      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2, edgeStart: isFirst && p1Edge, edgeEnd: p2Edge });
+    }
+    return elements;
+  }
+
+  const getCycleColor = useCallback((i) => cycleColors[i] || COLORS[i % COLORS.length], [cycleColors]);
+  const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
+
+  const isCycleVisible = useCallback((i) => {
+    if (showAll) return visibleCycles[i] !== false; // default visible in show-all mode
+    return visibleCycles[i] === true; // default hidden in toggle mode
+  }, [showAll, visibleCycles]);
+
+  const toggleCycle = useCallback((i) => {
+    setVisibleCycles(prev => ({ ...prev, [i]: !isCycleVisible(i) }));
+  }, [isCycleVisible]);
+
+  const renderElements = useMemo(() => {
+    const els = [];
+    cycles.forEach((c, i) => {
+      if (isCycleVisible(i)) els.push(...renderStrandSVG(c.points, getCycleColor(i)));
+    });
+    els.sort((a, b) => a.z - b.z);
+    return els;
+  }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors]);
+
+  const clickGap = useCallback(g => {
+    setSelGap(prev => prev === g ? null : g);
+    setShowAll(false);
+  }, []);
+
+  // Reset selection when dimensions change
+  useEffect(() => { setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); }, [W, H, nw, nh]);
+
+  const DimensionInput = ({ label, value, set, min, max }) => {
+    const [inputVal, setInputVal] = useState(String(value));
+    useEffect(() => { setInputVal(String(value)); }, [value]);
+    const handleChange = e => {
+      const str = e.target.value;
+      setInputVal(str);
+      const v = parseInt(str, 10);
+      if (!isNaN(v) && v >= min && v <= max) set(v);
+    };
+    const handleBlur = () => {
+      const v = parseInt(inputVal, 10);
+      if (isNaN(v)) setInputVal(String(value));
+      else { const clamped = Math.max(min, Math.min(max, v)); set(clamped); setInputVal(String(clamped)); }
+    };
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "#9a8e78", minWidth: 36 }}>{label}</span>
+        <input type="number" min={min} max={max} value={inputVal} onChange={handleChange} onBlur={handleBlur}
+          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+          style={{ width: 52, padding: "5px 6px", fontSize: 13, fontWeight: "bold", color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 4, textAlign: "center", fontFamily: "inherit" }} />
+      </div>
+    );
+  };
+
+  // L-shape polygon path for SVG boundary
+  const boundaryPath = useMemo(() => {
+    if (!hasNotch) {
+      return `M${toX(0)},${toY(0)} L${toX(W)},${toY(0)} L${toX(W)},${toY(H)} L${toX(0)},${toY(H)} Z`;
+    }
+    return `M${toX(0)},${toY(0)} L${toX(W-nw)},${toY(0)} L${toX(W-nw)},${toY(nh)} L${toX(W)},${toY(nh)} L${toX(W)},${toY(H)} L${toX(0)},${toY(H)} Z`;
+  }, [W, H, nw, nh, toX, toY, hasNotch]);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#16130f", color: "#e0d5c0", fontFamily: "'Palatino Linotype','Book Antiqua',Palatino,serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 12px" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 2px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
+      <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 14px" }}>L-SHAPE BILLIARD EXPLORER</p>
+
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
+        <DimensionInput label="W" value={W} set={setW} min={3} max={60} />
+        <DimensionInput label="H" value={H} set={setH} min={3} max={60} />
+        <div style={{ width: 1, height: 28, background: "#332e24" }} />
+        <DimensionInput label="Notch W" value={nw} set={v => setNw(Math.min(v, W - 1))} min={0} max={W - 1} />
+        <DimensionInput label="Notch H" value={nh} set={v => setNh(Math.min(v, H - 1))} min={0} max={H - 1} />
+        <div style={{ width: 1, height: 28, background: "#332e24" }} />
+        <div style={{ padding: "5px 14px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
+          <div style={{ fontSize: 9, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
+          <div style={{ fontSize: 22, color: "#c8a96e", fontWeight: "bold" }}>{cycles.length}</div>
+        </div>
+        <button onClick={() => { setShowAll(true); setVisibleCycles({}); setSelGap(null); }}
+          style={{ padding: "7px 14px", background: showAll ? "#c8a96e" : "transparent", color: showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+          ALL ON
+        </button>
+        <button onClick={() => { setShowAll(false); setVisibleCycles({}); setSelGap(null); }}
+          style={{ padding: "7px 14px", background: !showAll ? "#c8a96e" : "transparent", color: !showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+          ALL OFF
+        </button>
+        <button onClick={() => setShowGrid(!showGrid)}
+          style={{ padding: "7px 12px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+          GRID
+        </button>
+      </div>
+
+      {cycles.length > 0 && cycles.length <= 30 && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1, marginRight: 4 }}>STRANDS</span>
+          {cycles.map((c, i) => {
+            const vis = isCycleVisible(i);
+            const col = getCycleColor(i);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <button onClick={() => toggleCycle(i)}
+                  style={{ padding: "4px 10px", background: vis ? col : "transparent", color: vis ? "#000" : "#6a6050",
+                    border: `2px solid ${vis ? col : "#332e24"}`, borderRadius: 4, cursor: "pointer",
+                    fontSize: 12, fontWeight: "bold", fontFamily: "inherit", minWidth: 32, opacity: vis ? 1 : 0.5 }}>
+                  {i + 1}
+                </button>
+                <input type="color" value={col} onChange={e => setCycleColor(i, e.target.value)}
+                  style={{ width: 18, height: 18, border: "none", borderRadius: 3, background: "transparent", cursor: "pointer", padding: 0 }} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, color: "#6a6050", marginBottom: 8, letterSpacing: 1, textAlign: "center" }}>
+        {hasNotch ? `L(${W}×${H}, notch ${nw}×${nh})` : `Rectangle ${W}×${H}`}
+        {" — "}{cycles.length === 1 ? "Single-strand knot" : `${cycles.length}-component link`}
+        <span style={{ color: "#4a4438" }}> · {total} gaps</span>
+      </div>
+
+      <div style={{ background: bgColor, borderRadius: 6, border: "1px solid #28231b", padding: 6, boxShadow: "0 6px 28px rgba(0,0,0,0.6)" }}>
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
+          <defs>
+            <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          </defs>
+
+          {/* L-shape boundary */}
+          <path d={boundaryPath} fill="none" stroke="#2a2519" strokeWidth={1.5} />
+
+          {/* Notch area hatching to show it's removed */}
+          {hasNotch && (
+            <rect x={toX(W - nw)} y={toY(0)} width={nw * cell} height={nh * cell}
+              fill="rgba(255,255,255,0.015)" stroke="none" />
+          )}
+
+          {/* Weave grid */}
+          {showGrid && weaveLines.map((line, idx) => {
+            const { sx0, sy0, sx1, sy1, ux, uy, cuts } = line;
+            const gap = cell * 0.16;
+            const sortedCuts = [...cuts].sort((a, b) => (a.sx - sx0) * ux + (a.sy - sy0) * uy - ((b.sx - sx0) * ux + (b.sy - sy0) * uy));
+            const parts = [];
+            let cx = sx0, cy = sy0;
+            for (const cut of sortedCuts) {
+              const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
+              const proj = (gsx - cx) * ux + (gsy - cy) * uy;
+              if (proj > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${gsx.toFixed(1)},${gsy.toFixed(1)}`);
+              cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
+            }
+            const projEnd = (sx1 - cx) * ux + (sy1 - cy) * uy;
+            if (projEnd > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${sx1.toFixed(1)},${sy1.toFixed(1)}`);
+            return parts.length > 0 ? <path key={`wv${idx}`} d={parts.join(" ")} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={1} strokeLinecap="round" /> : null;
+          })}
+
+          {/* Strands */}
+          {renderElements.map((el, i) => (
+            <line key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
+              stroke={el.color} strokeWidth={el.w} strokeLinecap="butt" />
+          ))}
+
+          {/* Rounded caps at boundary endpoints */}
+          {renderElements.filter(el => el.type === 'strand' && (el.edgeStart || el.edgeEnd)).map((el, i) => {
+            const r = el.w / 2;
+            const caps = [];
+            if (el.edgeStart) caps.push(<circle key={`es${i}`} cx={el.x1} cy={el.y1} r={r} fill={el.color} />);
+            if (el.edgeEnd) caps.push(<circle key={`ee${i}`} cx={el.x2} cy={el.y2} r={r} fill={el.color} />);
+            return caps;
+          })}
+
+          {/* Gap dots */}
+          {gapDots.map(g => {
+            const sel = selGap === g.i;
+            const inA = active?.gaps.has(g.i);
+            const ci = cycles.findIndex(c => c.gaps.has(g.i));
+            const vis = ci >= 0 && isCycleVisible(ci);
+            const col = vis && ci >= 0 ? getCycleColor(ci) : hoverGap === g.i ? "#8a7e6b" : "#2e2920";
+            return (
+              <g key={`g${g.i}`}>
+                <circle cx={g.x} cy={g.y} r={gr * 1.8} fill="transparent" style={{ cursor: "pointer" }}
+                  onMouseEnter={() => setHoverGap(g.i)} onMouseLeave={() => setHoverGap(null)} onClick={() => clickGap(g.i)} />
+                <circle cx={g.x} cy={g.y} r={sel ? gr * 1.15 : gr * 0.65} fill={col} opacity={vis || sel ? 1 : 0.45}
+                  style={{ pointerEvents: "none" }} filter={sel ? "url(#glo)" : undefined} />
+                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="#c8a96e" strokeWidth={1.2} opacity={0.4} style={{ pointerEvents: "none" }} />}
+              </g>
+            );
+          })}
+
+          {hoverGap !== null && gapDots[hoverGap] && (
+            <text x={gapDots[hoverGap].x} y={gapDots[hoverGap].y - gr * 2.5}
+              textAnchor="middle" fill="#c8a96e" fontSize={11} fontFamily="inherit" style={{ pointerEvents: "none" }}>
+              gap {hoverGap}
+            </text>
+          )}
+        </svg>
+      </div>
+
+      <div style={{ marginTop: 12, maxWidth: 640, textAlign: "center", lineHeight: 1.7, fontSize: 13 }}>
+        {selGap !== null && active ? (
+          <span style={{ color: "#9a8e78" }}>
+            <b style={{ color: "#c8a96e" }}>Gap {selGap}</b> — strand visits <b style={{ color: "#c8a96e" }}>{active.gaps.size}</b> gaps
+            across <b style={{ color: "#c8a96e" }}>{active.points.length - 1}</b> diagonal segments.
+          </span>
+        ) : (
+          <span style={{ color: "#5a5244" }}>Click any gap to trace a single strand.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<CelticKnotMaker />);
+</script>
+</body>
+</html>
