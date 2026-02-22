@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Celtic Knot Maker</title>
+<title>João's Knot Maker</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -330,7 +330,7 @@ function CelticKnotMaker() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0d10", color: "#d0cabb", fontFamily: "'DM Sans','Helvetica Neue',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "16px 8px" : "28px 16px" }}>
-      <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Celtic Knot Maker</h1>
+      <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>João's Knot Maker</h1>
       <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
       <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12, padding: isMobile ? "10px 12px" : "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", maxWidth: svgW + 16 }}>
         <DimensionInput label="Width" value={W} set={setW} min={2} max={80} />
@@ -350,7 +350,7 @@ function CelticKnotMaker() {
         </button>
         <button onClick={() => {
           const url = window.location.href;
-          if (navigator.share) { navigator.share({ title: 'Celtic Knot', url }); }
+          if (navigator.share) { navigator.share({ title: 'João\'s Knot', url }); }
           else { navigator.clipboard.writeText(url).then(() => { const b = event.target; b.textContent = 'COPIED'; setTimeout(() => b.textContent = 'SHARE', 1500); }); }
         }}
           style={{ padding: "8px 16px", background: "rgba(46,125,125,0.15)", color: "#5BA8A0", border: "1px solid rgba(46,125,125,0.25)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
