@@ -429,20 +429,28 @@ function CelticKnotMaker() {
             {cycles.map((c, i) => {
               const col = getCycleColor(i);
               const isActive = !showAll && activeIdx === i;
+              const isEditing = editStrand === i;
               return (
-                <button key={i} onClick={() => {
-                  if (editStrand === i) { setEditStrand(null); return; }
-                  selectAndAnimate(i);
-                }}
-                  onDoubleClick={(e) => { e.preventDefault(); setEditStrand(editStrand === i ? null : i); }}
-                  style={{ width: sz, height: sz, borderRadius: 6, background: col, border: isActive ? "2px solid #e8dcc8" : editStrand === i ? "2px solid rgba(232,220,200,0.6)" : "2px solid transparent", cursor: "pointer", outline: isActive ? "1px solid rgba(232,220,200,0.3)" : "none", outlineOffset: 2, transition: "all 0.15s", WebkitTapHighlightColor: "transparent", position: "relative", opacity: showAll || isActive ? 1 : 0.4 }}>
+                <button key={i} onClick={() => selectAndAnimate(i)}
+                  style={{ width: sz, height: sz, borderRadius: 6, background: col, border: isActive ? "2px solid #e8dcc8" : "2px solid transparent", cursor: "pointer", outline: isActive ? "1px solid rgba(232,220,200,0.3)" : "none", outlineOffset: 2, transition: "all 0.15s", WebkitTapHighlightColor: "transparent", position: "relative", opacity: showAll || isActive ? 1 : 0.4 }}>
                   <span style={{ position: "absolute", bottom: -1, right: 2, fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{i + 1}</span>
                 </button>
               );
             })}
+            <button onClick={() => setEditStrand(editStrand !== null ? null : 0)}
+              style={{ width: sz, height: sz, borderRadius: 6, background: editStrand !== null ? "rgba(232,220,200,0.12)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", fontSize: isMobile ? 16 : 14, color: editStrand !== null ? "#e8dcc8" : "#6a6d72", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", transition: "all 0.15s" }}>
+              &#x1F3A8;
+            </button>
           </div>
           {editStrand !== null && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "12px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>MUDAR COR DO FIO</span>
+                {cycles.map((c, i) => (
+                  <button key={i} onClick={() => setEditStrand(i)}
+                    style={{ width: isMobile ? 28 : 22, height: isMobile ? 28 : 22, borderRadius: 4, background: getCycleColor(i), border: editStrand === i ? "2px solid #e8dcc8" : "2px solid transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent", transition: "all 0.12s" }} />
+                ))}
+              </div>
               <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>BARBANTE BEATRIZ</span>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center", maxWidth: isMobile ? 280 : 400 }}>
                 {JOAO.map((swatch, j) => {
@@ -453,7 +461,7 @@ function CelticKnotMaker() {
                   );
                 })}
               </div>
-              <span style={{ fontSize: 9, color: "#333740" }}>{JOAO.find(s => s.hex === getCycleColor(editStrand))?.name || ""}</span>
+              <span style={{ fontSize: 10, color: "#5a5d62" }}>{JOAO.find(s => s.hex === getCycleColor(editStrand))?.name || ""}</span>
             </div>
           )}
           {/* Animation controls - show when viewing a single circuit */}
