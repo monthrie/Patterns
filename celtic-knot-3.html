@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Celtic Knot Maker</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const { useState, useCallback, useMemo, useRef, useEffect } = React;
+
+const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+
+function gapCenter(g, W, H) {
+  const T = 2 * (W + H);
+  const i = ((g % T) + T) % T;
+  if (i < W) return { x: i + 0.5, y: 0 };
+  if (i < W + H) return { x: W, y: i - W + 0.5 };
+  if (i < 2 * W + H) return { x: W - (i - W - H) - 0.5, y: H };
+  return { x: 0, y: H - (i - 2 * W - H) - 0.5 };
+}
+
+function tracePath(startGap, W, H) {
+  const EPS = 1e-9;
+  const sc = gapCenter(startGap, W, H);
+  const pts = [{ x: sc.x, y: sc.y }];
+  let dx, dy;
+  if (Math.abs(sc.y) < EPS) { dx = 1; dy = 1; }
+  else if (Math.abs(sc.x - W) < EPS) { dx = -1; dy = 1; }
+  else if (Math.abs(sc.y - H) < EPS) { dx = -1; dy = -1; }
+  else { dx = 1; dy = -1; }
+  let x = sc.x, y = sc.y;
+  for (let iter = 0; iter < 4 * (W + H); iter++) {
+    const cands = [];
+    if (dx > 0) cands.push((W - x) / dx);
+    if (dx < 0) cands.push(-x / dx);
+    if (dy > 0) cands.push((H - y) / dy);
+    if (dy < 0) cands.push(-y / dy);
+    const t = Math.min(...cands.filter(v => v > EPS));
+    x += dx * t; y += dy * t;
+    x = Math.round(x * 1e6) / 1e6; y = Math.round(y * 1e6) / 1e6;
+    x = Math.max(0, Math.min(W, x)); y = Math.max(0, Math.min(H, y));
+    pts.push({ x, y });
+    if (pts.length > 2 && Math.abs(x - sc.x) < 0.01 && Math.abs(y - sc.y) < 0.01) break;
+    const hL = x < EPS, hR = Math.abs(x - W) < EPS, hT = y < EPS, hB = Math.abs(y - H) < EPS;
+    if ((hL || hR) && (hT || hB)) { dx = -dx; dy = -dy; }
+    else if (hL || hR) dx = -dx;
+    else if (hT || hB) dy = -dy;
+  }
+  return pts;
+}
+
+function pointToGap(x, y, W, H) {
+  const E = 0.05;
+  if (Math.abs(y) < E && x > E && x < W - E) return Math.round(x - 0.5);
+  if (Math.abs(x - W) < E && y > E && y < H - E) return W + Math.round(y - 0.5);
+  if (Math.abs(y - H) < E && x > E && x < W - E) return W + H + Math.round(W - x - 0.5);
+  if (Math.abs(x) < E && y > E && y < H - E) return 2 * W + H + Math.round(H - y - 0.5);
+  return -1;
+}
+
+function getAllCycles(W, H) {
+  const T = 2 * (W + H), vis = new Set(), cycles = [];
+  for (let g = 0; g < T; g++) {
+    if (vis.has(g)) continue;
+    const pts = tracePath(g, W, H);
+    const gaps = new Set();
+    for (const p of pts) { const gi = pointToGap(p.x, p.y, W, H); if (gi >= 0) { gaps.add(gi); vis.add(gi); } }
+    cycles.push({ startGap: g, points: pts, gaps });
+  }
+  return cycles;
+}
+
+function getSegmentCrossings(p1, p2, W, H) {
+  const crossings = [];
+  const sdx = Math.sign(p2.x - p1.x);
+  const sdy = Math.sign(p2.y - p1.y);
+  if (sdx === 0 || sdy === 0) return crossings;
+  const isBackslash = (sdx * sdy > 0);
+  const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+  for (let ix = Math.ceil(minX + 0.01); ix <= Math.floor(maxX - 0.01); ix++) {
+    const t = (ix - p1.x) / (p2.x - p1.x);
+    const iy = p1.y + (p2.y - p1.y) * t;
+    const iyR = Math.round(iy);
+    if (Math.abs(iy - iyR) < 0.01 && iyR >= 1 && iyR <= H - 1 && ix >= 1 && ix <= W - 1) {
+      const ki = iyR - ix;
+      const mi = iyR + ix;
+      const bsOver = (ki + mi + W) % 2 === 0;
+      const isOver = isBackslash ? bsOver : !bsOver;
+      crossings.push({ x: ix, y: iyR, isOver, t });
+    }
+  }
+  crossings.sort((a, b) => a.t - b.t);
+  return crossings;
+}
+
+const COLORS = [
+  "#d4a843", "#4ea87a", "#c85840", "#4880b8",
+  "#a068c0", "#d08040", "#308888", "#c06080",
+  "#889038", "#7060b8", "#c88858", "#388860",
+];
+
+function CelticKnotMaker() {
+  const [W, setW] = useState(5);
+  const [H, setH] = useState(3);
+  const [selGap, setSelGap] = useState(null);
+  const [showAll, setShowAll] = useState(true);
+  const [hoverGap, setHoverGap] = useState(null);
+  const [showGrid, setShowGrid] = useState(true);
+
+  const svgW = 800, svgH = 540, pad = 56;
+  const cell = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H);
+  const ox = (svgW - W * cell) / 2, oy = (svgH - H * cell) / 2;
+  const total = 2 * (W + H);
+  const nCyc = gcd(W, H);
+
+  const cycles = useMemo(() => getAllCycles(W, H), [W, H]);
+  const active = useMemo(() => selGap !== null ? cycles.find(c => c.gaps.has(selGap)) : null, [selGap, cycles]);
+  const activeIdx = useMemo(() => selGap !== null ? cycles.findIndex(c => c.gaps.has(selGap)) : -1, [selGap, cycles]);
+
+  const toX = useCallback(x => ox + x * cell, [ox, cell]);
+  const toY = useCallback(y => oy + y * cell, [oy, cell]);
+
+  const gapDots = useMemo(() => {
+    const a = [];
+    for (let i = 0; i < total; i++) { const c = gapCenter(i, W, H); a.push({ i, x: toX(c.x), y: toY(c.y) }); }
+    return a;
+  }, [W, H, total, toX, toY]);
+
+  const gr = Math.max(5, cell * 0.13);
+  const sw = Math.max(3, cell * 0.08);
+  const gapPx = cell * 0.2;
+  const bgColor = "#110f0b";
+
+  const weaveLines = useMemo(() => {
+    const lines = [];
+    for (let k = -W; k <= H; k++) {
+      const kVal = k + 0.5;
+      const x0 = Math.max(0, -kVal), x1 = Math.min(W, H - kVal);
+      if (x0 >= x1) continue;
+      const sx0 = toX(x0), sy0 = toY(x0 + kVal);
+      const sx1 = toX(x1), sy1 = toY(x1 + kVal);
+      const dx = sx1 - sx0, dy = sy1 - sy0;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const ux = dx / len, uy = dy / len;
+      const ki = k;
+      const cuts = [];
+      for (let m = -1; m <= W + H; m++) {
+        const mVal = m + 0.5;
+        const ix = (mVal - kVal) / 2;
+        const iy = (mVal + kVal) / 2;
+        if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < H - 0.01) {
+          const mi = m;
+          if ((ki + mi + W) % 2 === 1) {
+            cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      }
+      lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts, family: 'bs' });
+    }
+    for (let m = 0; m <= W + H - 1; m++) {
+      const mVal = m + 0.5;
+      const x0 = Math.max(0, mVal - H), x1 = Math.min(W, mVal);
+      if (x0 >= x1) continue;
+      const sx0 = toX(x0), sy0 = toY(mVal - x0);
+      const sx1 = toX(x1), sy1 = toY(mVal - x1);
+      const dx = sx1 - sx0, dy = sy1 - sy0;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const ux = dx / len, uy = dy / len;
+      const mi = m;
+      const cuts = [];
+      for (let k = -W; k <= H; k++) {
+        const kVal = k + 0.5;
+        const ix = (mVal - kVal) / 2;
+        const iy = (mVal + kVal) / 2;
+        if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < H - 0.01) {
+          const ki = k;
+          if ((ki + mi + W) % 2 === 0) {
+            cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      }
+      lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts, family: 'fs' });
+    }
+    return lines;
+  }, [W, H, cell, toX, toY]);
+
+  function renderStrandSVG(pts, color, isActive) {
+    const elements = [];
+    const lineW = isActive ? sw * 1.2 : sw;
+    const gap = cell * 0.16;
+    for (let seg = 0; seg < pts.length - 1; seg++) {
+      const p1 = pts[seg], p2 = pts[seg + 1];
+      const sx1 = toX(p1.x), sy1 = toY(p1.y);
+      const sx2 = toX(p2.x), sy2 = toY(p2.y);
+      const dx = sx2 - sx1, dy = sy2 - sy1;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.5) continue;
+      const ux = dx / len, uy = dy / len;
+      const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      if (sdx === 0 || sdy === 0) {
+        elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2 });
+        continue;
+      }
+      const isBS = (sdx === sdy);
+      const cuts = [];
+      const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      if (isBS) {
+        const kVal = p1.y - p1.x;
+        const ki = Math.round(kVal - 0.5);
+        for (let mi = -1; mi <= W + H; mi++) {
+          const mVal = mi + 0.5;
+          const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
+            if ((ki + mi + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      } else {
+        const mVal = p1.y + p1.x;
+        const mi = Math.round(mVal - 0.5);
+        for (let ki = -W; ki <= H; ki++) {
+          const kVal2 = ki + 0.5;
+          const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
+            if ((ki + mi + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          }
+        }
+      }
+      cuts.sort((a, b) => (a.sx - sx1) * ux + (a.sy - sy1) * uy - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
+      let cx = sx1, cy = sy1;
+      for (const cut of cuts) {
+        const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
+        const proj = (gsx - cx) * ux + (gsy - cy) * uy;
+        if (proj > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: gsx, y2: gsy, color, w: lineW, z: 2 });
+        cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
+      }
+      const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
+      if (projEnd > 0.5) elements.push({ type: 'strand', x1: cx, y1: cy, x2: sx2, y2: sy2, color, w: lineW, z: 2 });
+    }
+    return elements;
+  }
+
+  const renderElements = useMemo(() => {
+    const els = [];
+    const cyclesToRender = showAll
+      ? cycles.map((c, i) => ({ ...c, color: COLORS[i % COLORS.length], isActive: false }))
+      : activeIdx >= 0
+        ? [{ ...cycles[activeIdx], color: "#c8a96e", isActive: true }]
+        : [];
+    for (const c of cyclesToRender) {
+      els.push(...renderStrandSVG(c.points, c.color, c.isActive));
+    }
+    els.sort((a, b) => a.z - b.z);
+    return els;
+  }, [cycles, showAll, activeIdx, W, H, cell, toX, toY, sw, gapPx]);
+
+  const clickGap = useCallback(g => {
+    setSelGap(prev => prev === g ? null : g);
+    setShowAll(false);
+  }, []);
+
+  const DimensionInput = ({ label, value, set, min, max }) => {
+    const [inputVal, setInputVal] = useState(String(value));
+    useEffect(() => { setInputVal(String(value)); }, [value]);
+    const handleChange = e => {
+      const str = e.target.value;
+      setInputVal(str);
+      const v = parseInt(str, 10);
+      if (!isNaN(v) && v >= min && v <= max) { set(v); setSelGap(null); setShowAll(true); }
+    };
+    const handleBlur = () => {
+      const v = parseInt(inputVal, 10);
+      if (isNaN(v)) { setInputVal(String(value)); }
+      else { const clamped = Math.max(min, Math.min(max, v)); set(clamped); setInputVal(String(clamped)); setSelGap(null); setShowAll(true); }
+    };
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 13, color: "#9a8e78", minWidth: 44 }}>{label}</span>
+        <input type="number" min={min} max={max} value={inputVal} onChange={handleChange} onBlur={handleBlur}
+          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+          style={{ width: 56, padding: "6px 8px", fontSize: 14, fontWeight: "bold", color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 4, textAlign: "center", fontFamily: "inherit" }} />
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#16130f", color: "#e0d5c0", fontFamily: "'Palatino Linotype','Book Antiqua',Palatino,serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 12px" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 2px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
+      <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 18px" }}>RECTANGULAR TORUS LINK EXPLORER</p>
+      <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
+        <DimensionInput label="Width" value={W} set={setW} min={2} max={20} />
+        <DimensionInput label="Height" value={H} set={setH} min={2} max={14} />
+        <div style={{ padding: "6px 16px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
+          <div style={{ fontSize: 24, color: "#c8a96e", fontWeight: "bold" }}>{nCyc}</div>
+          <div style={{ fontSize: 10, color: "#4a4438" }}>gcd({W},{H})</div>
+        </div>
+        <button onClick={() => { setShowAll(!showAll); setSelGap(null); }}
+          style={{ padding: "8px 18px", background: showAll ? "#c8a96e" : "transparent", color: showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 12, letterSpacing: 1, fontFamily: "inherit" }}>
+          {showAll ? "SHOWING ALL" : "SHOW ALL CYCLES"}
+        </button>
+        <button onClick={() => setShowGrid(!showGrid)}
+          style={{ padding: "8px 14px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 12, letterSpacing: 1, fontFamily: "inherit" }}>
+          {showGrid ? "GRID" : "GRID"}
+        </button>
+      </div>
+      <div style={{ fontSize: 13, color: "#6a6050", marginBottom: 10, letterSpacing: 1, textAlign: "center" }}>
+        T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
+        <span style={{ color: "#4a4438" }}> · {total} gaps</span>
+      </div>
+      <div style={{ background: bgColor, borderRadius: 6, border: "1px solid #28231b", padding: 6, boxShadow: "0 6px 28px rgba(0,0,0,0.6)" }}>
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
+          <defs>
+            <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          </defs>
+          <rect x={ox} y={oy} width={W * cell} height={H * cell} fill="none" stroke="#2a2519" strokeWidth={1.5} />
+          {showGrid && weaveLines.map((line, idx) => {
+            const { sx0, sy0, sx1, sy1, ux, uy, cuts } = line;
+            const gap = cell * 0.16;
+            const sortedCuts = [...cuts].sort((a, b) => (a.sx - sx0) * ux + (a.sy - sy0) * uy - ((b.sx - sx0) * ux + (b.sy - sy0) * uy));
+            const parts = [];
+            let cx = sx0, cy = sy0;
+            for (const cut of sortedCuts) {
+              const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
+              const proj = (gsx - cx) * ux + (gsy - cy) * uy;
+              if (proj > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${gsx.toFixed(1)},${gsy.toFixed(1)}`);
+              cx = cut.sx + ux * gap; cy = cut.sy + uy * gap;
+            }
+            const projEnd = (sx1 - cx) * ux + (sy1 - cy) * uy;
+            if (projEnd > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${sx1.toFixed(1)},${sy1.toFixed(1)}`);
+            return parts.length > 0 ? <path key={`wv${idx}`} d={parts.join(" ")} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={1} strokeLinecap="round" /> : null;
+          })}
+          {renderElements.map((el, i) => (
+            <line key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
+              stroke={el.type === 'border' ? bgColor : el.color} strokeWidth={el.w} strokeLinecap="round"
+              filter={el.type === 'strand' && el.z === 3 ? "url(#glo)" : undefined} />
+          ))}
+          {gapDots.map(g => {
+            const sel = selGap === g.i;
+            const inA = active?.gaps.has(g.i);
+            const ci = showAll ? cycles.findIndex(c => c.gaps.has(g.i)) : -1;
+            const col = showAll && ci >= 0 ? COLORS[ci % COLORS.length] : sel ? "#c8a96e" : inA ? "#c8a96e" : hoverGap === g.i ? "#8a7e6b" : "#2e2920";
+            return (
+              <g key={`g${g.i}`}>
+                <circle cx={g.x} cy={g.y} r={gr * 1.8} fill="transparent" style={{ cursor: "pointer" }}
+                  onMouseEnter={() => setHoverGap(g.i)} onMouseLeave={() => setHoverGap(null)} onClick={() => clickGap(g.i)} />
+                <circle cx={g.x} cy={g.y} r={sel ? gr * 1.15 : gr * 0.65} fill={col} opacity={sel || inA || showAll ? 1 : 0.45}
+                  style={{ pointerEvents: "none" }} filter={sel ? "url(#glo)" : undefined} />
+                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="#c8a96e" strokeWidth={1.2} opacity={0.4} style={{ pointerEvents: "none" }} />}
+              </g>
+            );
+          })}
+          {hoverGap !== null && (
+            <text x={gapDots[hoverGap].x} y={gapDots[hoverGap].y - gr * 2.5}
+              textAnchor="middle" fill="#c8a96e" fontSize={11} fontFamily="inherit" style={{ pointerEvents: "none" }}>
+              gap {hoverGap}
+            </text>
+          )}
+        </svg>
+      </div>
+      <div style={{ marginTop: 14, maxWidth: 640, textAlign: "center", lineHeight: 1.7, fontSize: 14 }}>
+        {selGap !== null && active ? (
+          <span style={{ color: "#9a8e78" }}>
+            <b style={{ color: "#c8a96e" }}>Gap {selGap}</b> — strand visits <b style={{ color: "#c8a96e" }}>{active.gaps.size}</b> gaps
+            across <b style={{ color: "#c8a96e" }}>{active.points.length - 1}</b> diagonal segments.
+          </span>
+        ) : (
+          <span style={{ color: "#5a5244" }}>Click any gap to trace a single strand.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<CelticKnotMaker />);
+</script>
+</body>
+</html>
