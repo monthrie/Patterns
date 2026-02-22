@@ -6,7 +6,10 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500&display=swap');
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -99,9 +102,9 @@ function getSegmentCrossings(p1, p2, W, H) {
 }
 
 const COLORS = [
-  "#d4a843", "#4ea87a", "#c85840", "#4880b8",
-  "#a068c0", "#d08040", "#308888", "#c06080",
-  "#889038", "#7060b8", "#c88858", "#388860",
+  "#2E7D7D", "#B5541C", "#3D5A80", "#D4A017",
+  "#8B2E52", "#6B8E6B", "#5B8DB8", "#C25476",
+  "#C8804A", "#4A7C5E", "#A67C3C", "#5BA8A0",
 ];
 
 function CelticKnotMaker() {
@@ -135,7 +138,7 @@ function CelticKnotMaker() {
   const gr = Math.max(5, cell * 0.13);
   const sw = cell * 0.707;
   const gapPx = cell * 0.2;
-  const bgColor = "#110f0b";
+  const bgColor = "#0c0f12";
 
   const weaveLines = useMemo(() => {
     const lines = [];
@@ -289,57 +292,57 @@ function CelticKnotMaker() {
     };
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 13, color: "#9a8e78", minWidth: 44 }}>{label}</span>
+        <span style={{ fontSize: 11, color: "#6a6d72", minWidth: 44, letterSpacing: 1, fontWeight: 500 }}>{label}</span>
         <input type="number" min={min} max={max} value={inputVal} onChange={handleChange} onBlur={handleBlur}
           onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-          style={{ width: 56, padding: "6px 8px", fontSize: 14, fontWeight: "bold", color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 4, textAlign: "center", fontFamily: "inherit" }} />
+          style={{ width: 56, padding: "6px 8px", fontSize: 14, fontWeight: 500, color: "#e8dcc8", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, textAlign: "center", fontFamily: "inherit" }} />
       </div>
     );
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#16130f", color: "#e0d5c0", fontFamily: "'Palatino Linotype','Book Antiqua',Palatino,serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 12px" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 2px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
-      <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 18px" }}>RECTANGULAR TORUS LINK EXPLORER</p>
-      <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
+    <div style={{ minHeight: "100vh", background: "#0a0d10", color: "#d0cabb", fontFamily: "'DM Sans','Helvetica Neue',sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "28px 16px" }}>
+      <h1 style={{ fontSize: 32, fontWeight: 300, letterSpacing: 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Celtic Knot Maker</h1>
+      <p style={{ fontSize: 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 24px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
+      <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 16, padding: "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
         <DimensionInput label="Width" value={W} set={setW} min={2} max={80} />
         <DimensionInput label="Height" value={H} set={setH} min={2} max={80} />
-        <div style={{ padding: "6px 16px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
-          <div style={{ fontSize: 10, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
-          <div style={{ fontSize: 24, color: "#c8a96e", fontWeight: "bold" }}>{nCyc}</div>
-          <div style={{ fontSize: 10, color: "#4a4438" }}>gcd({W},{H})</div>
+        <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, background: "rgba(255,255,255,0.02)", textAlign: "center" }}>
+          <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>STRANDS</div>
+          <div style={{ fontSize: 26, color: "#e8dcc8", fontWeight: 300, fontFamily: "'Cormorant Garamond',serif" }}>{nCyc}</div>
+          <div style={{ fontSize: 9, color: "#333740" }}>gcd({W},{H})</div>
         </div>
         <button onClick={() => { setShowAll(!showAll); setSelGap(null); }}
-          style={{ padding: "8px 18px", background: showAll ? "#c8a96e" : "transparent", color: showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 12, letterSpacing: 1, fontFamily: "inherit" }}>
-          {showAll ? "SHOWING ALL" : "SHOW ALL CYCLES"}
+          style={{ padding: "8px 20px", background: showAll ? "rgba(232,220,200,0.12)" : "transparent", color: showAll ? "#e8dcc8" : "#6a6d72", border: "1px solid rgba(232,220,200,0.15)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
+          {showAll ? "SHOWING ALL" : "SHOW ALL"}
         </button>
         <button onClick={() => setShowGrid(!showGrid)}
-          style={{ padding: "8px 14px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 12, letterSpacing: 1, fontFamily: "inherit" }}>
-          {showGrid ? "GRID" : "GRID"}
+          style={{ padding: "8px 16px", background: showGrid ? "rgba(255,255,255,0.04)" : "transparent", color: showGrid ? "#7a7d82" : "#3a3d42", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, cursor: "pointer", fontSize: 11, letterSpacing: 2, fontFamily: "inherit", fontWeight: 500, transition: "all 0.2s" }}>
+          GRID
         </button>
       </div>
       {cycles.length > 0 && (
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 11, color: "#6a6050", letterSpacing: 1 }}>STRAND COLORS</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 10, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>COLOURS</span>
           {cycles.map((c, i) => (
-            <label key={i} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-              <span style={{ fontSize: 12, color: "#9a8e78" }}>{i + 1}</span>
+            <label key={i} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
+              <span style={{ fontSize: 11, color: "#5a5d62" }}>{i + 1}</span>
               <input type="color" value={getCycleColor(i)} onChange={e => setCycleColor(i, e.target.value)}
-                style={{ width: 28, height: 28, border: "1px solid #332e24", borderRadius: 4, background: "transparent", cursor: "pointer", padding: 0 }} />
+                style={{ width: 26, height: 26, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 50, background: "transparent", cursor: "pointer", padding: 0 }} />
             </label>
           ))}
         </div>
       )}
-      <div style={{ fontSize: 13, color: "#6a6050", marginBottom: 10, letterSpacing: 1, textAlign: "center" }}>
+      <div style={{ fontSize: 12, color: "#3a3d42", marginBottom: 12, letterSpacing: 1, textAlign: "center" }}>
         T({W},{H}) — {nCyc === 1 ? "Single-strand knot" : `${nCyc}-component link`}
-        <span style={{ color: "#4a4438" }}> · {total} gaps</span>
+        <span style={{ color: "#2a2d32" }}> · {total} gaps</span>
       </div>
-      <div style={{ background: bgColor, borderRadius: 6, border: "1px solid #28231b", padding: 6, boxShadow: "0 6px 28px rgba(0,0,0,0.6)" }}>
+      <div style={{ background: bgColor, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", padding: 8, boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02)" }}>
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
           <defs>
             <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
           </defs>
-          <rect x={ox} y={oy} width={W * cell} height={H * cell} fill="none" stroke="#2a2519" strokeWidth={1.5} />
+          <rect x={ox} y={oy} width={W * cell} height={H * cell} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
           {showGrid && weaveLines.map((line, idx) => {
             const { sx0, sy0, sx1, sy1, ux, uy, cuts } = line;
             const gap = cell * 0.16;
@@ -372,33 +375,33 @@ function CelticKnotMaker() {
             const sel = selGap === g.i;
             const inA = active?.gaps.has(g.i);
             const ci = showAll ? cycles.findIndex(c => c.gaps.has(g.i)) : -1;
-            const col = showAll && ci >= 0 ? getCycleColor(ci) : sel ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : inA ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : hoverGap === g.i ? "#8a7e6b" : "#2e2920";
+            const col = showAll && ci >= 0 ? getCycleColor(ci) : sel ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : inA ? getCycleColor(activeIdx >= 0 ? activeIdx : 0) : hoverGap === g.i ? "#5a5d62" : "#1a1d22";
             return (
               <g key={`g${g.i}`}>
                 <circle cx={g.x} cy={g.y} r={gr * 1.8} fill="transparent" style={{ cursor: "pointer" }}
                   onMouseEnter={() => setHoverGap(g.i)} onMouseLeave={() => setHoverGap(null)} onClick={() => clickGap(g.i)} />
                 <circle cx={g.x} cy={g.y} r={sel ? gr * 1.15 : gr * 0.65} fill={col} opacity={sel || inA || showAll ? 1 : 0.45}
                   style={{ pointerEvents: "none" }} filter={sel ? "url(#glo)" : undefined} />
-                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="#c8a96e" strokeWidth={1.2} opacity={0.4} style={{ pointerEvents: "none" }} />}
+                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="#e8dcc8" strokeWidth={1} opacity={0.3} style={{ pointerEvents: "none" }} />}
               </g>
             );
           })}
           {hoverGap !== null && (
             <text x={gapDots[hoverGap].x} y={gapDots[hoverGap].y - gr * 2.5}
-              textAnchor="middle" fill="#c8a96e" fontSize={11} fontFamily="inherit" style={{ pointerEvents: "none" }}>
+              textAnchor="middle" fill="#e8dcc8" fontSize={10} fontFamily="'DM Sans',sans-serif" opacity={0.7} style={{ pointerEvents: "none" }}>
               gap {hoverGap}
             </text>
           )}
         </svg>
       </div>
-      <div style={{ marginTop: 14, maxWidth: 640, textAlign: "center", lineHeight: 1.7, fontSize: 14 }}>
+      <div style={{ marginTop: 16, maxWidth: 640, textAlign: "center", lineHeight: 1.8, fontSize: 13 }}>
         {selGap !== null && active ? (
-          <span style={{ color: "#9a8e78" }}>
-            <b style={{ color: "#c8a96e" }}>Gap {selGap}</b> — strand visits <b style={{ color: "#c8a96e" }}>{active.gaps.size}</b> gaps
-            across <b style={{ color: "#c8a96e" }}>{active.points.length - 1}</b> diagonal segments.
+          <span style={{ color: "#6a6d72" }}>
+            <b style={{ color: "#e8dcc8", fontWeight: 500 }}>Gap {selGap}</b> — strand visits <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.gaps.size}</b> gaps
+            across <b style={{ color: "#e8dcc8", fontWeight: 500 }}>{active.points.length - 1}</b> diagonal segments.
           </span>
         ) : (
-          <span style={{ color: "#5a5244" }}>Click any gap to trace a single strand.</span>
+          <span style={{ color: "#3a3d42" }}>Click any gap to trace a single strand.</span>
         )}
       </div>
     </div>
