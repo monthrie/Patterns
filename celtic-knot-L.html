@@ -176,6 +176,24 @@ function getAllCycles(W, H, nw, nh) {
     }
     cycles.push({ startGap: g, points: pts, gaps });
   }
+  // Reorder so the cycle nearest the bottom-right corner (W,H) comes first
+  // Find the gap closest to (W, H) — that's the corner between right edge and bottom edge
+  const hasNotch = nw > 0 && nh > 0;
+  // Bottom-right corner gap: last gap on right edge (closest to y=H) or first gap on bottom edge (closest to x=W)
+  const brGaps = [];
+  // Right edge last gap: x=W, y = H - 0.5
+  const rightLastGap = pointToGap(W, H - 0.5, W, H, nw, nh);
+  if (rightLastGap >= 0) brGaps.push(rightLastGap);
+  // Bottom edge first gap: x = W - 0.5, y = H
+  const bottomFirstGap = pointToGap(W - 0.5, H, W, H, nw, nh);
+  if (bottomFirstGap >= 0) brGaps.push(bottomFirstGap);
+  if (brGaps.length > 0) {
+    const brIdx = cycles.findIndex(c => brGaps.some(g => c.gaps.has(g)));
+    if (brIdx > 0) {
+      const [brCycle] = cycles.splice(brIdx, 1);
+      cycles.unshift(brCycle);
+    }
+  }
   return cycles;
 }
 
@@ -194,16 +212,24 @@ function subtractInterval(a0, a1, b0, b1) {
 }
 
 function CelticKnotMaker() {
-  const [W, setW] = useState(16);
-  const [H, setH] = useState(10);
-  const [nw, setNw] = useState(8);
-  const [nh, setNh] = useState(5);
+  // User inputs NAILS (displayed), internally we use SPACES (nails - 1)
+  const [nailsW, setNailsW] = useState(19);
+  const [nailsH, setNailsH] = useState(11);
+  const [nailsNw, setNailsNw] = useState(11);
+  const [nailsNh, setNailsNh] = useState(3);
+  const W = nailsW - 1;
+  const H = nailsH - 1;
+  const nw = nailsNw <= 1 ? 0 : Math.min(nailsNw - 1, W - 1);
+  const nh = nailsNh <= 1 ? 0 : Math.min(nailsNh - 1, H - 1);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
   const [cycleColors, setCycleColors] = useState({});
   const [visibleCycles, setVisibleCycles] = useState({}); // {index: bool} toggle map
+  const [animate, setAnimate] = useState(true);
+  const [animProgress, setAnimProgress] = useState({}); // {cycleIdx: segCount} — how many segments revealed
+  const animRef = useRef(null);
 
   const hasNotch = nw > 0 && nh > 0;
   const svgW = 800, svgH = 560, pad = 56;
@@ -315,7 +341,33 @@ function CelticKnotMaker() {
     return false;
   }
 
-  function renderStrandSVG(pts, color) {
+  // Build a map of which crossing points each cycle occupies, tagged by diagonal family
+  const crossingMap = useMemo(() => {
+    const map = new Map(); // key "ix,iy" → {bs: Set<cycleIdx>, fs: Set<cycleIdx>}
+    cycles.forEach((cycle, ci) => {
+      const pts = cycle.points;
+      for (let seg = 0; seg < pts.length - 1; seg++) {
+        const p1 = pts[seg], p2 = pts[seg + 1];
+        const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+        if (sdx === 0 || sdy === 0) continue;
+        const isBS = (sdx === sdy);
+        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+        for (let ix = Math.ceil(minX + 0.01); ix <= Math.floor(maxX - 0.01); ix++) {
+          const t = (ix - p1.x) / (p2.x - p1.x);
+          const iy = Math.round(p1.y + (p2.y - p1.y) * t);
+          if (isInteriorCrossing(ix, iy, W, H, nw, nh)) {
+            const key = `${ix},${iy}`;
+            if (!map.has(key)) map.set(key, { bs: new Set(), fs: new Set() });
+            const entry = map.get(key);
+            if (isBS) entry.bs.add(ci); else entry.fs.add(ci);
+          }
+        }
+      }
+    });
+    return map;
+  }, [cycles, W, H, nw, nh]);
+
+  function renderStrandSVG(pts, color, cycleIdx, visibleSet) {
     const elements = [];
     const lineW = sw;
     const gap = sw / 2;
@@ -343,8 +395,16 @@ function CelticKnotMaker() {
         for (let mi = -1; mi <= W + H; mi++) {
           const mVal = mi + 0.5;
           const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
-            if ((ki + mi + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          const ixR = Math.round(ix), iyR = Math.round(iy);
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(ixR, iyR, W, H, nw, nh)) {
+            if ((ki + mi + W) % 2 === 1) {
+              // This BS strand goes under here — only cut if a visible strand is on the FS at this point
+              const entry = crossingMap.get(`${ixR},${iyR}`);
+              if (entry) {
+                const hasVisibleOver = [...entry.fs].some(ci => ci !== cycleIdx && visibleSet.has(ci));
+                if (hasVisibleOver) cuts.push({ sx: toX(ix), sy: toY(iy) });
+              }
+            }
           }
         }
       } else {
@@ -353,8 +413,16 @@ function CelticKnotMaker() {
         for (let ki = -W; ki <= H; ki++) {
           const kVal2 = ki + 0.5;
           const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), W, H, nw, nh)) {
-            if ((ki + mi + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
+          const ixR = Math.round(ix), iyR = Math.round(iy);
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(ixR, iyR, W, H, nw, nh)) {
+            if ((ki + mi + W) % 2 === 0) {
+              // This FS strand goes under here — only cut if a visible strand is on the BS at this point
+              const entry = crossingMap.get(`${ixR},${iyR}`);
+              if (entry) {
+                const hasVisibleOver = [...entry.bs].some(ci => ci !== cycleIdx && visibleSet.has(ci));
+                if (hasVisibleOver) cuts.push({ sx: toX(ix), sy: toY(iy) });
+              }
+            }
           }
         }
       }
@@ -383,17 +451,67 @@ function CelticKnotMaker() {
   }, [showAll, visibleCycles]);
 
   const toggleCycle = useCallback((i) => {
-    setVisibleCycles(prev => ({ ...prev, [i]: !isCycleVisible(i) }));
-  }, [isCycleVisible]);
+    const willBeVisible = !isCycleVisible(i);
+    setVisibleCycles(prev => ({ ...prev, [i]: willBeVisible }));
+    if (willBeVisible && animate) {
+      animStartTime.current[i] = performance.now();
+      setAnimProgress(prev => ({ ...prev, [i]: 0 }));
+    } else if (willBeVisible) {
+      // No animation — show all segments immediately
+      setAnimProgress(prev => ({ ...prev, [i]: Infinity }));
+    }
+  }, [isCycleVisible, animate]);
+
+  // Animation tick — time-based, ~1.5s per full cycle
+  const animStartTime = useRef({});
+  useEffect(() => {
+    if (!animate) return;
+    let animating = false;
+    cycles.forEach((c, i) => {
+      if (isCycleVisible(i) && (animProgress[i] ?? Infinity) < c.points.length - 1) {
+        animating = true;
+        if (animStartTime.current[i] == null) animStartTime.current[i] = performance.now();
+      }
+    });
+    if (!animating) return;
+    const id = requestAnimationFrame((now) => {
+      setAnimProgress(prev => {
+        const next = { ...prev };
+        cycles.forEach((c, i) => {
+          const total = c.points.length - 1;
+          if (isCycleVisible(i) && (prev[i] ?? Infinity) < total) {
+            const elapsed = (now - (animStartTime.current[i] ?? now)) / 1000;
+            const duration = Math.max(1.5, total * 0.04); // at least 1.5s, longer for complex strands
+            const frac = Math.min(elapsed / duration, 1);
+            next[i] = Math.floor(frac * total);
+            if (frac >= 1) { next[i] = total; delete animStartTime.current[i]; }
+          }
+        });
+        return next;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [animate, animProgress, cycles, isCycleVisible]);
+
+  // Get the visible portion of a cycle's points based on animation progress
+  const getVisiblePoints = useCallback((cycleIdx) => {
+    const pts = cycles[cycleIdx].points;
+    const prog = animProgress[cycleIdx] ?? Infinity;
+    if (prog >= pts.length - 1) return pts;
+    return pts.slice(0, prog + 1);
+  }, [cycles, animProgress]);
 
   const renderElements = useMemo(() => {
+    const visibleSet = new Set();
+    cycles.forEach((c, i) => { if (isCycleVisible(i)) visibleSet.add(i); });
     const els = [];
-    cycles.forEach((c, i) => {
-      if (isCycleVisible(i)) els.push(...renderStrandSVG(c.points, getCycleColor(i)));
-    });
+    for (const i of visibleSet) {
+      const pts = getVisiblePoints(i);
+      els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet));
+    }
     els.sort((a, b) => a.z - b.z);
     return els;
-  }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors]);
+  }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors, crossingMap, animProgress, getVisiblePoints]);
 
   const clickGap = useCallback(g => {
     setSelGap(prev => prev === g ? null : g);
@@ -401,7 +519,7 @@ function CelticKnotMaker() {
   }, []);
 
   // Reset selection when dimensions change
-  useEffect(() => { setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); }, [W, H, nw, nh]);
+  useEffect(() => { setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); setAnimProgress({}); }, [nailsW, nailsH, nailsNw, nailsNh]);
 
   const DimensionInput = ({ label, value, set, min, max }) => {
     const [inputVal, setInputVal] = useState(String(value));
@@ -419,7 +537,7 @@ function CelticKnotMaker() {
     };
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 12, color: "#9a8e78", minWidth: 36 }}>{label}</span>
+        <span style={{ fontSize: 12, color: "#9a8e78", minWidth: 50 }}>{label}</span>
         <input type="number" min={min} max={max} value={inputVal} onChange={handleChange} onBlur={handleBlur}
           onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
           style={{ width: 52, padding: "5px 6px", fontSize: 13, fontWeight: "bold", color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 4, textAlign: "center", fontFamily: "inherit" }} />
@@ -441,23 +559,27 @@ function CelticKnotMaker() {
       <p style={{ fontSize: 11, color: "#6a6050", letterSpacing: 2, margin: "0 0 14px" }}>L-SHAPE BILLIARD EXPLORER</p>
 
       <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
-        <DimensionInput label="W" value={W} set={setW} min={3} max={60} />
-        <DimensionInput label="H" value={H} set={setH} min={3} max={60} />
+        <DimensionInput label="W nails" value={nailsW} set={setNailsW} min={4} max={61} />
+        <DimensionInput label="H nails" value={nailsH} set={setNailsH} min={4} max={61} />
         <div style={{ width: 1, height: 28, background: "#332e24" }} />
-        <DimensionInput label="Notch W" value={nw} set={v => setNw(Math.min(v, W - 1))} min={0} max={W - 1} />
-        <DimensionInput label="Notch H" value={nh} set={v => setNh(Math.min(v, H - 1))} min={0} max={H - 1} />
+        <DimensionInput label="Cut W" value={nailsNw} set={v => setNailsNw(Math.min(v, nailsW - 1))} min={1} max={nailsW - 1} />
+        <DimensionInput label="Cut H" value={nailsNh} set={v => setNailsNh(Math.min(v, nailsH - 1))} min={1} max={nailsH - 1} />
         <div style={{ width: 1, height: 28, background: "#332e24" }} />
         <div style={{ padding: "5px 14px", border: "1px solid #332e24", borderRadius: 4, background: "#1e1b16", textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#6a6050", letterSpacing: 1 }}>STRANDS</div>
           <div style={{ fontSize: 22, color: "#c8a96e", fontWeight: "bold" }}>{cycles.length}</div>
         </div>
-        <button onClick={() => { setShowAll(true); setVisibleCycles({}); setSelGap(null); }}
+        <button onClick={() => { setShowAll(true); setVisibleCycles({}); const full = {}; cycles.forEach((c, i) => { full[i] = Infinity; }); setAnimProgress(full); setSelGap(null); }}
           style={{ padding: "7px 14px", background: showAll ? "#c8a96e" : "transparent", color: showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
           ALL ON
         </button>
-        <button onClick={() => { setShowAll(false); setVisibleCycles({}); setSelGap(null); }}
+        <button onClick={() => { setShowAll(false); setVisibleCycles({}); setAnimProgress({}); setSelGap(null); }}
           style={{ padding: "7px 14px", background: !showAll ? "#c8a96e" : "transparent", color: !showAll ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
           ALL OFF
+        </button>
+        <button onClick={() => setAnimate(!animate)}
+          style={{ padding: "7px 12px", background: animate ? "#c8a96e" : "transparent", color: animate ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
+          {animate ? "ANIM ON" : "ANIM OFF"}
         </button>
         <button onClick={() => setShowGrid(!showGrid)}
           style={{ padding: "7px 12px", background: showGrid ? "rgba(255,255,255,0.08)" : "transparent", color: showGrid ? "#9a8e78" : "#4a4438", border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
@@ -488,7 +610,7 @@ function CelticKnotMaker() {
       )}
 
       <div style={{ fontSize: 12, color: "#6a6050", marginBottom: 8, letterSpacing: 1, textAlign: "center" }}>
-        {hasNotch ? `L(${W}×${H}, notch ${nw}×${nh})` : `Rectangle ${W}×${H}`}
+        {hasNotch ? `L-shape ${nailsW}×${nailsH} nails, cut ${nailsNw}×${nailsNh}` : `Rectangle ${nailsW}×${nailsH} nails`}
         {" — "}{cycles.length === 1 ? "Single-strand knot" : `${cycles.length}-component link`}
         <span style={{ color: "#4a4438" }}> · {total} gaps</span>
       </div>
