@@ -306,26 +306,26 @@ function CelticKnotMaker() {
     setShowAll(false);
   }, []);
 
-  const DimensionInput = ({ label, value, set, min, max }) => {
-    const [inputVal, setInputVal] = useState(String(value));
-    useEffect(() => { setInputVal(String(value)); }, [value]);
-    const handleChange = e => {
-      const str = e.target.value;
-      setInputVal(str);
-      const v = parseInt(str, 10);
-      if (!isNaN(v) && v >= min && v <= max) { set(v); setSelGap(null); setShowAll(true); }
-    };
-    const handleBlur = () => {
-      const v = parseInt(inputVal, 10);
-      if (isNaN(v)) { setInputVal(String(value)); }
-      else { const clamped = Math.max(min, Math.min(max, v)); set(clamped); setInputVal(String(clamped)); setSelGap(null); setShowAll(true); }
-    };
+  const NailStepper = ({ label, nails, setNails, min, max }) => {
+    const bump = (d) => { const v = nails + d; if (v >= min && v <= max) { setNails(v); setSelGap(null); setShowAll(true); } };
+    const canDec = nails > min, canInc = nails < max;
+    const btnStyle = (enabled) => ({
+      width: isMobile ? 44 : 32, height: isMobile ? 44 : 32,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: enabled ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.02)",
+      color: enabled ? "#e8dcc8" : "#2a2d32",
+      border: "none", borderRadius: 6, cursor: enabled ? "pointer" : "default",
+      fontSize: isMobile ? 20 : 16, fontFamily: "inherit", fontWeight: 300,
+      transition: "all 0.15s", userSelect: "none", WebkitTapHighlightColor: "transparent",
+    });
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 11, color: "#6a6d72", minWidth: 44, letterSpacing: 1, fontWeight: 500 }}>{label}</span>
-        <input type="number" min={min} max={max} value={inputVal} onChange={handleChange} onBlur={handleBlur}
-          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-          style={{ width: 56, padding: "6px 8px", fontSize: 14, fontWeight: 500, color: "#e8dcc8", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, textAlign: "center", fontFamily: "inherit" }} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => bump(-1)} style={btnStyle(canDec)}>-</button>
+          <span style={{ minWidth: 36, textAlign: "center", fontSize: 20, fontWeight: 300, color: "#e8dcc8", fontFamily: "'Cormorant Garamond',serif" }}>{nails}</span>
+          <button onClick={() => bump(1)} style={btnStyle(canInc)}>+</button>
+        </div>
       </div>
     );
   };
@@ -335,8 +335,8 @@ function CelticKnotMaker() {
       <h1 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 300, letterSpacing: isMobile ? 3 : 6, color: "#e8dcc8", margin: "0 0 4px", textTransform: "uppercase", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>João's Knot Maker</h1>
       <p style={{ fontSize: isMobile ? 9 : 11, color: "#4a4d52", letterSpacing: 3, margin: "0 0 16px", fontWeight: 500 }}>RECTANGULAR TORUS LINK EXPLORER</p>
       <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 12, padding: isMobile ? "10px 12px" : "12px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", maxWidth: svgW + 16 }}>
-        <DimensionInput label="W nails" value={nailsW} set={setNailsW} min={3} max={81} />
-        <DimensionInput label="H nails" value={nailsH} set={setNailsH} min={3} max={81} />
+        <NailStepper label="NAILS ACROSS" nails={nailsW} setNails={setNailsW} min={3} max={81} />
+        <NailStepper label="NAILS DOWN" nails={nailsH} setNails={setNailsH} min={3} max={81} />
         <div style={{ padding: "8px 20px", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, background: "rgba(255,255,255,0.02)", textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#4a4d52", letterSpacing: 2, fontWeight: 500 }}>CIRCUITS</div>
           <div style={{ fontSize: 26, color: "#e8dcc8", fontWeight: 300, fontFamily: "'Cormorant Garamond',serif" }}>{nCyc}</div>
