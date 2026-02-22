@@ -341,11 +341,10 @@ function CelticKnotMaker() {
     return false;
   }
 
-  // Build a map of which crossing points each cycle occupies, tagged by diagonal family
-  const crossingMap = useMemo(() => {
+  // Build a crossing map from given points per cycle (respects animation progress)
+  function buildCrossingMap(pointsPerCycle) {
     const map = new Map(); // key "ix,iy" → {bs: Set<cycleIdx>, fs: Set<cycleIdx>}
-    cycles.forEach((cycle, ci) => {
-      const pts = cycle.points;
+    for (const [ci, pts] of pointsPerCycle) {
       for (let seg = 0; seg < pts.length - 1; seg++) {
         const p1 = pts[seg], p2 = pts[seg + 1];
         const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
@@ -363,11 +362,11 @@ function CelticKnotMaker() {
           }
         }
       }
-    });
+    }
     return map;
-  }, [cycles, W, H, nw, nh]);
+  }
 
-  function renderStrandSVG(pts, color, cycleIdx, visibleSet) {
+  function renderStrandSVG(pts, color, cycleIdx, visibleSet, crossingMap) {
     const elements = [];
     const lineW = sw;
     const gap = sw / 2;
@@ -495,18 +494,21 @@ function CelticKnotMaker() {
 
   // Get the visible portion of a cycle's points based on animation progress (smooth float)
   const getVisiblePoints = useCallback((cycleIdx) => {
+    if (!cycles[cycleIdx]) return [];
     const pts = cycles[cycleIdx].points;
-    const prog = animProgress[cycleIdx] ?? Infinity;
-    if (prog >= pts.length - 1) return pts;
+    if (!pts || pts.length < 2) return pts || [];
+    const prog = animProgress[cycleIdx];
+    if (prog == null || prog >= pts.length - 1) return pts;
     const segIdx = Math.floor(prog);
     const segFrac = prog - segIdx;
     // All complete segments plus interpolated partial tip
     const visible = pts.slice(0, segIdx + 1);
-    if (segIdx < pts.length - 1 && segFrac > 0) {
+    if (segIdx < pts.length - 1) {
       const p1 = pts[segIdx], p2 = pts[segIdx + 1];
+      const frac = Math.max(0.001, segFrac); // always show a tiny bit of the next segment
       visible.push({
-        x: p1.x + (p2.x - p1.x) * segFrac,
-        y: p1.y + (p2.y - p1.y) * segFrac,
+        x: p1.x + (p2.x - p1.x) * frac,
+        y: p1.y + (p2.y - p1.y) * frac,
       });
     }
     return visible;
@@ -515,14 +517,20 @@ function CelticKnotMaker() {
   const renderElements = useMemo(() => {
     const visibleSet = new Set();
     cycles.forEach((c, i) => { if (isCycleVisible(i)) visibleSet.add(i); });
+    // Build crossing map from only the currently drawn portions of visible cycles
+    const pointsPerCycle = new Map();
+    for (const i of visibleSet) pointsPerCycle.set(i, getVisiblePoints(i));
+    const crossingMap = buildCrossingMap(pointsPerCycle);
     const els = [];
     for (const i of visibleSet) {
-      const pts = getVisiblePoints(i);
-      els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet));
+      const pts = pointsPerCycle.get(i);
+      if (pts && pts.length >= 2) {
+        els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet, crossingMap));
+      }
     }
     els.sort((a, b) => a.z - b.z);
     return els;
-  }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors, crossingMap, animProgress, getVisiblePoints]);
+  }, [cycles, isCycleVisible, W, H, nw, nh, cell, toX, toY, sw, cycleColors, animProgress, getVisiblePoints]);
 
   const clickGap = useCallback(g => {
     setSelGap(prev => prev === g ? null : g);
