@@ -602,6 +602,27 @@ function CelticKnotCustom() {
     return set;
   }, [cells, W, H, gaps]);
 
+  // ===== NAIL POSITIONS =====
+  const nailPositions = useMemo(() => {
+    const nails = [];
+    // Edge nails: gap midpoints, excluding those adjacent to corners
+    for (let i = 0; i < gaps.length; i++) {
+      if (!cornerGapSet.has(i))
+        nails.push({ x: gaps[i].x, y: gaps[i].y, type: 'edge' });
+    }
+    // Corner nails: convex corners (exactly 1 filled cell)
+    for (let vy = 0; vy <= H; vy++)
+      for (let vx = 0; vx <= W; vx++) {
+        const tl = (vy > 0 && vx > 0 && cells[vy-1][vx-1]) ? 1 : 0;
+        const tr = (vy > 0 && vx < W && cells[vy-1][vx]) ? 1 : 0;
+        const bl = (vy < H && vx > 0 && cells[vy][vx-1]) ? 1 : 0;
+        const br = (vy < H && vx < W && cells[vy][vx]) ? 1 : 0;
+        if (tl + tr + bl + br === 1)
+          nails.push({ x: vx, y: vy, type: 'corner' });
+      }
+    return nails;
+  }, [cells, W, H, gaps]);
+
   // ===== CORNER ARCS — cosmetic semicircles around corner nails =====
   const cornerArcs = useMemo(() => {
     const arcs = [];
@@ -897,6 +918,13 @@ function CelticKnotCustom() {
               </g>
             );
           })}
+
+          {/* Nail dots */}
+          {nailPositions.map((n, i) => (
+            <circle key={`nail${i}`} cx={toX(n.x)} cy={toY(n.y)} r={3}
+              fill={n.type === 'corner' ? "#ff4444" : "#44ff44"}
+              opacity={0.8} style={{ pointerEvents: "none" }} />
+          ))}
 
         </svg>
       </div>
