@@ -53,12 +53,6 @@ function makePreset(name, curW, curH) {
 // These replace the original's W/H/nw/nh parameterized functions
 // Coordinate space is [0, gw] × [0, gh], same as original's [0,W] × [0,H]
 
-function isInteriorCrossing(ix, iy, cells, gw, gh) {
-  // Interior crossing = all 4 surrounding cells active
-  if (ix < 1 || iy < 1 || ix >= gw || iy >= gh) return false;
-  return cells[iy-1][ix-1] && cells[iy-1][ix] && cells[iy][ix-1] && cells[iy][ix];
-}
-
 function buildEdges(cells, gw, gh) {
   // Build merged boundary edge segments — same format as original
   const hUnits = []; // {y, x} for unit h-edge at (x,y)→(x+1,y)
@@ -259,6 +253,17 @@ function CelticKnotCustom() {
   const [animProgress, setAnimProgress] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [painting, setPainting] = useState(null);
+  const [wDraft, setWDraft] = useState(() => String(18));
+  const [hDraft, setHDraft] = useState(() => String(10));
+  const wDimFocusRef = useRef(false);
+  const hDimFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (!wDimFocusRef.current) setWDraft(String(gridW));
+  }, [gridW]);
+  useEffect(() => {
+    if (!hDimFocusRef.current) setHDraft(String(gridH));
+  }, [gridH]);
 
   // W and H for the rendering code — same role as original
   const W = gridW, H = gridH;
@@ -286,6 +291,24 @@ function CelticKnotCustom() {
     setSelGap(null); setShowAll(true); setAnimProgress({});
   }, []);
 
+  const commitGridW = useCallback(() => {
+    wDimFocusRef.current = false;
+    let v = parseInt(wDraft, 10);
+    if (Number.isNaN(v)) v = gridW;
+    v = Math.min(100, Math.max(3, v));
+    if (v !== gridW) resizeGrid(v, gridH);
+    setWDraft(String(v));
+  }, [wDraft, gridW, gridH, resizeGrid]);
+
+  const commitGridH = useCallback(() => {
+    hDimFocusRef.current = false;
+    let v = parseInt(hDraft, 10);
+    if (Number.isNaN(v)) v = gridH;
+    v = Math.min(100, Math.max(3, v));
+    if (v !== gridH) resizeGrid(gridW, v);
+    setHDraft(String(v));
+  }, [hDraft, gridH, gridW, resizeGrid]);
+
   const { cycles, gaps, edges } = useMemo(() => getAllCycles(cells, gridW, gridH), [cells, gridW, gridH]);
   const active = useMemo(() => selGap !== null ? cycles.find(c => c.gaps.has(selGap)) : null, [selGap, cycles]);
 
@@ -295,6 +318,42 @@ function CelticKnotCustom() {
 
   const toX = useCallback(x => ox + x * cellSz, [ox, cellSz]);
   const toY = useCallback(y => oy + y * cellSz, [oy, cellSz]);
+
+  // Orthogonal grids: integer lattice (cell corners / boundaries) + half-integer (cell centers).
+  const NAIL_GRID_PAD = 4;
+  const nailGrid = useMemo(() => {
+    let minC = W, minR = H, maxC = -1, maxR = -1;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (cells[y][x]) {
+          minC = Math.min(minC, x); maxC = Math.max(maxC, x);
+          minR = Math.min(minR, y); maxR = Math.max(maxR, y);
+        }
+    let x0, x1, y0, y1;
+    if (maxC < 0) {
+      x0 = -NAIL_GRID_PAD; x1 = W + NAIL_GRID_PAD;
+      y0 = -NAIL_GRID_PAD; y1 = H + NAIL_GRID_PAD;
+    } else {
+      x0 = minC - NAIL_GRID_PAD;
+      x1 = maxC + 1 + NAIL_GRID_PAD;
+      y0 = minR - NAIL_GRID_PAD;
+      y1 = maxR + 1 + NAIL_GRID_PAD;
+    }
+    const vInt = [];
+    for (let gx = x0; gx <= x1; gx++)
+      vInt.push({ x1: toX(gx), y1: toY(y0), x2: toX(gx), y2: toY(y1) });
+    const hInt = [];
+    for (let gy = y0; gy <= y1; gy++)
+      hInt.push({ x1: toX(x0), y1: toY(gy), x2: toX(x1), y2: toY(gy) });
+    const o = 0.5;
+    const vHalf = [];
+    for (let gx = x0; gx <= x1; gx++)
+      vHalf.push({ x1: toX(gx + o), y1: toY(y0 + o), x2: toX(gx + o), y2: toY(y1 + o) });
+    const hHalf = [];
+    for (let gy = y0; gy <= y1; gy++)
+      hHalf.push({ x1: toX(x0 + o), y1: toY(gy + o), x2: toX(x1 + o), y2: toY(gy + o) });
+    return { vInt, hInt, vHalf, hHalf };
+  }, [cells, W, H, toX, toY]);
 
   const gapDots = useMemo(() => gaps.map((g, i) => ({ i, x: toX(g.x), y: toY(g.y) })), [gaps, toX, toY]);
 
@@ -336,7 +395,8 @@ function CelticKnotCustom() {
           const mVal = m + 0.5;
           const ix = (mVal - kVal) / 2;
           const iy = (mVal + kVal) / 2;
-          if (ix > x0 + 0.01 && ix < x1 - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), cells, W, H)) {
+          // Same bounds as celtic-knot-3 (not isInteriorCrossing): corners where only 2 cells meet still need weave cuts.
+          if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < H - 0.01) {
             if ((k + m + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
           }
         }
@@ -373,7 +433,7 @@ function CelticKnotCustom() {
           const kVal2 = k + 0.5;
           const ix = (mVal - kVal2) / 2;
           const iy = (mVal + kVal2) / 2;
-          if (ix > x0 + 0.01 && ix < x1 - 0.01 && isInteriorCrossing(Math.round(ix), Math.round(iy), cells, W, H)) {
+          if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < H - 0.01) {
             if ((k + m + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
           }
         }
@@ -383,33 +443,8 @@ function CelticKnotCustom() {
     return lines;
   }, [cells, W, H, cellSz, toX, toY]);
 
-  // ===== CROSSING MAP — identical to original =====
-  function buildCrossingMap(pointsPerCycle) {
-    const map = new Map();
-    for (const [ci, pts] of pointsPerCycle) {
-      for (let seg = 0; seg < pts.length - 1; seg++) {
-        const p1 = pts[seg], p2 = pts[seg + 1];
-        const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
-        if (sdx === 0 || sdy === 0) continue;
-        const isBS = (sdx === sdy);
-        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
-        for (let ix = Math.ceil(minX + 0.01); ix <= Math.floor(maxX - 0.01); ix++) {
-          const t = (ix - p1.x) / (p2.x - p1.x);
-          const iy = Math.round(p1.y + (p2.y - p1.y) * t);
-          if (isInteriorCrossing(ix, iy, cells, W, H)) {
-            const key = `${ix},${iy}`;
-            if (!map.has(key)) map.set(key, { bs: new Set(), fs: new Set() });
-            const entry = map.get(key);
-            if (isBS) entry.bs.add(ci); else entry.fs.add(ci);
-          }
-        }
-      }
-    }
-    return map;
-  }
-
-  // ===== STRAND RENDERING — identical to original =====
-  function renderStrandSVG(pts, color, cycleIdx, visibleSet, crossingMap) {
+  // ===== STRAND RENDERING — same loom rule as celtic-knot-3 (parity cuts only; no crossing-map gate) =====
+  function renderStrandSVG(pts, color) {
     const elements = [];
     const lineW = sw;
     const gap = strandMode === 'string' ? cellSz * 0.16 : sw / 2;
@@ -424,6 +459,10 @@ function CelticKnotCustom() {
       const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
       const p1Edge = isOnBoundary(p1.x, p1.y, cells, W, H);
       const p2Edge = isOnBoundary(p2.x, p2.y, cells, W, H);
+      // Skip segment if both endpoints are corner gaps — the arc replaces it
+      const p1gi = pointToGapIdx(p1.x, p1.y, gaps);
+      const p2gi = pointToGapIdx(p2.x, p2.y, gaps);
+      if (p1gi >= 0 && cornerGapSet.has(p1gi) && p2gi >= 0 && cornerGapSet.has(p2gi)) continue;
       if (sdx === 0 || sdy === 0) {
         elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edgeStart: p1Edge, edgeEnd: p2Edge });
         continue;
@@ -438,15 +477,8 @@ function CelticKnotCustom() {
         for (let mi = -1; mi <= W + H; mi++) {
           const mVal = mi + 0.5;
           const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
-          const ixR = Math.round(ix), iyR = Math.round(iy);
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(ixR, iyR, cells, W, H)) {
-            if ((ki + mi + W) % 2 === 1) {
-              const entry = crossingMap.get(`${ixR},${iyR}`);
-              if (entry) {
-                const hasVisibleOver = [...entry.fs].some(ci => visibleSet.has(ci));
-                if (hasVisibleOver) cuts.push({ sx: toX(ix), sy: toY(iy) });
-              }
-            }
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
+            if ((ki + mi + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
           }
         }
       } else {
@@ -455,15 +487,8 @@ function CelticKnotCustom() {
         for (let ki = -W; ki <= H; ki++) {
           const kVal2 = ki + 0.5;
           const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
-          const ixR = Math.round(ix), iyR = Math.round(iy);
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && isInteriorCrossing(ixR, iyR, cells, W, H)) {
-            if ((ki + mi + W) % 2 === 0) {
-              const entry = crossingMap.get(`${ixR},${iyR}`);
-              if (entry) {
-                const hasVisibleOver = [...entry.bs].some(ci => visibleSet.has(ci));
-                if (hasVisibleOver) cuts.push({ sx: toX(ix), sy: toY(iy) });
-              }
-            }
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
+            if ((ki + mi + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
           }
         }
       }
@@ -553,17 +578,69 @@ function CelticKnotCustom() {
     return visible;
   }, [cycles, animProgress]);
 
+  // ===== CORNER DETECTION — which gaps are at convex corners =====
+  const cornerGapSet = useMemo(() => {
+    const set = new Set();
+    for (let vy = 0; vy <= H; vy++)
+      for (let vx = 0; vx <= W; vx++) {
+        const tl = (vy > 0 && vx > 0 && cells[vy-1][vx-1]) ? 1 : 0;
+        const tr = (vy > 0 && vx < W && cells[vy-1][vx]) ? 1 : 0;
+        const bl = (vy < H && vx > 0 && cells[vy][vx-1]) ? 1 : 0;
+        const br = (vy < H && vx < W && cells[vy][vx]) ? 1 : 0;
+        if (tl + tr + bl + br !== 1) continue;
+        let g1, g2;
+        if (br) { g1 = {x:vx+0.5,y:vy}; g2 = {x:vx,y:vy+0.5}; }
+        else if (bl) { g1 = {x:vx-0.5,y:vy}; g2 = {x:vx,y:vy+0.5}; }
+        else if (tr) { g1 = {x:vx+0.5,y:vy}; g2 = {x:vx,y:vy-0.5}; }
+        else { g1 = {x:vx-0.5,y:vy}; g2 = {x:vx,y:vy-0.5}; }
+        const gi1 = pointToGapIdx(g1.x, g1.y, gaps);
+        const gi2 = pointToGapIdx(g2.x, g2.y, gaps);
+        if (gi1 >= 0) set.add(gi1);
+        if (gi2 >= 0) set.add(gi2);
+      }
+    return set;
+  }, [cells, W, H, gaps]);
+
+  // ===== CORNER ARCS — cosmetic semicircles around corner nails =====
+  const cornerArcs = useMemo(() => {
+    const arcs = [];
+    for (let vy = 0; vy <= H; vy++) {
+      for (let vx = 0; vx <= W; vx++) {
+        const tl = (vy > 0 && vx > 0 && cells[vy-1][vx-1]) ? 1 : 0;
+        const tr = (vy > 0 && vx < W && cells[vy-1][vx]) ? 1 : 0;
+        const bl = (vy < H && vx > 0 && cells[vy][vx-1]) ? 1 : 0;
+        const br = (vy < H && vx < W && cells[vy][vx]) ? 1 : 0;
+        if (tl + tr + bl + br !== 1) continue;
+        // sweep flipped so arc bulges AWAY from interior (concave toward shape)
+        let g1, g2, sweep;
+        if (br) { g1 = {x:vx+0.5,y:vy}; g2 = {x:vx,y:vy+0.5}; sweep = 0; }
+        else if (bl) { g1 = {x:vx-0.5,y:vy}; g2 = {x:vx,y:vy+0.5}; sweep = 1; }
+        else if (tr) { g1 = {x:vx+0.5,y:vy}; g2 = {x:vx,y:vy-0.5}; sweep = 1; }
+        else { g1 = {x:vx-0.5,y:vy}; g2 = {x:vx,y:vy-0.5}; sweep = 0; }
+        const gi1 = pointToGapIdx(g1.x, g1.y, gaps);
+        const gi2 = pointToGapIdx(g2.x, g2.y, gaps);
+        const ci1 = gi1 >= 0 ? cycles.findIndex(c => c.gaps.has(gi1)) : -1;
+        const ci2 = gi2 >= 0 ? cycles.findIndex(c => c.gaps.has(gi2)) : -1;
+        let color = null;
+        if (ci1 >= 0 && isCycleVisible(ci1)) color = getCycleColor(ci1);
+        else if (ci2 >= 0 && isCycleVisible(ci2)) color = getCycleColor(ci2);
+        if (!color) continue;
+        // semicircle: radius = half the chord length between the two gap points
+        const dx = toX(g2.x) - toX(g1.x), dy = toY(g2.y) - toY(g1.y);
+        const r = Math.hypot(dx, dy) / 2;
+        arcs.push({ sx1: toX(g1.x), sy1: toY(g1.y), sx2: toX(g2.x), sy2: toY(g2.y), r, sweep, color });
+      }
+    }
+    return arcs;
+  }, [cells, W, H, gaps, cycles, isCycleVisible, getCycleColor, cellSz, toX, toY]);
+
   const renderElements = useMemo(() => {
     try {
-      const visibleSet = new Set();
-      cycles.forEach((c, i) => { if (isCycleVisible(i)) visibleSet.add(i); });
-      const pointsPerCycle = new Map();
-      for (const i of visibleSet) pointsPerCycle.set(i, getVisiblePoints(i));
-      const crossingMap = buildCrossingMap(pointsPerCycle);
       const els = [];
-      for (const i of visibleSet) {
-        const pts = pointsPerCycle.get(i);
-        if (pts && pts.length >= 2) els.push(...renderStrandSVG(pts, getCycleColor(i), i, visibleSet, crossingMap));
+      for (let i = 0; i < cycles.length; i++) {
+        if (!isCycleVisible(i)) continue;
+        const pts = getVisiblePoints(i);
+        if (pts && pts.length >= 2) els.push(...renderStrandSVG(pts, getCycleColor(i)));
       }
       els.sort((a, b) => a.z - b.z);
       return els;
@@ -689,11 +766,29 @@ function CelticKnotCustom() {
         <div style={{ marginBottom: 12, padding: 10, border: "1px solid #332e24", borderRadius: 6, background: "#1a1712" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, justifyContent: "center", flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#6a6050" }}>W</span>
-            <input type="number" min={3} max={100} value={gridW} onChange={e => { const v = parseInt(e.target.value); if (v >= 3 && v <= 100) resizeGrid(v, gridH); }}
+            <input type="number" min={3} max={100} value={wDraft}
+              onFocus={() => { wDimFocusRef.current = true; }}
+              onChange={e => {
+                const raw = e.target.value;
+                setWDraft(raw);
+                const v = parseInt(raw, 10);
+                if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridW) resizeGrid(v, gridH);
+              }}
+              onBlur={commitGridW}
+              onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
               style={{ width: 44, padding: "3px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
             <span style={{ color: "#6a6050" }}>×</span>
             <span style={{ fontSize: 11, color: "#6a6050" }}>H</span>
-            <input type="number" min={3} max={100} value={gridH} onChange={e => { const v = parseInt(e.target.value); if (v >= 3 && v <= 100) resizeGrid(gridW, v); }}
+            <input type="number" min={3} max={100} value={hDraft}
+              onFocus={() => { hDimFocusRef.current = true; }}
+              onChange={e => {
+                const raw = e.target.value;
+                setHDraft(raw);
+                const v = parseInt(raw, 10);
+                if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridH) resizeGrid(gridW, v);
+              }}
+              onBlur={commitGridH}
+              onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
               style={{ width: 44, padding: "3px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
             <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); setAnimProgress({}); }}
               style={{ padding: "3px 8px", background: "transparent", color: "#9a8e78", border: "1px solid #332e24", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>FILL</button>
@@ -723,6 +818,24 @@ function CelticKnotCustom() {
             <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
           </defs>
 
+          {/* Orthogonal grids: integer + half-integer; under everything */}
+          {showGrid && (
+            <g style={{ pointerEvents: "none" }}>
+              {nailGrid.vInt.map((ln, i) => (
+                <line key={`ngvi${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.09)" strokeWidth={0.65} />
+              ))}
+              {nailGrid.hInt.map((ln, i) => (
+                <line key={`nghi${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.09)" strokeWidth={0.65} />
+              ))}
+              {nailGrid.vHalf.map((ln, i) => (
+                <line key={`ngvh${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.14)" strokeWidth={0.7} />
+              ))}
+              {nailGrid.hHalf.map((ln, i) => (
+                <line key={`nghh${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.14)" strokeWidth={0.7} />
+              ))}
+            </g>
+          )}
+
           {/* Boundary edges */}
           {boundaryEdges.map((e, i) => (
             <line key={`be${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="#2a2519" strokeWidth={1.5} />
@@ -750,6 +863,12 @@ function CelticKnotCustom() {
           {renderElements.map((el, i) => (
             <line key={i} x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
               stroke={el.color} strokeWidth={el.w} strokeLinecap="butt" />
+          ))}
+
+          {/* Corner arcs */}
+          {cornerArcs.map((arc, i) => (
+            <path key={`ca${i}`} d={`M${arc.sx1},${arc.sy1} A${arc.r},${arc.r} 0 0,${arc.sweep} ${arc.sx2},${arc.sy2}`}
+              fill="none" stroke={arc.color} strokeWidth={sw} strokeLinecap="butt" />
           ))}
 
           {/* Rounded caps at boundary endpoints */}
