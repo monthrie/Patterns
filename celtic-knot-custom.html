@@ -459,10 +459,11 @@ function CelticKnotCustom() {
       const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
       const p1Edge = isOnBoundary(p1.x, p1.y, cells, W, H);
       const p2Edge = isOnBoundary(p2.x, p2.y, cells, W, H);
-      // Skip segment if both endpoints are corner gaps — the arc replaces it
+      // Skip short segment between two corner gaps — the arc replaces it
       const p1gi = pointToGapIdx(p1.x, p1.y, gaps);
       const p2gi = pointToGapIdx(p2.x, p2.y, gaps);
-      if (p1gi >= 0 && cornerGapSet.has(p1gi) && p2gi >= 0 && cornerGapSet.has(p2gi)) continue;
+      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      if (p1gi >= 0 && cornerGapSet.has(p1gi) && p2gi >= 0 && cornerGapSet.has(p2gi) && segLen < 1.1) continue;
       if (sdx === 0 || sdy === 0) {
         elements.push({ type: 'strand', x1: sx1, y1: sy1, x2: sx2, y2: sy2, color, w: lineW, z: 2, edgeStart: p1Edge, edgeEnd: p2Edge });
         continue;
