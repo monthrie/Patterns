@@ -7,8 +7,70 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --ink: #0a0d10;
+    --ink-2: #16130f;
+    --bone: #c8d4dc;
+    --bone-dim: #6b7780;
+    --bone-faint: #2a3036;
+    --hair: #1c2329;
+    --accent: #c8a96e;
+    --oxblood: #7a2828;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--ink); color: var(--bone); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  body { background: var(--ink); }
+  button, input { font-family: inherit; }
+  .knm-label { font-size: 11px; letter-spacing: 1.6px; color: var(--bone-dim); text-transform: uppercase; }
+  .knm-btn {
+    background: transparent; border: none; color: var(--bone-dim);
+    font-size: 13px; letter-spacing: 1px; padding: 5px 0; cursor: pointer;
+    text-transform: uppercase; position: relative; transition: color 120ms;
+  }
+  .knm-btn:hover { color: var(--bone); }
+  .knm-btn::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 1px;
+    background: var(--bone); transform: scaleX(0); transform-origin: left; transition: transform 140ms;
+  }
+  .knm-btn:hover::after { transform: scaleX(1); }
+  .knm-btn.is-active { color: var(--bone); }
+  .knm-btn.is-active::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; background: var(--accent);
+    margin-right: 6px; vertical-align: 1px;
+  }
+  .knm-btn-primary {
+    background: var(--accent); color: var(--ink); border: none;
+    padding: 7px 14px; font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase;
+    cursor: pointer; font-weight: 600;
+  }
+  .knm-btn-primary:hover { background: #e0bd7c; }
+  .knm-divider { width: 1px; align-self: stretch; background: var(--hair); margin: 0 4px; }
+  .knm-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--hair); padding: 5px 10px; font-size: 12px;
+    color: var(--bone-dim); cursor: pointer; letter-spacing: 0.5px;
+    transition: border-color 120ms, color 120ms;
+  }
+  .knm-chip:hover { color: var(--bone); border-color: var(--bone-faint); }
+  .knm-chip-x {
+    color: transparent; transition: color 120ms; font-size: 12px; line-height: 1;
+    background: none; border: none; cursor: pointer; padding: 0;
+  }
+  .knm-chip:hover .knm-chip-x { color: var(--oxblood); }
+  .knm-chip-x:hover { color: #c84040 !important; }
+  .knm-frame {
+    background: var(--ink-2); border: 1px solid var(--hair); padding: 14px;
+  }
+  .knm-num {
+    width: 56px; padding: 5px 6px; background: transparent; color: var(--bone);
+    border: none; border-bottom: 1px solid var(--hair); text-align: center;
+    font-size: 14px; letter-spacing: 1px;
+  }
+  .knm-num:focus { outline: none; border-bottom-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -238,14 +300,67 @@ function subtractInterval(a0, a1, b0, b1) {
 
 // ========== MAIN COMPONENT ==========
 function CelticKnotCustom() {
-  const [cells, setCells] = useState(() => makePreset('L-shape').cells);
+  const [cells, setCells] = useState(() => Array.from({ length: 10 }, () => Array(18).fill(true)));
   const [gridW, setGridW] = useState(18);
   const [gridH, setGridH] = useState(10);
-  const [presetName, setPresetName] = useState('L-shape');
+  const [savedShapes, setSavedShapes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('celtic.savedShapes') || '[]'); }
+    catch { return []; }
+  });
+  const persistShapes = useCallback((next) => {
+    setSavedShapes(next);
+    try { localStorage.setItem('celtic.savedShapes', JSON.stringify(next)); } catch {}
+  }, []);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const knotWrapRef = useRef(null);
+  useEffect(() => {
+    const el = knotWrapRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      setZoom(z => Math.max(0.3, Math.min(4, +(z * (e.deltaY < 0 ? 1.025 : 1 / 1.025)).toFixed(3))));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('celtic.lang') || 'en'; } catch { return 'en'; }
+  });
+  const setLangPersist = useCallback((l) => {
+    setLang(l);
+    try { localStorage.setItem('celtic.lang', l); } catch {}
+  }, []);
+  const T = useMemo(() => {
+    const dict = {
+      en: {
+        shapes: "Shapes", mode: "Mode", cycles: "Cycles",
+        save: "Save", export: "Export", import: "Import",
+        edit: "Edit", thin: "thin", full: "full", string: "string", reset: "reset",
+        cycle: "cycle", cyclesPlural: "cycles",
+        fill: "Fill", clear: "Clear",
+        dragHint: "Drag a rectangle to fill or clear",
+        namePrompt: "Name this shape:",
+        deleteConfirm: (n) => `Delete "${n}"?`,
+        importError: (m) => `Could not import: ${m}`,
+      },
+      pt: {
+        shapes: "Formas", mode: "Modo", cycles: "Ciclos",
+        save: "Guardar", export: "Exportar", import: "Importar",
+        edit: "Editar", thin: "fino", full: "cheio", string: "fio", reset: "repor",
+        cycle: "ciclo", cyclesPlural: "ciclos",
+        fill: "Preencher", clear: "Limpar",
+        dragHint: "Arraste um rectângulo para preencher ou limpar",
+        namePrompt: "Nome desta forma:",
+        deleteConfirm: (n) => `Apagar "${n}"?`,
+        importError: (m) => `Não foi possível importar: ${m}`,
+      },
+    };
+    return dict[lang] || dict.en;
+  }, [lang]);
   const [cycleColors, setCycleColors] = useState({});
   const [visibleCycles, setVisibleCycles] = useState({});
   const [animate, setAnimate] = useState(true);
@@ -253,10 +368,15 @@ function CelticKnotCustom() {
   const [animProgress, setAnimProgress] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [painting, setPainting] = useState(null);
+  const [marquee, setMarquee] = useState(null);
   const [wDraft, setWDraft] = useState(() => String(18));
   const [hDraft, setHDraft] = useState(() => String(10));
   const wDimFocusRef = useRef(false);
   const hDimFocusRef = useRef(false);
+  const colorInputRefs = useRef({});
+  const longPressTimerRef = useRef(null);
+  const longPressFiredRef = useRef(false);
+  const pressStartRef = useRef(null);
 
   useEffect(() => {
     if (!wDimFocusRef.current) setWDraft(String(gridW));
@@ -268,11 +388,57 @@ function CelticKnotCustom() {
   // W and H for the rendering code — same role as original
   const W = gridW, H = gridH;
 
-  const loadPreset = useCallback((name) => {
-    const p = makePreset(name, gridW, gridH);
-    setCells(p.cells); setGridW(p.gw); setGridH(p.gh); setPresetName(name);
+  const loadShape = useCallback((shape) => {
+    setCells(shape.cells.map(r => [...r]));
+    setGridW(shape.gw); setGridH(shape.gh);
     setSelGap(null); setShowAll(true); setCycleColors({}); setVisibleCycles({}); setAnimProgress({});
   }, []);
+  const saveCurrentShape = useCallback(() => {
+    const name = (typeof window !== "undefined" && window.prompt) ? window.prompt(T.namePrompt) : null;
+    if (!name) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const snap = { name: trimmed, gw: gridW, gh: gridH, cells: cells.map(r => [...r]) };
+    const next = [...savedShapes.filter(s => s.name !== trimmed), snap];
+    persistShapes(next);
+  }, [cells, gridW, gridH, savedShapes, persistShapes, T]);
+  const deleteShape = useCallback((name) => {
+    persistShapes(savedShapes.filter(s => s.name !== name));
+  }, [savedShapes, persistShapes]);
+
+  const exportShapes = useCallback(() => {
+    const blob = new Blob([JSON.stringify(savedShapes, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `celtic-shapes-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [savedShapes]);
+
+  const importFileRef = useRef(null);
+  const onImportFile = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error("not an array");
+        const valid = data.filter(s => s && typeof s.name === "string" && Array.isArray(s.cells) && Number.isInteger(s.gw) && Number.isInteger(s.gh));
+        const merged = [...savedShapes];
+        for (const s of valid) {
+          const i = merged.findIndex(m => m.name === s.name);
+          if (i >= 0) merged[i] = s; else merged.push(s);
+        }
+        persistShapes(merged);
+      } catch (err) {
+        window.alert(T.importError(err.message));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }, [savedShapes, persistShapes, T]);
 
   const toggleCell = useCallback((x, y, forceVal) => {
     setCells(prev => {
@@ -313,7 +479,7 @@ function CelticKnotCustom() {
   const active = useMemo(() => selGap !== null ? cycles.find(c => c.gaps.has(selGap)) : null, [selGap, cycles]);
 
   const svgW = 800, svgH = 560, pad = 56;
-  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H);
+  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.74 * zoom;
   const ox = (svgW - W * cellSz) / 2, oy = (svgH - H * cellSz) / 2;
 
   const toX = useCallback(x => ox + x * cellSz, [ox, cellSz]);
@@ -443,8 +609,95 @@ function CelticKnotCustom() {
     return lines;
   }, [cells, W, H, cellSz, toX, toY]);
 
+  // ===== LOOM BACKGROUND — broken diagonals across the whole svg viewport, parity-cut for over/under =====
+  const loomBackground = useMemo(() => {
+    const segs = [];
+    const gxLo = -ox / cellSz - 1, gxHi = (svgW - ox) / cellSz + 1;
+    const gyLo = -oy / cellSz - 1, gyHi = (svgH - oy) / cellSz + 1;
+    const gapG = (cellSz * 0.18 / cellSz) / Math.SQRT2;
+    // Backslash family: y - x = k + 0.5
+    const kMin = Math.floor(gyLo - gxHi) - 1;
+    const kMax = Math.ceil(gyHi - gxLo) + 1;
+    for (let k = kMin; k <= kMax; k++) {
+      const kVal = k + 0.5;
+      const x0 = Math.max(gxLo, gyLo - kVal);
+      const x1 = Math.min(gxHi, gyHi - kVal);
+      if (x1 <= x0) continue;
+      const cuts = [];
+      const mLo = Math.ceil(2 * x0 + kVal - 0.5);
+      const mHi = Math.floor(2 * x1 + kVal - 0.5);
+      for (let m = mLo; m <= mHi; m++) {
+        if ((((k + m) % 2) + 2) % 2 === 1) cuts.push(((m + 0.5) - kVal) / 2);
+      }
+      cuts.sort((a, b) => a - b);
+      let cur = x0;
+      for (const c of cuts) {
+        const e = c - gapG;
+        if (e > cur) segs.push({ x1: toX(cur), y1: toY(cur + kVal), x2: toX(e), y2: toY(e + kVal) });
+        cur = c + gapG;
+      }
+      if (x1 > cur) segs.push({ x1: toX(cur), y1: toY(cur + kVal), x2: toX(x1), y2: toY(x1 + kVal) });
+    }
+    // Forward-slash family: y + x = m + 0.5
+    const mMin = Math.floor(gyLo + gxLo) - 1;
+    const mMax = Math.ceil(gyHi + gxHi) + 1;
+    for (let m = mMin; m <= mMax; m++) {
+      const mVal = m + 0.5;
+      const x0 = Math.max(gxLo, mVal - gyHi);
+      const x1 = Math.min(gxHi, mVal - gyLo);
+      if (x1 <= x0) continue;
+      const cuts = [];
+      const kLo = Math.ceil(mVal - 2 * x1 - 0.5);
+      const kHi = Math.floor(mVal - 2 * x0 - 0.5);
+      for (let k = kLo; k <= kHi; k++) {
+        if ((((k + m) % 2) + 2) % 2 === 0) cuts.push((mVal - (k + 0.5)) / 2);
+      }
+      cuts.sort((a, b) => a - b);
+      let cur = x0;
+      for (const c of cuts) {
+        const e = c - gapG;
+        if (e > cur) segs.push({ x1: toX(cur), y1: toY(mVal - cur), x2: toX(e), y2: toY(mVal - e) });
+        cur = c + gapG;
+      }
+      if (x1 > cur) segs.push({ x1: toX(cur), y1: toY(mVal - cur), x2: toX(x1), y2: toY(mVal - x1) });
+    }
+    return segs;
+  }, [ox, oy, cellSz, svgW, svgH, toX, toY]);
+
   // ===== STRAND RENDERING — same loom rule as celtic-knot-3 (parity cuts only; no crossing-map gate) =====
-  function renderStrandSVG(pts, color) {
+  // Returns two sets: one for backslash segments, one for forward-slash segments
+  // Each records crossing points that the segment passes through
+  function getCoveredCrossings(pts) {
+    const bsSet = new Set(); // crossings on backslash segments
+    const fsSet = new Set(); // crossings on forward-slash segments
+    for (let seg = 0; seg < pts.length - 1; seg++) {
+      const p1 = pts[seg], p2 = pts[seg + 1];
+      const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      if (sdx === 0 || sdy === 0) continue;
+      const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      const isBS = (sdx === sdy);
+      if (isBS) {
+        const kVal = p1.y - p1.x;
+        for (let mi = -1; mi <= W + H; mi++) {
+          const mVal = mi + 0.5;
+          const cx = (mVal - kVal) / 2, cy = (mVal + kVal) / 2;
+          if (cx > minX + 0.01 && cx < maxX - 0.01 && cy > 0.01 && cy < H - 0.01)
+            bsSet.add(`${cx.toFixed(2)},${cy.toFixed(2)}`);
+        }
+      } else {
+        const mVal = p1.y + p1.x;
+        for (let ki = -W; ki <= H; ki++) {
+          const kVal2 = ki + 0.5;
+          const cx = (mVal - kVal2) / 2, cy = (mVal + kVal2) / 2;
+          if (cx > minX + 0.01 && cx < maxX - 0.01 && cy > 0.01 && cy < H - 0.01)
+            fsSet.add(`${cx.toFixed(2)},${cy.toFixed(2)}`);
+        }
+      }
+    }
+    return { bsSet, fsSet };
+  }
+
+  function renderStrandSVG(pts, color, crossingMap) {
     const elements = [];
     const lineW = sw;
     const gap = strandMode === 'string' ? cellSz * 0.16 : sw / 2;
@@ -479,7 +732,10 @@ function CelticKnotCustom() {
           const mVal = mi + 0.5;
           const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
           if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
-            if ((ki + mi + W) % 2 === 1) cuts.push({ sx: toX(ix), sy: toY(iy) });
+            if ((ki + mi + W) % 2 === 1) {
+              if (!crossingMap || crossingMap.forBS.has(`${ix.toFixed(2)},${iy.toFixed(2)}`))
+                cuts.push({ sx: toX(ix), sy: toY(iy) });
+            }
           }
         }
       } else {
@@ -489,7 +745,10 @@ function CelticKnotCustom() {
           const kVal2 = ki + 0.5;
           const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
           if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
-            if ((ki + mi + W) % 2 === 0) cuts.push({ sx: toX(ix), sy: toY(iy) });
+            if ((ki + mi + W) % 2 === 0) {
+              if (!crossingMap || crossingMap.forFS.has(`${ix.toFixed(2)},${iy.toFixed(2)}`))
+                cuts.push({ sx: toX(ix), sy: toY(iy) });
+            }
           }
         }
       }
@@ -658,11 +917,28 @@ function CelticKnotCustom() {
 
   const renderElements = useMemo(() => {
     try {
+      // Build per-cycle crossing coverage for animation-aware gaps
+      const cyclePts = [];
+      const cycleCrossings = [];
+      for (let i = 0; i < cycles.length; i++) {
+        const pts = isCycleVisible(i) ? getVisiblePoints(i) : [];
+        cyclePts.push(pts);
+        cycleCrossings.push(pts.length >= 2 ? getCoveredCrossings(pts) : { bsSet: new Set(), fsSet: new Set() });
+      }
+      // Merge: a backslash segment gets gaps only where a forward-slash is present, and vice versa
+      const allBS = new Set(), allFS = new Set();
+      for (let j = 0; j < cycles.length; j++) {
+        for (const k of cycleCrossings[j].bsSet) allBS.add(k);
+        for (const k of cycleCrossings[j].fsSet) allFS.add(k);
+      }
+      // For a BS segment, the crossing strand is FS, so check allFS; vice versa
+      // Pack into { forBS: allFS, forFS: allBS }
+      const crossingMap = { forBS: allFS, forFS: allBS };
       const els = [];
       for (let i = 0; i < cycles.length; i++) {
         if (!isCycleVisible(i)) continue;
-        const pts = getVisiblePoints(i);
-        if (pts && pts.length >= 2) els.push(...renderStrandSVG(pts, getCycleColor(i)));
+        const pts = cyclePts[i];
+        if (pts && pts.length >= 2) els.push(...renderStrandSVG(pts, getCycleColor(i), crossingMap));
       }
       els.sort((a, b) => a.z - b.z);
       return els;
@@ -696,132 +972,246 @@ function CelticKnotCustom() {
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
 
+  // Edge-run labels: for each maximal straight perimeter run, count cells along it.
+  const edgeRuns = useMemo(() => {
+    const isOn = (x, y) => x >= 0 && y >= 0 && x < gridW && y < gridH && !!cells[y]?.[x];
+    const runs = [];
+    // Horizontal edges (between row y-1 and row y)
+    for (let y = 0; y <= gridH; y++) {
+      let s = null, filledAbove = false;
+      for (let x = 0; x <= gridW; x++) {
+        const a = isOn(x, y - 1), b = isOn(x, y);
+        const isEdge = x < gridW && (a !== b);
+        if (isEdge) {
+          if (s === null) { s = x; filledAbove = a; }
+        } else if (s !== null) {
+          runs.push({ orient: "h", y, x0: s, x1: x, len: x - s, filledAbove });
+          s = null;
+        }
+      }
+    }
+    // Vertical edges (between col x-1 and col x)
+    for (let x = 0; x <= gridW; x++) {
+      let s = null, filledLeft = false;
+      for (let y = 0; y <= gridH; y++) {
+        const a = isOn(x - 1, y), b = isOn(x, y);
+        const isEdge = y < gridH && (a !== b);
+        if (isEdge) {
+          if (s === null) { s = y; filledLeft = a; }
+        } else if (s !== null) {
+          runs.push({ orient: "v", x, y0: s, y1: y, len: y - s, filledLeft });
+          s = null;
+        }
+      }
+    }
+    return runs;
+  }, [cells, gridW, gridH]);
+
   const getCellFromPointer = useCallback((e) => {
     const rect = editorRef.current?.getBoundingClientRect();
     if (!rect) return null;
     const px = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left - 2;
-    const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top - 2;
+    const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top - 14;
     const x = Math.floor(px / editorCellSize);
     const y = Math.floor(py / editorCellSize);
     if (x >= 0 && x < gridW && y >= 0 && y < gridH) return { x, y };
     return null;
   }, [editorCellSize, gridW, gridH]);
 
-  const lastPaintedCell = useRef(null);
   const onEditorPointerDown = useCallback((e) => {
     e.preventDefault();
     editorRef.current?.setPointerCapture?.(e.pointerId);
     const c = getCellFromPointer(e);
     if (!c) return;
     const val = !cellsRef.current[c.y][c.x];
-    toggleCell(c.x, c.y, val);
-    setPainting(val);
-    lastPaintedCell.current = `${c.x},${c.y}`;
-  }, [getCellFromPointer, toggleCell]);
+    setMarquee({ x0: c.x, y0: c.y, x1: c.x, y1: c.y, val });
+  }, [getCellFromPointer]);
 
   const onEditorPointerMove = useCallback((e) => {
-    if (painting === null) return;
-    const c = getCellFromPointer(e);
-    if (!c) return;
-    const key = `${c.x},${c.y}`;
-    if (key === lastPaintedCell.current) return;
-    lastPaintedCell.current = key;
-    toggleCell(c.x, c.y, painting);
-  }, [painting, getCellFromPointer, toggleCell]);
+    if (!marquee) return;
+    const rect = editorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left - 2;
+    const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top - 14;
+    const x = Math.max(0, Math.min(gridW - 1, Math.floor(px / editorCellSize)));
+    const y = Math.max(0, Math.min(gridH - 1, Math.floor(py / editorCellSize)));
+    if (x === marquee.x1 && y === marquee.y1) return;
+    setMarquee({ ...marquee, x1: x, y1: y });
+  }, [marquee, editorCellSize, gridW, gridH]);
 
   const onEditorPointerUp = useCallback(() => {
-    setPainting(null);
-    lastPaintedCell.current = null;
-  }, []);
-
-  const btnStyle = useCallback((active) => ({
-    padding: "6px 12px", background: active ? "#c8a96e" : "transparent",
-    color: active ? "#16130f" : "#c8a96e", border: "1px solid #c8a96e",
-    borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit"
-  }), []);
+    if (!marquee) return;
+    const { x0, y0, x1, y1, val } = marquee;
+    const xa = Math.min(x0, x1), xb = Math.max(x0, x1);
+    const ya = Math.min(y0, y1), yb = Math.max(y0, y1);
+    setCells(prev => prev.map((row, y) =>
+      row.map((c, x) => (x >= xa && x <= xb && y >= ya && y <= yb) ? val : c)
+    ));
+    setSelGap(null); setShowAll(true); setAnimProgress({});
+    setMarquee(null);
+  }, [marquee]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#16130f", color: "#e0d5c0", fontFamily: "'Palatino Linotype','Book Antiqua',Palatino,serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 12px" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 400, letterSpacing: 4, color: "#c8a96e", margin: "0 0 10px", textTransform: "uppercase" }}>Celtic Knot Maker</h1>
-
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
-        {['rectangle', 'L-shape', 'staircase-boot', 'cross'].map(p => (
-          <button key={p} onClick={() => loadPreset(p)}
-            style={{ padding: "5px 10px", background: presetName === p ? "#c8a96e" : "transparent",
-              color: presetName === p ? "#16130f" : "#9a8e78",
-              border: "1px solid #332e24", borderRadius: 4, cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit" }}>
-            {p}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
-        <button onClick={() => setEditMode(!editMode)} style={btnStyle(editMode)}>
-          {editMode ? "DONE" : "EDIT SHAPE"}
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "32px 24px 60px" }}>
+      {/* HEADER */}
+      <header style={{ width: "100%", maxWidth: 920, marginBottom: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between", borderBottom: "1px solid var(--hair)", paddingBottom: 16, gap: 16 }}>
+        <div style={{ fontSize: 16, letterSpacing: 2, color: "var(--bone)", textTransform: "uppercase" }}>
+          <span style={{ color: "var(--bone-dim)" }}>string_billiards/</span>knot_maker
+        </div>
+        <button
+          onClick={() => setLangPersist(lang === "en" ? "pt" : "en")}
+          title="Language"
+          style={{ background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", padding: "4px 10px", fontSize: 12, letterSpacing: 1.4, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>
+          {lang === "en" ? "EN · PT" : "PT · EN"}
         </button>
-        <button onClick={() => { setShowAll(true); setVisibleCycles({}); const full = {}; cycles.forEach((c, i) => { full[i] = Infinity; }); setAnimProgress(full); setSelGap(null); }} style={btnStyle(showAll)}>ALL</button>
-        <button onClick={() => setAnimate(!animate)} style={btnStyle(animate)}>ANIM</button>
-        {['thin', 'full', 'string'].map(mode => (
-          <button key={mode} onClick={() => setStrandMode(mode)} style={btnStyle(strandMode === mode)}>{mode.toUpperCase()}</button>
-        ))}
-        <span style={{ fontSize: 13, color: "#c8a96e", fontWeight: "bold", marginLeft: 4 }}>{cycles.length} cycle{cycles.length !== 1 ? 's' : ''}</span>
+      </header>
+
+      {/* TOOLBAR */}
+      <div style={{ width: "100%", maxWidth: 920, marginBottom: 22, display: "grid", gridTemplateColumns: "1.4fr 1px 1fr", gap: 22, alignItems: "start" }}>
+        {/* SHAPES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="knm-label">{T.shapes}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <button className="knm-btn-primary" onClick={saveCurrentShape}>{T.save}</button>
+            <button className="knm-btn" onClick={exportShapes}>{T.export}</button>
+            <button className="knm-btn" onClick={() => importFileRef.current?.click()}>{T.import}</button>
+            <input ref={importFileRef} type="file" accept="application/json" onChange={onImportFile} style={{ display: "none" }} />
+          </div>
+          {savedShapes.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+              {savedShapes.map(s => (
+                <span key={s.name} className="knm-chip" onClick={() => loadShape(s)}>
+                  <span>{s.name}</span>
+                  <button className="knm-chip-x" onClick={(e) => { e.stopPropagation(); if (window.confirm(T.deleteConfirm(s.name))) deleteShape(s.name); }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="knm-divider" />
+
+        {/* MODE */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="knm-label">{T.mode}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            {!editMode && (
+              <button className="knm-btn" onClick={() => setEditMode(true)}>{T.edit}</button>
+            )}
+            {['thin', 'full', 'string'].map(mode => (
+              <button key={mode} className={`knm-btn ${strandMode === mode ? "is-active" : ""}`} onClick={() => setStrandMode(mode)}>
+                {T[mode]}
+              </button>
+            ))}
+            <span style={{ width: 1, alignSelf: "stretch", background: "var(--hair)", margin: "0 4px" }} />
+            <button className="knm-btn" onClick={() => setZoom(z => Math.max(0.3, +(z - 0.15).toFixed(2)))}>−</button>
+            <span className="knm-label" style={{ minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+            <button className="knm-btn" onClick={() => setZoom(z => Math.min(4, +(z + 0.15).toFixed(2)))}>+</button>
+            <button className="knm-btn" onClick={() => setZoom(1)}>{T.reset}</button>
+          </div>
+        </div>
+
       </div>
 
       {cycles.length > 0 && cycles.length <= 30 && (
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", justifyContent: "center", marginBottom: 8 }}>
+        <div style={{ width: "100%", maxWidth: 920, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 18, paddingTop: 14, borderTop: "1px solid var(--hair)" }}>
+          <div className="knm-label" style={{ marginRight: 10 }}>{T.cycles}</div>
           {cycles.map((c, i) => {
             const vis = isCycleVisible(i);
             const col = getCycleColor(i);
+            const openPicker = () => {
+              const inp = colorInputRefs.current[i];
+              if (inp) inp.click();
+            };
+            const clearLongPress = () => {
+              if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+              pressStartRef.current = null;
+            };
             return (
-              <button key={i} onClick={() => toggleCycle(i)}
-                style={{ padding: "3px 8px", background: vis ? col : "transparent", color: vis ? "#000" : "#6a6050",
-                  border: `2px solid ${vis ? col : "#332e24"}`, borderRadius: 4, cursor: "pointer",
-                  fontSize: 11, fontWeight: "bold", fontFamily: "inherit", minWidth: 28, opacity: vis ? 1 : 0.5 }}>
-                {i + 1}
-              </button>
+              <div key={i} style={{ position: "relative", display: "inline-block" }}>
+                <button
+                  onClick={() => {
+                    if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
+                    toggleCycle(i);
+                  }}
+                  onDoubleClick={(e) => { e.preventDefault(); openPicker(); }}
+                  onContextMenu={(e) => { e.preventDefault(); openPicker(); }}
+                  onPointerDown={(e) => {
+                    pressStartRef.current = { x: e.clientX, y: e.clientY };
+                    longPressFiredRef.current = false;
+                    longPressTimerRef.current = setTimeout(() => {
+                      longPressFiredRef.current = true;
+                      longPressTimerRef.current = null;
+                      openPicker();
+                    }, 450);
+                  }}
+                  onPointerUp={clearLongPress}
+                  onPointerLeave={clearLongPress}
+                  onPointerCancel={clearLongPress}
+                  onPointerMove={(e) => {
+                    const s = pressStartRef.current;
+                    if (s && (Math.abs(e.clientX - s.x) > 5 || Math.abs(e.clientY - s.y) > 5)) clearLongPress();
+                  }}
+                  style={{ padding: "3px 8px", background: vis ? col : "transparent", color: vis ? "#000" : "#6a6050",
+                    border: `2px solid ${vis ? col : "#332e24"}`, borderRadius: 4, cursor: "pointer",
+                    fontSize: 11, fontWeight: "bold", fontFamily: "inherit", minWidth: 28, opacity: vis ? 1 : 0.5 }}>
+                  {i + 1}
+                </button>
+                <input
+                  type="color"
+                  ref={el => { colorInputRefs.current[i] = el; }}
+                  value={col}
+                  onChange={(e) => setCycleColor(i, e.target.value)}
+                  style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none", padding: 0 }}
+                />
+              </div>
             );
           })}
         </div>
       )}
 
       {editMode && (
-        <div style={{ marginBottom: 12, padding: 10, border: "1px solid #332e24", borderRadius: 6, background: "#1a1712" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, justifyContent: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, color: "#6a6050" }}>W</span>
-            <input type="number" min={3} max={100} value={wDraft}
-              onFocus={() => { wDimFocusRef.current = true; }}
-              onChange={e => {
-                const raw = e.target.value;
-                setWDraft(raw);
-                const v = parseInt(raw, 10);
-                if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridW) resizeGrid(v, gridH);
-              }}
-              onBlur={commitGridW}
-              onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-              style={{ width: 44, padding: "3px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
-            <span style={{ color: "#6a6050" }}>×</span>
-            <span style={{ fontSize: 11, color: "#6a6050" }}>H</span>
-            <input type="number" min={3} max={100} value={hDraft}
-              onFocus={() => { hDimFocusRef.current = true; }}
-              onChange={e => {
-                const raw = e.target.value;
-                setHDraft(raw);
-                const v = parseInt(raw, 10);
-                if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridH) resizeGrid(gridW, v);
-              }}
-              onBlur={commitGridH}
-              onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-              style={{ width: 44, padding: "3px", fontSize: 12, color: "#c8a96e", background: "#1e1b16", border: "1px solid #332e24", borderRadius: 3, textAlign: "center", fontFamily: "inherit" }} />
-            <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); setAnimProgress({}); }}
-              style={{ padding: "3px 8px", background: "transparent", color: "#9a8e78", border: "1px solid #332e24", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>FILL</button>
-            <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); setAnimProgress({}); }}
-              style={{ padding: "3px 8px", background: "transparent", color: "#9a8e78", border: "1px solid #332e24", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>CLEAR</button>
+        <div className="knm-frame" style={{ position: "relative", marginBottom: 16 }}>
+          <button onClick={() => setEditMode(false)}
+            style={{ position: "absolute", top: 6, right: 8, background: "transparent", border: "none", color: "var(--bone-dim)", fontSize: 16, padding: "4px 8px", cursor: "pointer" }}>×</button>
+          <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="knm-label">W</span>
+              <input type="number" min={3} max={100} value={wDraft}
+                onFocus={() => { wDimFocusRef.current = true; }}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setWDraft(raw);
+                  const v = parseInt(raw, 10);
+                  if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridW) resizeGrid(v, gridH);
+                }}
+                onBlur={commitGridW}
+                onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
+                className="knm-num" />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="knm-label">H</span>
+              <input type="number" min={3} max={100} value={hDraft}
+                onFocus={() => { hDimFocusRef.current = true; }}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setHDraft(raw);
+                  const v = parseInt(raw, 10);
+                  if (!Number.isNaN(v) && v >= 3 && v <= 100 && v !== gridH) resizeGrid(gridW, v);
+                }}
+                onBlur={commitGridH}
+                onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
+                className="knm-num" />
+            </div>
+            <div style={{ flex: 1 }} />
+            <button className="knm-btn" onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); setAnimProgress({}); }}>{T.fill}</button>
+            <button className="knm-btn" onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); setAnimProgress({}); }}>{T.clear}</button>
           </div>
           <div ref={editorRef}
             onPointerDown={onEditorPointerDown} onPointerMove={onEditorPointerMove} onPointerUp={onEditorPointerUp} onPointerCancel={onEditorPointerUp}
             style={{ display: "inline-grid", gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-              border: "1px solid #332e24", borderRadius: 3, padding: 2, background: "#0c0f12",
-              userSelect: "none", touchAction: "none", cursor: "crosshair" }}>
+              border: "1px solid #332e24", borderRadius: 3, padding: "14px 2px 2px 2px", background: "#0c0f12",
+              userSelect: "none", touchAction: "none", cursor: "crosshair", position: "relative" }}>
             {cells.flatMap((row, y) => row.map((on, x) => (
               <div key={`${x},${y}`} style={{
                 width: editorCellSize, height: editorCellSize,
@@ -829,57 +1219,58 @@ function CelticKnotCustom() {
                 border: "1px solid #28231b",
               }} />
             )))}
+            {edgeRuns.map((r, i) => {
+              const labelStyle = {
+                position: "absolute", pointerEvents: "none",
+                fontSize: 10, fontFamily: "inherit", color: "#c8a96e",
+                textShadow: "0 0 3px #16130f, 0 0 3px #16130f, 0 0 2px #16130f",
+                lineHeight: 1, fontWeight: 600,
+              };
+              if (r.orient === "h") {
+                const cx = 2 + ((r.x0 + r.x1) / 2) * editorCellSize;
+                const cy = 14 + r.y * editorCellSize + (r.filledAbove ? 2 : -12);
+                return <div key={`h${i}`} style={{ ...labelStyle, left: cx, top: cy, transform: "translateX(-50%)" }}>{r.len}</div>;
+              } else {
+                const cy = 14 + ((r.y0 + r.y1) / 2) * editorCellSize;
+                const cx = 2 + r.x * editorCellSize + (r.filledLeft ? 2 : -10);
+                return <div key={`v${i}`} style={{ ...labelStyle, left: cx, top: cy, transform: "translateY(-50%)" }}>{r.len}</div>;
+              }
+            })}
+            {marquee && (() => {
+              const xa = Math.min(marquee.x0, marquee.x1), xb = Math.max(marquee.x0, marquee.x1);
+              const ya = Math.min(marquee.y0, marquee.y1), yb = Math.max(marquee.y0, marquee.y1);
+              return (
+                <div style={{
+                  position: "absolute", pointerEvents: "none",
+                  left: 2 + xa * editorCellSize, top: 14 + ya * editorCellSize,
+                  width: (xb - xa + 1) * editorCellSize, height: (yb - ya + 1) * editorCellSize,
+                  background: marquee.val ? "rgba(74,170,120,0.25)" : "rgba(200,80,80,0.22)",
+                  border: `1px solid ${marquee.val ? "#4aaa78" : "#c85050"}`,
+                }} />
+              );
+            })()}
           </div>
-          <div style={{ fontSize: 10, color: "#4a4438", marginTop: 6, textAlign: "center" }}>Drag to paint</div>
+          <div className="knm-label" style={{ marginTop: 10, textAlign: "center" }}>{T.dragHint}</div>
         </div>
       )}
 
-      <div style={{ background: bgColor, borderRadius: 6, border: "1px solid #28231b", padding: 6, boxShadow: "0 6px 28px rgba(0,0,0,0.6)" }}>
+      <div ref={knotWrapRef} style={{ background: bgColor, border: "1px solid var(--hair)", padding: 6 }}>
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
           <defs>
             <filter id="glo"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
           </defs>
 
-          {/* Orthogonal grids: integer + half-integer; under everything */}
-          {showGrid && (
-            <g style={{ pointerEvents: "none" }}>
-              {nailGrid.vInt.map((ln, i) => (
-                <line key={`ngvi${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.09)" strokeWidth={0.65} />
-              ))}
-              {nailGrid.hInt.map((ln, i) => (
-                <line key={`nghi${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.09)" strokeWidth={0.65} />
-              ))}
-              {nailGrid.vHalf.map((ln, i) => (
-                <line key={`ngvh${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.14)" strokeWidth={0.7} />
-              ))}
-              {nailGrid.hHalf.map((ln, i) => (
-                <line key={`nghh${i}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="rgba(200,169,110,0.14)" strokeWidth={0.7} />
-              ))}
-            </g>
-          )}
+          {/* Loom paper background — broken weave diagonals across full viewport */}
+          <g style={{ pointerEvents: "none" }}>
+            {loomBackground.map((s, i) => (
+              <line key={`loom${i}`} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="rgba(200,210,220,0.13)" strokeWidth={1.4} strokeLinecap="round" />
+            ))}
+          </g>
 
           {/* Boundary edges */}
           {boundaryEdges.map((e, i) => (
             <line key={`be${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="#2a2519" strokeWidth={1.5} />
           ))}
-
-          {/* Weave grid */}
-          {showGrid && weaveLines.map((line, idx) => {
-            const { sx0, sy0, sx1, sy1, ux, uy, cuts } = line;
-            const gapPx = cellSz * 0.16;
-            const sortedCuts = [...cuts].sort((a, b) => (a.sx - sx0) * ux + (a.sy - sy0) * uy - ((b.sx - sx0) * ux + (b.sy - sy0) * uy));
-            const parts = [];
-            let cx = sx0, cy = sy0;
-            for (const cut of sortedCuts) {
-              const gsx = cut.sx - ux * gapPx, gsy = cut.sy - uy * gapPx;
-              const proj = (gsx - cx) * ux + (gsy - cy) * uy;
-              if (proj > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${gsx.toFixed(1)},${gsy.toFixed(1)}`);
-              cx = cut.sx + ux * gapPx; cy = cut.sy + uy * gapPx;
-            }
-            const projEnd = (sx1 - cx) * ux + (sy1 - cy) * uy;
-            if (projEnd > 0.5) parts.push(`M${cx.toFixed(1)},${cy.toFixed(1)} L${sx1.toFixed(1)},${sy1.toFixed(1)}`);
-            return parts.length > 0 ? <path key={`wv${idx}`} d={parts.join(" ")} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={1} strokeLinecap="round" /> : null;
-          })}
 
           {/* Strands */}
           {renderElements.map((el, i) => (
@@ -919,20 +1310,49 @@ function CelticKnotCustom() {
             );
           })}
 
-          {/* Nail dots */}
-          {nailPositions.map((n, i) => (
-            <circle key={`nail${i}`} cx={toX(n.x)} cy={toY(n.y)} r={3}
-              fill={n.type === 'corner' ? "#ff4444" : "#44ff44"}
-              opacity={0.8} style={{ pointerEvents: "none" }} />
-          ))}
+          {/* Nail dots and axis labels */}
+          {(() => {
+            const xs = [...new Set(nailPositions.map(n => n.x))].sort((a,b) => a-b);
+            const ys = [...new Set(nailPositions.map(n => n.y))].sort((a,b) => a-b);
+            const off = cellSz * 0.4;
+            const fs = Math.max(9, Math.min(13, cellSz * 0.35));
+            const els = [];
+            // Dots
+            nailPositions.forEach((n, i) => els.push(
+              <circle key={`nail${i}`} cx={toX(n.x)} cy={toY(n.y)} r={4}
+                fill={n.type === 'corner' ? "#ff4444" : "#44ff44"} opacity={0.8} style={{ pointerEvents: "none" }} />
+            ));
+            // X-axis labels along bottom
+            xs.forEach((x, i) => els.push(
+              <text key={`xl${i}`} x={toX(x)} y={toY(H) + off + fs} textAnchor="middle"
+                fill="#c8a96e" fontSize={fs} fontFamily="inherit" style={{ pointerEvents: "none" }}>
+                {i + 1}
+              </text>
+            ));
+            // Y-axis labels along left (flipped: bottom=1)
+            ys.forEach((y, i) => els.push(
+              <text key={`yl${i}`} x={toX(0) - off} y={toY(y) + fs * 0.35} textAnchor="end"
+                fill="#c8a96e" fontSize={fs} fontFamily="inherit" style={{ pointerEvents: "none" }}>
+                {ys.length - i}
+              </text>
+            ));
+            return els;
+          })()}
 
         </svg>
       </div>
 
+      <div style={{ marginTop: 10, fontSize: 12, letterSpacing: 1.4, color: "var(--bone-dim)", textTransform: "uppercase", textAlign: "center" }}>
+        {gridW}×{gridH} · {cycles.length} {cycles.length !== 1 ? T.cyclesPlural : T.cycle} · {T[strandMode] || strandMode}
+      </div>
       <div style={{ marginTop: 8, fontSize: 11, color: "#5a5244", textAlign: "center" }}>
         {selGap !== null && active
           ? <span style={{ color: "#9a8e78" }}>Strand: {active.gaps.size} gaps, {active.points.length - 1} segments</span>
           : "Tap a gap dot to isolate a strand"}
+        <span onClick={() => setAnimate(!animate)}
+          style={{ marginLeft: 8, cursor: "pointer", color: animate ? "#9a8e78" : "#5a5244" }}>
+          · animate: {animate ? "on" : "off"}
+        </span>
       </div>
     </div>
   );

@@ -1,0 +1,44 @@
+{
+  "type": "orthogonal-polygon",
+  "units": "grid-squares",
+  "start": [0, 0],
+  "winding": "clockwise",
+  "notes": "Best-effort transcription from hand drawing. Outer frame ~13x13 with one bump on each side. Bump positions/sizes are approximate; numbers in the drawing label the labeled run-lengths.",
+  "edges": [
+    { "dir": "R", "len": 3 },
+    { "dir": "U", "len": 1, "feature": "top-left bump" },
+    { "dir": "R", "len": 1 },
+    { "dir": "D", "len": 1 },
+    { "dir": "R", "len": 3 },
+    { "dir": "U", "len": 1, "feature": "top-mid bump (label 7 across the top)" },
+    { "dir": "R", "len": 4 },
+    { "dir": "D", "len": 1 },
+    { "dir": "R", "len": 3 },
+    { "dir": "U", "len": 1, "feature": "top-right bump (labels 3,4)" },
+    { "dir": "R", "len": 1 },
+    { "dir": "D", "len": 1 },
+    { "dir": "R", "len": 1 },
+
+    { "dir": "D", "len": 5, "feature": "right side, label 13 total" },
+    { "dir": "R", "len": 1, "feature": "right-mid bump (label 5)" },
+    { "dir": "D", "len": 1 },
+    { "dir": "L", "len": 1 },
+    { "dir": "D", "len": 7 },
+
+    { "dir": "L", "len": 3 },
+    { "dir": "D", "len": 1, "feature": "bottom-right bump (label 5)" },
+    { "dir": "L", "len": 1 },
+    { "dir": "U", "len": 1 },
+    { "dir": "L", "len": 3, "feature": "bottom run, label 7" },
+    { "dir": "D", "len": 1, "feature": "bottom-mid bump (labels 5,6)" },
+    { "dir": "L", "len": 1 },
+    { "dir": "U", "len": 1 },
+    { "dir": "L", "len": 4 },
+
+    { "dir": "U", "len": 4, "feature": "left side, label 13 total" },
+    { "dir": "L", "len": 1, "feature": "left-mid bump (label 4)" },
+    { "dir": "U", "len": 1 },
+    { "dir": "R", "len": 1 },
+    { "dir": "U", "len": 8 }
+  ]
+}
