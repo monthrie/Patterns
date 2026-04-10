@@ -284,11 +284,23 @@ function getAllCycles(cells, gw, gh) {
 }
 
 // ========== COLORS & UTILS — identical to original ==========
-const COLORS = [
-  "#2E7D7D", "#B5541C", "#3D5A80", "#D4A017",
-  "#8B2E52", "#6B8E6B", "#5B8DB8", "#C25476",
-  "#C8804A", "#4A7C5E", "#A67C3C", "#5BA8A0",
+const JOAO = [
+  { name: "Preto",       hex: "#1a1a1a" },
+  { name: "Rosa",        hex: "#e0738a" },
+  { name: "Chartreuse",  hex: "#a0b820" },
+  { name: "Verde Lima",  hex: "#78b830" },
+  { name: "Roxo",        hex: "#6b2d8b" },
+  { name: "Âmbar",       hex: "#d9a030" },
+  { name: "Rosa Choque", hex: "#e84690" },
+  { name: "Magenta",     hex: "#c8186e" },
+  { name: "Azul Real",   hex: "#0e5cc0" },
+  { name: "Azul Aço",    hex: "#5a93b0" },
+  { name: "Cinza Claro", hex: "#b0a89a" },
+  { name: "Esmeralda",   hex: "#109878" },
+  { name: "Carmesim",    hex: "#b01840" },
 ];
+const JOAO_DEFAULTS = JOAO.filter(c => c.hex !== "#1a1a1a");
+const COLORS = JOAO_DEFAULTS.map(c => c.hex);
 
 function subtractInterval(a0, a1, b0, b1) {
   if (b0 >= a1 || b1 <= a0) return [[a0, a1]];
@@ -315,6 +327,9 @@ function CelticKnotCustom() {
   const [showAll, setShowAll] = useState(true);
   const [hoverGap, setHoverGap] = useState(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [showNails, setShowNails] = useState(true);
+  const [netMode, setNetMode] = useState(false);
+  const [netBaseFace, setNetBaseFace] = useState(-1); // -1 = auto (most connected)
   const [zoom, setZoom] = useState(1);
   const knotWrapRef = useRef(null);
   useEffect(() => {
@@ -362,8 +377,19 @@ function CelticKnotCustom() {
     return dict[lang] || dict.en;
   }, [lang]);
   const [cycleColors, setCycleColors] = useState({});
+  const [cycleSecondary, setCycleSecondary] = useState({});
+  const [palettePopover, setPalettePopover] = useState(null); // { i, kind: "primary"|"secondary" }
+  useEffect(() => {
+    if (!palettePopover) return;
+    const close = (e) => {
+      if (!e.target.closest?.("[data-palette-pop]") && !e.target.closest?.("[data-palette-trigger]")) setPalettePopover(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [palettePopover]);
   const [visibleCycles, setVisibleCycles] = useState({});
   const [animate, setAnimate] = useState(true);
+  const [animSpeed, setAnimSpeed] = useState(1);
   const [strandMode, setStrandMode] = useState('thin'); // 'thin', 'full', 'string'
   const [animProgress, setAnimProgress] = useState({});
   const [editMode, setEditMode] = useState(false);
@@ -374,6 +400,7 @@ function CelticKnotCustom() {
   const wDimFocusRef = useRef(false);
   const hDimFocusRef = useRef(false);
   const colorInputRefs = useRef({});
+  const colorInputRefs2 = useRef({});
   const longPressTimerRef = useRef(null);
   const longPressFiredRef = useRef(false);
   const pressStartRef = useRef(null);
@@ -774,6 +801,8 @@ function CelticKnotCustom() {
     return cycleColors[i] || COLORS[i % COLORS.length];
   }, [cycleColors, strandMode]);
   const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
+  const setCycleSecondaryColor = useCallback((i, color) => setCycleSecondary(prev => ({ ...prev, [i]: color })), []);
+  const clearCycleSecondary = useCallback((i) => setCycleSecondary(prev => { const n = { ...prev }; delete n[i]; return n; }), []);
 
   const isCycleVisible = useCallback((i) => {
     if (showAll) return visibleCycles[i] !== false;
@@ -809,7 +838,7 @@ function CelticKnotCustom() {
           const total = c.points.length - 1;
           if (isCycleVisible(i) && (prev[i] ?? Infinity) < total) {
             const elapsed = (now - (animStartTime.current[i] ?? now)) / 1000;
-            const duration = Math.max(2.5, total * 0.06);
+            const duration = Math.max(2.5, total * 0.06) / animSpeed;
             const frac = Math.min(elapsed / duration, 1);
             next[i] = frac * total;
             if (frac >= 1) { next[i] = total; delete animStartTime.current[i]; }
@@ -819,7 +848,7 @@ function CelticKnotCustom() {
       });
     });
     return () => cancelAnimationFrame(id);
-  }, [animate, animProgress, cycles, isCycleVisible]);
+  }, [animate, animProgress, cycles, isCycleVisible, animSpeed]);
 
   const getVisiblePoints = useCallback((cycleIdx) => {
     if (!cycles[cycleIdx]) return [];
@@ -934,16 +963,232 @@ function CelticKnotCustom() {
       // For a BS segment, the crossing strand is FS, so check allFS; vice versa
       // Pack into { forBS: allFS, forFS: allBS }
       const crossingMap = { forBS: allFS, forFS: allBS };
+      const arcLen = (pts) => {
+        let t = 0;
+        for (let s = 0; s < pts.length - 1; s++) t += Math.hypot(pts[s+1].x - pts[s].x, pts[s+1].y - pts[s].y);
+        return t;
+      };
+      const splitPtsAtArc = (pts, arc) => {
+        if (pts.length < 2 || arc <= 0) return [[], pts];
+        let acc = 0;
+        for (let s = 0; s < pts.length - 1; s++) {
+          const d = Math.hypot(pts[s+1].x - pts[s].x, pts[s+1].y - pts[s].y);
+          if (acc + d >= arc) {
+            const t = (arc - acc) / d;
+            const split = {
+              x: pts[s].x + (pts[s+1].x - pts[s].x) * t,
+              y: pts[s].y + (pts[s+1].y - pts[s].y) * t,
+            };
+            return [pts.slice(0, s+1).concat([split]), [split].concat(pts.slice(s+1))];
+          }
+          acc += d;
+        }
+        return [pts, []];
+      };
       const els = [];
       for (let i = 0; i < cycles.length; i++) {
         if (!isCycleVisible(i)) continue;
-        const pts = cyclePts[i];
-        if (pts && pts.length >= 2) els.push(...renderStrandSVG(pts, getCycleColor(i), crossingMap));
+        const visPts = cyclePts[i];
+        if (!visPts || visPts.length < 2) continue;
+        const c1 = getCycleColor(i);
+        const c2 = strandMode === 'string' ? null : cycleSecondary[i];
+        if (c2) {
+          const fullPts = cycles[i].points;
+          const splitArc = arcLen(fullPts) * 0.5;
+          const visArc = arcLen(visPts);
+          if (visArc <= splitArc) {
+            // Animation hasn't reached the join — only first color visible
+            els.push(...renderStrandSVG(visPts, c1, crossingMap));
+          } else {
+            // Split visible points at the absolute arc position of the full-cycle midpoint
+            const [first, second] = splitPtsAtArc(visPts, splitArc);
+            if (first.length >= 2) els.push(...renderStrandSVG(first, c1, crossingMap));
+            if (second.length >= 2) els.push(...renderStrandSVG(second, c2, crossingMap));
+          }
+        } else {
+          els.push(...renderStrandSVG(visPts, c1, crossingMap));
+        }
       }
       els.sort((a, b) => a.z - b.z);
       return els;
     } catch(e) { console.error('RENDER ERROR:', e); return []; }
-  }, [cycles, isCycleVisible, cells, W, H, cellSz, toX, toY, sw, cycleColors, animProgress, getVisiblePoints]);
+  }, [cycles, isCycleVisible, cells, W, H, cellSz, toX, toY, sw, cycleColors, cycleSecondary, strandMode, animProgress, getVisiblePoints]);
+
+  // ===== STRING LENGTH STATS =====
+  const stringStats = useMemo(() => {
+    const stats = [];
+    let totalLen = 0;
+    for (let i = 0; i < cycles.length; i++) {
+      const pts = cycles[i].points;
+      if (!pts || pts.length < 2) { stats.push(null); continue; }
+      let len = 0;
+      for (let s = 0; s < pts.length - 1; s++) len += Math.hypot(pts[s+1].x - pts[s].x, pts[s+1].y - pts[s].y);
+      const c1 = getCycleColor(i);
+      const c2 = cycleSecondary[i] || null;
+      const half = len * 0.5;
+      stats.push({ len, c1, c2, firstLen: c2 ? half : len, secondLen: c2 ? half : 0 });
+      totalLen += len;
+    }
+    // Aggregate by color
+    const byColor = {};
+    for (const s of stats) {
+      if (!s) continue;
+      byColor[s.c1] = (byColor[s.c1] || 0) + s.firstLen;
+      if (s.c2) byColor[s.c2] = (byColor[s.c2] || 0) + s.secondLen;
+    }
+    return { perCycle: stats, totalLen, byColor };
+  }, [cycles, getCycleColor, cycleSecondary]);
+
+  // ===== NET MODE — face detection + 3D folding =====
+  const netFaces = useMemo(() => {
+    if (!netMode) return [];
+    // Find face unit size from GCD of all horizontal and vertical edge-run lengths
+    const isOn = (x, y) => x >= 0 && y >= 0 && x < gridW && y < gridH && !!cells[y]?.[x];
+    const lengths = [];
+    // Horizontal runs of filled cells per row
+    for (let y = 0; y < gridH; y++) {
+      let run = 0;
+      for (let x = 0; x <= gridW; x++) {
+        if (x < gridW && isOn(x, y)) { run++; }
+        else { if (run > 0) lengths.push(run); run = 0; }
+      }
+    }
+    // Vertical runs per column
+    for (let x = 0; x < gridW; x++) {
+      let run = 0;
+      for (let y = 0; y <= gridH; y++) {
+        if (y < gridH && isOn(x, y)) { run++; }
+        else { if (run > 0) lengths.push(run); run = 0; }
+      }
+    }
+    if (lengths.length === 0) return [];
+    const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+    let unit = lengths[0];
+    for (const l of lengths) unit = gcd(unit, l);
+    if (unit < 1) unit = 1;
+
+    // Tile the grid with unit×unit blocks
+    const faces = [];
+    const tilesW = Math.floor(gridW / unit), tilesH = Math.floor(gridH / unit);
+    for (let ty = 0; ty < tilesH; ty++) {
+      for (let tx = 0; tx < tilesW; tx++) {
+        let allFilled = true;
+        for (let dy = 0; dy < unit && allFilled; dy++)
+          for (let dx = 0; dx < unit && allFilled; dx++)
+            if (!isOn(tx * unit + dx, ty * unit + dy)) allFilled = false;
+        if (allFilled) {
+          faces.push({ id: faces.length, x: tx * unit, y: ty * unit, w: unit, h: unit, tx, ty });
+        }
+      }
+    }
+    // Origin-aligned tiling only checks blocks starting at (0,0), (u,0), … If the GCD
+    // implies u×u tiles but the filled region doesn’t align to that grid (e.g. the only
+    // 2×2 sits in the bottom-right of a 3×3), we get zero faces and no 3D preview.
+    if (faces.length === 0 && lengths.length > 0) {
+      for (let ty = 0; ty < gridH; ty++) {
+        for (let tx = 0; tx < gridW; tx++) {
+          if (isOn(tx, ty)) {
+            faces.push({ id: faces.length, x: tx, y: ty, w: 1, h: 1, tx, ty });
+          }
+        }
+      }
+    }
+    return faces;
+  }, [netMode, cells, gridW, gridH]);
+
+  // Adjacency: which faces share an edge, and which side
+  const netAdjacency = useMemo(() => {
+    if (!netMode || netFaces.length < 2) return [];
+    const adj = [];
+    for (let i = 0; i < netFaces.length; i++) {
+      for (let j = i + 1; j < netFaces.length; j++) {
+        const a = netFaces[i], b = netFaces[j];
+        // Check cardinal adjacency in tile coords
+        if (a.tx === b.tx && a.ty + 1 === b.ty) adj.push({ parent: i, child: j, side: "bottom" });
+        else if (a.tx === b.tx && b.ty + 1 === a.ty) adj.push({ parent: i, child: j, side: "top" });
+        else if (a.ty === b.ty && a.tx + 1 === b.tx) adj.push({ parent: i, child: j, side: "right" });
+        else if (a.ty === b.ty && b.tx + 1 === a.tx) adj.push({ parent: i, child: j, side: "left" });
+      }
+    }
+    return adj;
+  }, [netMode, netFaces]);
+
+  // 3D fold: BFS from base, each child folds 90° around shared edge
+  const netFolded3D = useMemo(() => {
+    if (!netMode || netFaces.length === 0) return [];
+    // Auto-pick base: face with most adjacencies (most central)
+    let baseIdx = netBaseFace >= 0 && netBaseFace < netFaces.length ? netBaseFace : 0;
+    if (netBaseFace < 0) {
+      const counts = new Array(netFaces.length).fill(0);
+      for (const e of netAdjacency) { counts[e.parent]++; counts[e.child]++; }
+      baseIdx = counts.indexOf(Math.max(...counts));
+    }
+    const unit = netFaces[0]?.w || 1;
+
+    const vadd = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+    const vscale = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
+    const vcross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+
+    // Each placed face: corners [TL,TR,BR,BL], normal (outward)
+    const placed = new Array(netFaces.length).fill(null);
+
+    // Base: flat on XZ plane, y=0, normal pointing up
+    const u = unit;
+    placed[baseIdx] = {
+      corners: [[0,0,0],[u,0,0],[u,0,u],[0,0,u]],
+      normal: [0,1,0],
+    };
+
+    const visited = new Set([baseIdx]);
+    const queue = [baseIdx];
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      const p = placed[cur];
+      const [TL,TR,BR,BL] = p.corners;
+      const n = p.normal;
+
+      for (const edge of netAdjacency) {
+        let childIdx, side;
+        if (edge.parent === cur && !visited.has(edge.child)) { childIdx = edge.child; side = edge.side; }
+        else if (edge.child === cur && !visited.has(edge.parent)) {
+          childIdx = edge.parent;
+          // Flip side: if parent→child is "bottom", then child→parent is "top"
+          side = {bottom:"top",top:"bottom",left:"right",right:"left"}[edge.side];
+        }
+        else continue;
+
+        visited.add(childIdx);
+        queue.push(childIdx);
+
+        // Fold 90° from the hinge edge: child's free edge swings in the normal direction
+        let corners;
+        if (side === "bottom") {
+          // Hinge = BL→BR, child goes "up" (in normal direction)
+          corners = [BL, BR, vadd(BR, vscale(n, u)), vadd(BL, vscale(n, u))];
+        } else if (side === "top") {
+          // Hinge = TL→TR, child goes up
+          corners = [vadd(TL, vscale(n, u)), vadd(TR, vscale(n, u)), TR, TL];
+        } else if (side === "right") {
+          // Hinge = TR→BR, child goes up
+          corners = [TR, vadd(TR, vscale(n, u)), vadd(BR, vscale(n, u)), BR];
+        } else {
+          // Hinge = TL→BL, child goes up
+          corners = [vadd(TL, vscale(n, u)), TL, BL, vadd(BL, vscale(n, u))];
+        }
+
+        // Compute child normal: perpendicular to child face, pointing outward
+        const e1 = [corners[1][0]-corners[0][0], corners[1][1]-corners[0][1], corners[1][2]-corners[0][2]];
+        const e2 = [corners[3][0]-corners[0][0], corners[3][1]-corners[0][1], corners[3][2]-corners[0][2]];
+        const cn = vcross(e1, e2);
+        const cnLen = Math.hypot(...cn);
+        const childNormal = cnLen > 0.001 ? vscale(cn, 1/cnLen) : [0,1,0];
+
+        placed[childIdx] = { corners, normal: childNormal };
+      }
+    }
+
+    return placed.map((p, i) => p ? { id: i, corners: p.corners, color: `hsl(${(i*47+200)%360},45%,50%)` } : null).filter(Boolean);
+  }, [netMode, netFaces, netAdjacency, netBaseFace]);
 
   const clickGap = useCallback(g => {
     const ci = cycles.findIndex(c => c.gaps.has(g));
@@ -1108,6 +1353,9 @@ function CelticKnotCustom() {
             <span className="knm-label" style={{ minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
             <button className="knm-btn" onClick={() => setZoom(z => Math.min(4, +(z + 0.15).toFixed(2)))}>+</button>
             <button className="knm-btn" onClick={() => setZoom(1)}>{T.reset}</button>
+            <span style={{ width: 1, alignSelf: "stretch", background: "var(--hair)", margin: "0 4px" }} />
+            <button className={`knm-btn ${showNails ? "is-active" : ""}`} onClick={() => setShowNails(v => !v)}>nails</button>
+            <button className={`knm-btn ${netMode ? "is-active" : ""}`} onClick={() => setNetMode(v => !v)}>net</button>
           </div>
         </div>
 
@@ -1120,8 +1368,7 @@ function CelticKnotCustom() {
             const vis = isCycleVisible(i);
             const col = getCycleColor(i);
             const openPicker = () => {
-              const inp = colorInputRefs.current[i];
-              if (inp) inp.click();
+              setPalettePopover({ i, kind: "primary" });
             };
             const clearLongPress = () => {
               if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
@@ -1130,6 +1377,7 @@ function CelticKnotCustom() {
             return (
               <div key={i} style={{ position: "relative", display: "inline-block" }}>
                 <button
+                  data-palette-trigger
                   onClick={() => {
                     if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
                     toggleCycle(i);
@@ -1164,6 +1412,65 @@ function CelticKnotCustom() {
                   onChange={(e) => setCycleColor(i, e.target.value)}
                   style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none", padding: 0 }}
                 />
+                <button
+                  data-palette-trigger
+                  title="Second color (halfway)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPalettePopover({ i, kind: "secondary" });
+                  }}
+                  onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); clearCycleSecondary(i); }}
+                  style={{
+                    marginLeft: 2, padding: 0, width: 16, height: 22, verticalAlign: "middle",
+                    background: cycleSecondary[i] || "transparent",
+                    border: `1px dashed ${cycleSecondary[i] ? cycleSecondary[i] : "#4a4438"}`,
+                    color: cycleSecondary[i] ? "transparent" : "#6a6050",
+                    cursor: "pointer", fontSize: 11, lineHeight: "20px", fontFamily: "inherit",
+                  }}>
+                  {cycleSecondary[i] ? "" : "+"}
+                </button>
+                <input
+                  type="color"
+                  ref={el => { colorInputRefs2.current[i] = el; }}
+                  value={cycleSecondary[i] || "#ffffff"}
+                  onChange={(e) => setCycleSecondaryColor(i, e.target.value)}
+                  style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none", padding: 0 }}
+                />
+                {palettePopover && palettePopover.i === i && (
+                  <div data-palette-pop style={{
+                    position: "absolute", top: "100%", left: 0, marginTop: 8, zIndex: 50,
+                    background: "var(--ink-2)", border: "1px solid var(--hair)", padding: 10,
+                    display: "grid", gridTemplateColumns: "repeat(7, 24px)", gap: 7,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                  }}>
+                    {JOAO.map(s => (
+                      <button key={s.hex} title={s.name}
+                        onClick={() => {
+                          if (palettePopover.kind === "primary") setCycleColor(i, s.hex);
+                          else setCycleSecondaryColor(i, s.hex);
+                          setPalettePopover(null);
+                        }}
+                        style={{ width: 24, height: 24, padding: 0, background: s.hex, border: "1px solid #00000050", cursor: "pointer", borderRadius: 2 }}
+                      />
+                    ))}
+                    <button
+                      onClick={() => {
+                        if (palettePopover.kind === "primary") colorInputRefs.current[i]?.click();
+                        else colorInputRefs2.current[i]?.click();
+                        setPalettePopover(null);
+                      }}
+                      style={{ gridColumn: "span 7", marginTop: 4, background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 10, padding: "5px", cursor: "pointer", letterSpacing: 1, fontFamily: "inherit", textTransform: "uppercase" }}>
+                      Custom…
+                    </button>
+                    {palettePopover.kind === "secondary" && cycleSecondary[i] && (
+                      <button
+                        onClick={() => { clearCycleSecondary(i); setPalettePopover(null); }}
+                        style={{ gridColumn: "span 7", background: "transparent", border: "1px solid var(--hair)", color: "var(--oxblood)", fontSize: 10, padding: "5px", cursor: "pointer", letterSpacing: 1, fontFamily: "inherit", textTransform: "uppercase" }}>
+                        Remove second color
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1172,8 +1479,6 @@ function CelticKnotCustom() {
 
       {editMode && (
         <div className="knm-frame" style={{ position: "relative", marginBottom: 16 }}>
-          <button onClick={() => setEditMode(false)}
-            style={{ position: "absolute", top: 6, right: 8, background: "transparent", border: "none", color: "var(--bone-dim)", fontSize: 16, padding: "4px 8px", cursor: "pointer" }}>×</button>
           <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className="knm-label">W</span>
@@ -1206,6 +1511,8 @@ function CelticKnotCustom() {
             <div style={{ flex: 1 }} />
             <button className="knm-btn" onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); setAnimProgress({}); }}>{T.fill}</button>
             <button className="knm-btn" onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); setAnimProgress({}); }}>{T.clear}</button>
+            <div style={{ flex: 1 }} />
+            <button className="knm-btn" onClick={() => setEditMode(false)} style={{ fontSize: 18, padding: "2px 8px" }}>×</button>
           </div>
           <div ref={editorRef}
             onPointerDown={onEditorPointerDown} onPointerMove={onEditorPointerMove} onPointerUp={onEditorPointerUp} onPointerCancel={onEditorPointerUp}
@@ -1254,6 +1561,7 @@ function CelticKnotCustom() {
         </div>
       )}
 
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
       <div ref={knotWrapRef} style={{ background: bgColor, border: "1px solid var(--hair)", padding: 6 }}>
         <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
           <defs>
@@ -1318,7 +1626,7 @@ function CelticKnotCustom() {
             const fs = Math.max(9, Math.min(13, cellSz * 0.35));
             const els = [];
             // Dots
-            nailPositions.forEach((n, i) => els.push(
+            if (showNails) nailPositions.forEach((n, i) => els.push(
               <circle key={`nail${i}`} cx={toX(n.x)} cy={toY(n.y)} r={4}
                 fill={n.type === 'corner' ? "#ff4444" : "#44ff44"} opacity={0.8} style={{ pointerEvents: "none" }} />
             ));
@@ -1342,9 +1650,88 @@ function CelticKnotCustom() {
         </svg>
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 12, letterSpacing: 1.4, color: "var(--bone-dim)", textTransform: "uppercase", textAlign: "center" }}>
-        {gridW}×{gridH} · {cycles.length} {cycles.length !== 1 ? T.cyclesPlural : T.cycle} · {T[strandMode] || strandMode}
+      {/* String stats panel — right of the knot */}
+      <div style={{ minWidth: 150, fontSize: 12, color: "var(--bone-dim)", display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
+        {stringStats.totalLen > 0 && (
+          <>
+            <div style={{ letterSpacing: 1, textTransform: "uppercase", fontSize: 11, color: "var(--accent)" }}>
+              total: {(stringStats.totalLen * 15 / 10).toFixed(0)}cm
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {Object.entries(stringStats.byColor)
+                .sort(([, a], [, b]) => b - a)
+                .map(([hex, len], rank) => {
+                  const pct = ((len / stringStats.totalLen) * 100).toFixed(0);
+                  const name = JOAO.find(j => j.hex === hex)?.name || hex;
+                  return (
+                    <div key={hex} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 14, textAlign: "right", color: "var(--accent)", fontSize: 11, flexShrink: 0 }}>{rank + 1}.</span>
+                      <span style={{ width: 10, height: 10, background: hex, display: "inline-block", borderRadius: 1, flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{name}</span>
+                      <span style={{ minWidth: 44, textAlign: "right" }}>{(len * 15 / 10).toFixed(0)}cm</span>
+                      <span style={{ minWidth: 36, textAlign: "right", color: "var(--accent)" }}>{pct}%</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Net 3D isometric preview */}
+      {netMode && netFolded3D.length > 0 && (() => {
+        // Oblique projection — same as net_maker.jsx
+        const depthAngle = Math.PI / 6;
+        const depthScale = 0.5;
+        const proj = ([x, y, z]) => [
+          x + Math.cos(depthAngle) * z * depthScale,
+          -y + Math.sin(depthAngle) * z * depthScale,
+        ];
+
+        const allPts2D = netFolded3D.flatMap(f => f.corners.map(proj));
+        let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+        for (const [px, py] of allPts2D) {
+          mnx = Math.min(mnx, px); mny = Math.min(mny, py);
+          mxx = Math.max(mxx, px); mxy = Math.max(mxy, py);
+        }
+        const pad3 = 8;
+        const vw = (mxx - mnx + pad3 * 2) || 100;
+        const vh = (mxy - mny + pad3 * 2) || 100;
+
+        // Painter's algorithm: sort by average depth (y+z in 3D)
+        const sorted = [...netFolded3D].sort((a, b) => {
+          const dA = a.corners.reduce((s, c) => s + c[1] + c[2], 0);
+          const dB = b.corners.reduce((s, c) => s + c[1] + c[2], 0);
+          return dA - dB;
+        });
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <div className="knm-label">3D Preview</div>
+            <svg width={320} height={Math.max(180, Math.min(400, vh * (320 / vw)))} viewBox={`${mnx - pad3} ${mny - pad3} ${vw} ${vh}`}
+              style={{ background: "transparent" }}>
+              {sorted.map((f, i) => {
+                const pts = f.corners.map(proj);
+                const e1 = [f.corners[1][0]-f.corners[0][0], f.corners[1][1]-f.corners[0][1], f.corners[1][2]-f.corners[0][2]];
+                const e2 = [f.corners[3][0]-f.corners[0][0], f.corners[3][1]-f.corners[0][1], f.corners[3][2]-f.corners[0][2]];
+                const n = [e1[1]*e2[2]-e1[2]*e2[1], e1[2]*e2[0]-e1[0]*e2[2], e1[0]*e2[1]-e1[1]*e2[0]];
+                const nl = Math.hypot(...n);
+                const light = nl > 0 ? Math.abs(n[1]/nl) * 0.3 + 0.3 : 0.5;
+                return (
+                  <polygon key={f.id}
+                    points={pts.map(p => p.join(",")).join(" ")}
+                    fill={f.color} fillOpacity={0.3 + light * 0.6}
+                    stroke="none"
+                  />
+                );
+              })}
+            </svg>
+            <div style={{ fontSize: 11, color: "var(--bone-dim)" }}>{netFolded3D.length} faces</div>
+          </div>
+        );
+      })()}
+
+      </div>{/* close flex row */}
       <div style={{ marginTop: 8, fontSize: 11, color: "#5a5244", textAlign: "center" }}>
         {selGap !== null && active
           ? <span style={{ color: "#9a8e78" }}>Strand: {active.gaps.size} gaps, {active.points.length - 1} segments</span>
@@ -1352,6 +1739,20 @@ function CelticKnotCustom() {
         <span onClick={() => setAnimate(!animate)}
           style={{ marginLeft: 8, cursor: "pointer", color: animate ? "#9a8e78" : "#5a5244" }}>
           · animate: {animate ? "on" : "off"}
+        </span>
+        <span style={{ marginLeft: 12, display: "inline-flex", alignItems: "center", gap: 6, verticalAlign: "middle", color: "#9a8e78" }}>
+          · speed
+          <input type="range" min="0.1" max="4" step="0.1" value={animSpeed}
+            onChange={(e) => setAnimSpeed(parseFloat(e.target.value))}
+            style={{ width: 110, accentColor: "var(--accent)", verticalAlign: "middle" }} />
+          <span style={{ minWidth: 32, textAlign: "left" }}>{animSpeed.toFixed(1)}×</span>
+          <button onClick={() => {
+            setAnimProgress({});
+            animStartTime.current = {};
+          }}
+            style={{ background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", padding: "2px 8px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase", letterSpacing: 1 }}>
+            replay
+          </button>
         </span>
       </div>
     </div>
