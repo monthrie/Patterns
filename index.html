@@ -114,6 +114,55 @@
     color: var(--oxblood); font-size: 14px; line-height: 1;
     background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
   }
+
+  .editor-scroll-wrap {
+    overflow: auto;
+    max-height: min(58dvh, 520px);
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    background: #080a0c;
+  }
+  .editor-big-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .editor-big-tools > span {
+    font-size: 11px;
+    color: var(--bone-dim);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    width: 100%;
+  }
+  .editor-big-btn {
+    min-width: 56px;
+    min-height: 52px;
+    padding: 8px 14px;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 8px;
+    border: 2px solid var(--hair);
+    background: var(--ink-2);
+    color: var(--bone);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .editor-big-btn:active { background: #252a32; }
+  .editor-big-btn.accent {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
 </style>
 </head>
 <body>
@@ -952,8 +1001,56 @@ function KnotMakerMobile() {
   const [editorZoom, setEditorZoom] = useState(1);
   const editorCellSize = Math.round(editorBaseCellSize * editorZoom);
   const editorRef = useRef(null);
+  const editorScrollWrapRef = useRef(null);
+  const editorZoomRef = useRef(1);
+  editorZoomRef.current = editorZoom;
+  const editPinchGestureRef = useRef(null);
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
+
+  const scrollEditorGrid = useCallback((dx, dy) => {
+    const el = editorScrollWrapRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dx, top: dy, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    const el = editorScrollWrapRef.current;
+    if (!el) return;
+    const captureTwoFinger = (e) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const d = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      if (d < 8) return;
+      editPinchGestureRef.current = { d, z: editorZoomRef.current };
+    };
+    const onTouchStart = (e) => { captureTwoFinger(e); };
+    const onTouchMove = (e) => {
+      if (e.touches.length === 2) {
+        if (!editPinchGestureRef.current) captureTwoFinger(e);
+        if (!editPinchGestureRef.current) return;
+        e.preventDefault();
+        const t0 = e.touches[0], t1 = e.touches[1];
+        const d = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+        const scale = d / editPinchGestureRef.current.d;
+        setEditorZoom(Math.max(0.25, Math.min(4, editPinchGestureRef.current.z * scale)));
+      }
+    };
+    const onTouchEnd = (e) => {
+      if (e.touches.length < 2) editPinchGestureRef.current = null;
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: false, capture: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
+    el.addEventListener("touchend", onTouchEnd, { capture: true });
+    el.addEventListener("touchcancel", onTouchEnd, { capture: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, { capture: true });
+      el.removeEventListener("touchmove", onTouchMove, { capture: true });
+      el.removeEventListener("touchend", onTouchEnd, { capture: true });
+      el.removeEventListener("touchcancel", onTouchEnd, { capture: true });
+    };
+  }, [activeTab]);
 
   const getCellFromPointer = useCallback((e) => {
     const rect = editorRef.current?.getBoundingClientRect();
@@ -970,6 +1067,7 @@ function KnotMakerMobile() {
   }, [editorCellSize, gridW, gridH]);
 
   const onEditorPointerDown = useCallback((e) => {
+    if (e.pointerType === "touch" && e.isPrimary === false) return;
     e.preventDefault();
     editorRef.current?.setPointerCapture?.(e.pointerId);
     const c = getCellFromPointer(e);
@@ -1248,21 +1346,35 @@ function KnotMakerMobile() {
                 <button onClick={() => { if (gridH < 100) resizeGrid(gridW, gridH + 1); }}>+</button>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>🔍</span>
-              <div className="stepper">
-                <button onClick={() => setEditorZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))}>-</button>
-                <span style={{ minWidth: 40, fontSize: 12 }}>{Math.round(editorZoom * 100)}%</span>
-                <button onClick={() => setEditorZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}>+</button>
-              </div>
-            </div>
             <div style={{ flex: 1 }} />
             <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); }}
               style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Fill</button>
             <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); }}
               style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Clear</button>
           </div>
-          <div style={{ overflow: "auto", maxHeight: "60vh", WebkitOverflowScrolling: "touch" }}>
+          <div className="editor-big-tools">
+            <span>Bigger / smaller cells (also pinch with two fingers on the grid)</span>
+            <button type="button" className="editor-big-btn" aria-label="Zoom out cells"
+              onClick={() => setEditorZoom(z => Math.max(0.25, +(z - 0.2).toFixed(2)))}>−</button>
+            <span className="editor-big-btn accent" style={{ opacity: 0.95, cursor: "default" }} aria-live="polite">
+              {Math.round(editorZoom * 100)}%
+            </span>
+            <button type="button" className="editor-big-btn" aria-label="Zoom in cells"
+              onClick={() => setEditorZoom(z => Math.min(4, +(z + 0.2).toFixed(2)))}>+</button>
+            <button type="button" className="editor-big-btn accent" onClick={() => setEditorZoom(1)}>1:1</button>
+          </div>
+          <div className="editor-big-tools" style={{ marginBottom: 8 }}>
+            <span>Scroll the grid (when it does not fit)</span>
+            <button type="button" className="editor-big-btn" aria-label="Scroll grid left" onClick={() => scrollEditorGrid(-140, 0)}>◀</button>
+            <button type="button" className="editor-big-btn" aria-label="Scroll grid right" onClick={() => scrollEditorGrid(140, 0)}>▶</button>
+            <button type="button" className="editor-big-btn" aria-label="Scroll grid up" onClick={() => scrollEditorGrid(0, -120)}>▲</button>
+            <button type="button" className="editor-big-btn" aria-label="Scroll grid down" onClick={() => scrollEditorGrid(0, 120)}>▼</button>
+          </div>
+          <div
+            ref={editorScrollWrapRef}
+            className="editor-scroll-wrap"
+            onTouchStart={(e) => { if (e.touches.length >= 2) setMarquee(null); }}
+          >
           <div ref={editorRef}
             onPointerDown={onEditorPointerDown} onPointerMove={onEditorPointerMove} onPointerUp={onEditorPointerUp} onPointerCancel={onEditorPointerUp}
             style={{
@@ -1310,7 +1422,9 @@ function KnotMakerMobile() {
             })()}
           </div>
           </div>
-          <div style={{ marginTop: 6, fontSize: 11, color: "#7a7268", textAlign: "center", letterSpacing: 0.8 }}>Drag on cells to add or remove — knot preview updates beside you in landscape.</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "#7a7268", textAlign: "center", letterSpacing: 0.5, lineHeight: 1.4 }}>
+            One finger: drag on cells to paint. Two fingers on the grid: pinch to zoom cells. Use arrows above if the grid is hard to move.
+          </div>
         </div>
       )}
 
