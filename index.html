@@ -1403,7 +1403,7 @@ function KnotMakerMobile() {
   const tabPanelsEl = (
     <>
       {activeTab === 'edit' && (
-        <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+        <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
@@ -1686,7 +1686,7 @@ function KnotMakerMobile() {
       ) : activeTab === 'edit' ? (
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {statsBarEl}
-            <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 90px)", overflow: "hidden" }}>
+            <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 80px)", overflow: "hidden" }}>
               {tabPanelsEl}
             </div>
             {knotViewportEl}
