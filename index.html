@@ -1424,108 +1424,70 @@ function KnotMakerMobile() {
           {cycles.map((c, i) => {
             const vis = isCycleVisible(i);
             const col = getCycleColor(i);
-            const openPicker = () => setPalettePopover({ i, kind: "primary" });
-            const clearLongPress = () => {
-              if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-              pressStartRef.current = null;
-            };
             return (
-              <div key={i} style={{ position: "relative", display: "inline-block" }}>
-                <button
-                  data-palette-trigger
-                  className="cycle-btn"
-                  onClick={() => {
-                    if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
-                    toggleCycle(i);
-                  }}
-                  onContextMenu={(e) => { e.preventDefault(); openPicker(); }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    pressStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    longPressFiredRef.current = false;
-                    longPressTimerRef.current = setTimeout(() => {
-                      longPressFiredRef.current = true;
-                      longPressTimerRef.current = null;
-                      openPicker();
-                    }, 450);
-                  }}
-                  onTouchEnd={(e) => {
-                    clearLongPress();
-                    if (!longPressFiredRef.current && e.cancelable) {
-                      toggleCycle(i);
-                    }
-                  }}
-                  onTouchMove={(e) => {
-                    const s = pressStartRef.current;
-                    const t = e.touches[0];
-                    if (s && t && (Math.abs(t.clientX - s.x) > 5 || Math.abs(t.clientY - s.y) > 5)) clearLongPress();
-                  }}
-                  onPointerDown={(e) => {
-                    if (e.pointerType === 'touch') return;
-                    pressStartRef.current = { x: e.clientX, y: e.clientY };
-                    longPressFiredRef.current = false;
-                    longPressTimerRef.current = setTimeout(() => {
-                      longPressFiredRef.current = true;
-                      longPressTimerRef.current = null;
-                      openPicker();
-                    }, 450);
-                  }}
-                  onPointerUp={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
-                  onPointerLeave={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
-                  onPointerCancel={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
-                  onPointerMove={(e) => {
-                    if (e.pointerType === 'touch') return;
-                    const s = pressStartRef.current;
-                    if (s && (Math.abs(e.clientX - s.x) > 5 || Math.abs(e.clientY - s.y) > 5)) clearLongPress();
-                  }}
-                  style={{
-                    background: vis ? col : "transparent",
-                    color: vis ? "#000" : "#6a6050",
-                    borderColor: vis ? col : "#332e24",
-                    opacity: vis ? 1 : 0.5,
-                    touchAction: "manipulation",
-                    WebkitTouchCallout: "none",
-                    WebkitUserSelect: "none",
-                    userSelect: "none",
-                  }}>
-                  {i + 1}
-                </button>
-                <input type="color" ref={el => { colorInputRefs.current[i] = el; }} value={col}
-                  onChange={(e) => setCycleColor(i, e.target.value)}
-                  style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
-                {palettePopover && palettePopover.i === i && (
-                  <div data-palette-pop style={{
-                    position: "absolute", bottom: "100%", left: 0, marginBottom: 8, zIndex: 50,
-                    background: "var(--ink-2)", border: "1px solid var(--hair)", padding: 10,
-                    display: "grid", gridTemplateColumns: "repeat(7, 32px)", gap: 8,
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-                  }}>
-                    {JOAO.map(s => (
-                      <button key={s.hex} title={s.name}
-                        onClick={() => {
-                          if (palettePopover.kind === "primary") setCycleColor(i, s.hex);
-                          else setCycleSecondaryColor(i, s.hex);
-                          setPalettePopover(null);
-                        }}
-                        style={{ width: 32, height: 32, padding: 0, background: s.hex, border: "1px solid #00000050", cursor: "pointer", borderRadius: 3 }}
-                      />
-                    ))}
-                    <button
-                      onClick={() => {
-                        if (palettePopover.kind === "primary") colorInputRefs.current[i]?.click();
-                        else colorInputRefs2.current[i]?.click();
-                        setPalettePopover(null);
-                      }}
-                      style={{ gridColumn: "span 7", marginTop: 4, background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 11, padding: "8px", cursor: "pointer", letterSpacing: 1, fontFamily: "inherit", textTransform: "uppercase" }}>
-                      Custom...
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button key={i} className="cycle-btn"
+                onClick={() => toggleCycle(i)}
+                style={{
+                  background: vis ? col : "transparent",
+                  color: vis ? "#000" : "#6a6050",
+                  borderColor: vis ? col : "#332e24",
+                  opacity: vis ? 1 : 0.5,
+                }}>
+                {i + 1}
+              </button>
             );
           })}
         </div>}
         </div>
+  ) : null;
+
+  const colourPickerEl = (cycles.length > 0 && cycles.length <= 30) ? (
+    <div style={{ padding: "8px 12px", borderTop: "1px solid var(--hair)" }}>
+      <div style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 0.5, marginBottom: 6 }}>Tap a swatch to change colour</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {cycles.map((c, i) => {
+          const col = getCycleColor(i);
+          return (
+            <div key={i} style={{ position: "relative", display: "inline-block" }}>
+              <button
+                data-palette-trigger
+                onClick={() => setPalettePopover(palettePopover?.i === i ? null : { i, kind: "primary" })}
+                style={{
+                  width: 36, height: 36, borderRadius: 6, border: "2px solid var(--hair)",
+                  background: col, cursor: "pointer", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#000",
+                  fontFamily: "inherit",
+                }}>
+                {i + 1}
+              </button>
+              <input type="color" ref={el => { colorInputRefs.current[i] = el; }} value={col}
+                onChange={(e) => setCycleColor(i, e.target.value)}
+                style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+              {palettePopover && palettePopover.i === i && (
+                <div data-palette-pop style={{
+                  position: "absolute", bottom: "100%", left: 0, marginBottom: 8, zIndex: 50,
+                  background: "var(--ink-2)", border: "1px solid var(--hair)", padding: 8,
+                  display: "grid", gridTemplateColumns: "repeat(7, 28px)", gap: 6,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.6)", borderRadius: 8,
+                }}>
+                  {JOAO.map(s => (
+                    <button key={s.hex} title={s.name}
+                      onClick={() => { setCycleColor(i, s.hex); setPalettePopover(null); }}
+                      style={{ width: 28, height: 28, padding: 0, background: s.hex, border: "1px solid #00000050", cursor: "pointer", borderRadius: 4 }}
+                    />
+                  ))}
+                  <button
+                    onClick={() => { colorInputRefs.current[i]?.click(); setPalettePopover(null); }}
+                    style={{ gridColumn: "span 7", marginTop: 2, background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 10, padding: "6px", cursor: "pointer", letterSpacing: 1, fontFamily: "inherit", textTransform: "uppercase", borderRadius: 4 }}>
+                    Custom...
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   ) : null;
 
   const tabPanelsEl = (
@@ -1731,6 +1693,7 @@ function KnotMakerMobile() {
       {activeTab === 'shapes' && (
         <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)" }}>
           {cycleStripEl}
+          {colourPickerEl}
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap", marginTop: 10 }}>
             <button onClick={saveCurrentShape}
               style={{ padding: "10px 16px", background: "var(--accent-fill)", color: "var(--accent-on-fill)", border: "1px solid var(--edge)", fontSize: 13, fontWeight: 600, letterSpacing: 1.4, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Save</button>
