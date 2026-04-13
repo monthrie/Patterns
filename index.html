@@ -1409,7 +1409,14 @@ function KnotMakerMobile() {
           </button>
           {cycleStripOpen && <div className="cycle-strip" style={{ padding: "4px 12px 8px" }}>
           <button
-            onClick={() => { setShowAll(true); setSelGap(null); setVisibleCycles({}); }}
+            onClick={() => {
+              if (showAll) {
+                setShowAll(false); setSelGap(null);
+                const hidden = {}; cycles.forEach((_, i) => { hidden[i] = false; }); setVisibleCycles(hidden);
+              } else {
+                setShowAll(true); setSelGap(null); setVisibleCycles({});
+              }
+            }}
             className="cycle-btn"
             style={{ background: showAll ? "var(--accent-fill)" : "transparent", color: showAll ? "var(--accent-on-fill)" : "var(--bone-dim)", borderColor: showAll ? "var(--accent)" : "var(--hair)", fontSize: 10, letterSpacing: 1 }}>
             ALL
@@ -1829,7 +1836,6 @@ function KnotMakerMobile() {
             {statsBarEl}
             {tabPanelsEl}
             {knotViewportEl}
-            {cycleStripEl}
           </div>
         )}
 
