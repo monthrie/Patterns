@@ -12,20 +12,31 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #0a0d10;
-    --ink-2: #16130f;
-    --bone: #c8d4dc;
-    --bone-dim: #6b7780;
-    --bone-faint: #2a3036;
-    --hair: #1c2329;
-    --accent: #c8a96e;
-    --oxblood: #7a2828;
+    --ink: #090c0f;
+    --ink-2: #121a22;
+    --bone: #c1cad3;
+    --bone-dim: #6d7884;
+    --bone-faint: #2a323b;
+    --hair: #1e2832;
+    /* Cool slate / sea-glass — replaces loud brass */
+    --accent: #7e9aaa;
+    --accent-soft: #a3b8c4;
+    --accent-fill: #3d4e5a;
+    --accent-on-fill: #eef2f5;
+    --accent-glow: rgba(126, 154, 170, 0.22);
+    --edge: #2a3540;
+    --panel-inner: #0e141b;
+    --oxblood: #8a4048;
+    /* Height reserved for bottom tab bar — keeps flex scroll math honest */
+    --tab-bar-h: 52px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     background: var(--ink); color: var(--bone);
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     height: 100%; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -42,7 +53,7 @@
     font-family: inherit; font-weight: 500;
     border-top: 2px solid transparent;
   }
-  .tab-btn.active { color: var(--accent); border-top-color: var(--accent); }
+  .tab-btn.active { color: var(--accent-soft); border-top-color: var(--accent); }
 
   .stats-bar {
     display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 12px;
@@ -50,7 +61,7 @@
     background: var(--ink-2); flex-shrink: 0;
     font-size: 12px; letter-spacing: 0.5px; min-height: 0;
   }
-  .stats-balance .warn { color: #d4a574; }
+  .stats-balance .warn { color: #b89f7a; }
 
   .panel { flex-shrink: 0; overflow-y: auto; max-height: 52dvh; }
   .panel-edit { flex: 1 1 0%; min-height: 0; overflow: hidden; max-height: none; display: flex; flex-direction: column; }
@@ -114,8 +125,9 @@
     gap: 4px;
     padding: 4px max(4px, env(safe-area-inset-right, 0px)) 6px max(4px, env(safe-area-inset-left, 0px));
     margin-top: 4px;
-    background: #10151c;
-    border: 1.5px solid var(--accent);
+    background: var(--panel-inner);
+    border: 1px solid var(--edge);
+    box-shadow: 0 0 0 1px var(--accent-glow);
     border-radius: 8px;
     box-sizing: border-box;
     max-width: 100%;
@@ -126,8 +138,66 @@
   .editor-viewport-frame__caption {
     display: none;
   }
-  .editor-scroll-cluster {
+  .editor-pan-zoom-bar {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .editor-pan-zoom-bar::-webkit-scrollbar { display: none; }
+  .editor-zoom-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .editor-zoom-step {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    line-height: 1;
+    border-radius: 5px;
+    border: 1px solid var(--hair);
+    background: var(--ink-2);
+    color: var(--bone);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .editor-zoom-step:active { background: #252a32; }
+  .editor-zoom-pct-btn {
+    min-width: 44px;
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--bone-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .editor-zoom-pct-btn:active,
+  .editor-zoom-pct-btn:hover { color: var(--accent-soft); border-color: var(--edge); background: rgba(255,255,255,0.04); }
+  .editor-dpad {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
     gap: 3px;
     flex-shrink: 0;
   }
@@ -138,94 +208,124 @@
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y;
-    overscroll-behavior: contain;
-    border: 1.5px solid #3d4654;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    border: 1px solid var(--edge);
     border-radius: 6px;
-    background: #06080a;
+    background: #080b0f;
     scrollbar-gutter: stable;
     scrollbar-width: auto;
-    scrollbar-color: var(--accent) #2a3038;
+    scrollbar-color: #4a5c66 #1a222a;
   }
-  .editor-scroll-wrap::-webkit-scrollbar { width: 14px; height: 14px; }
-  .editor-scroll-wrap::-webkit-scrollbar-track { background: #2a3038; border-radius: 4px; }
+  .editor-scroll-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
+  .editor-scroll-wrap::-webkit-scrollbar-track { background: #1a222a; border-radius: 4px; }
   .editor-scroll-wrap::-webkit-scrollbar-thumb {
-    background: var(--accent); border-radius: 4px;
-    border: 2px solid #2a3038; min-height: 30px;
+    background: #4a5c66;
+    border-radius: 4px;
+    border: 2px solid #1a222a;
+    min-height: 28px;
   }
-  .editor-scroll-btn {
+  .editor-dpad-btn {
     font-family: inherit;
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1;
-    color: #0a0d10;
-    background: linear-gradient(180deg, #e8d9b8 0%, var(--accent) 50%, #9a7d48 100%);
-    border: 1.5px solid #d4c4a4;
-    border-radius: 6px;
+    color: var(--accent-soft);
+    background: var(--ink-2);
+    border: 1px solid var(--edge);
+    border-radius: 5px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 1px 0 #5c4a2a;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.35);
     touch-action: manipulation;
     -webkit-user-select: none;
     user-select: none;
-    flex-shrink: 0;
   }
-  .editor-scroll-btn:active { filter: brightness(0.9); transform: translateY(1px); box-shadow: none; }
-  .editor-scroll-btn__arrow { font-size: 15px; line-height: 1; font-weight: 800; }
+  .editor-dpad-btn:active { background: #1a222c; transform: translateY(1px); box-shadow: none; }
+  .editor-dpad-btn__arrow { font-size: 12px; line-height: 1; font-weight: 800; }
   .editor-toolbar-rows {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
-  .editor-zoom-row {
+  /* stats + cell editor stack scrolls internally; page scrolls to knot — must stay within viewport height */
+  .edit-tab-scroll {
+    flex: 1 1 0%;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  /*
+   * Without a max-height, a huge grid grows this column to full content height, the inner
+   * .editor-scroll-wrap becomes as tall as the grid (no inner scroll), and the outer page
+   * never gets a real scroll range. Cap to one viewport above the tab bar so pan/zoom stays inside the frame.
+   */
+  .edit-portrait-main {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: min(100%, calc(100dvh - var(--tab-bar-h) - env(safe-area-inset-bottom, 0px)));
+    overflow: hidden;
+  }
+  .knot-below-editor {
+    flex: 0 0 auto;
+    height: min(42dvh, 360px);
+    min-height: 200px;
+    border-top: 1px solid var(--hair);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ink);
+  }
+  .grid-size-toolbar {
+    flex-shrink: 0;
+    margin-bottom: 8px;
+  }
+  .grid-size-toggle {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 3px;
-    flex-wrap: wrap;
-  }
-  .editor-zoom-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    font-size: 18px;
-    font-weight: 700;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
     font-family: inherit;
-    line-height: 1;
-    border-radius: 6px;
-    border: 1.5px solid var(--hair);
-    background: var(--ink-2);
-    color: var(--bone);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    flex-shrink: 0;
-  }
-  .editor-zoom-btn:active { background: #252a32; }
-  .editor-zoom-reset {
-    font-size: 11px;
-    font-weight: 600;
-    font-family: inherit;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--hair);
-    background: transparent;
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
     color: var(--bone-dim);
+    background: var(--ink);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
     cursor: pointer;
     touch-action: manipulation;
-    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
   }
-  .editor-zoom-reset:active { background: rgba(255,255,255,0.06); }
-  .editor-toolbar-sep {
-    width: 1px; height: 24px; background: var(--hair); opacity: 0.4; flex-shrink: 0;
+  .grid-size-toggle:active { background: #12161c; }
+  .grid-size-toggle__dims {
+    color: var(--accent-soft);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .grid-size-toggle__hint { font-size: 10px; color: var(--bone-faint); text-transform: none; letter-spacing: 0; }
+  .grid-size-panel-body {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 </style>
 </head>
@@ -466,6 +566,20 @@ function KnotMakerMobile() {
   const persistShapes = useCallback((next) => {
     setSavedShapes(next);
     try { localStorage.setItem('celtic.savedShapes', JSON.stringify(next)); } catch {}
+  }, []);
+  const [gridSizePanelOpen, setGridSizePanelOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem("celtic.gridSizePanelOpen");
+      if (v === null) return true;
+      return v === "1";
+    } catch { return true; }
+  });
+  const toggleGridSizePanel = useCallback(() => {
+    setGridSizePanelOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("celtic.gridSizePanelOpen", next ? "1" : "0"); } catch {}
+      return next;
+    });
   }, []);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
@@ -720,7 +834,7 @@ function KnotMakerMobile() {
 
   // Strand rendering
   const getCycleColor = useCallback((i) => {
-    if (strandMode === 'string') return "#c8a96e";
+    if (strandMode === 'string') return "#8fa3ad";
     return cycleColors[i] || COLORS[i % COLORS.length];
   }, [cycleColors, strandMode]);
   const setCycleColor = useCallback((i, color) => setCycleColors(prev => ({ ...prev, [i]: color })), []);
@@ -1084,50 +1198,12 @@ function KnotMakerMobile() {
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
 
-  const EDITOR_SCROLL_STEP = 100;
+  const EDITOR_SCROLL_STEP = 72;
   const scrollEditorGrid = useCallback((dx, dy) => {
     const el = editorScrollWrapRef.current;
     if (!el) return;
     el.scrollBy({ left: dx, top: dy, behavior: "auto" });
   }, []);
-
-  /** Zoom so the cell grid fits inside the editor window (measured on the scroll box). */
-  const fitEditorZoomToView = useCallback((mode) => {
-    const wrap = editorScrollWrapRef.current;
-    if (!wrap || gridW < 1 || gridH < 1 || editorBaseCellSize < 1) return;
-    const pad = 8;
-    const labelMargin = Math.max(48, Math.round(editorBaseCellSize * 1.25));
-    const cw = Math.max(1, wrap.clientWidth - pad - labelMargin);
-    const ch = Math.max(1, wrap.clientHeight - pad - labelMargin);
-    const zW = Math.floor(cw / gridW) / editorBaseCellSize;
-    const zH = Math.floor(ch / gridH) / editorBaseCellSize;
-    let z = 1;
-    if (mode === "width") z = zW;
-    else if (mode === "height") z = zH;
-    else z = Math.min(zW, zH);
-    if (!Number.isFinite(z) || z <= 0) return;
-    setEditorZoom(Math.max(0.25, Math.min(4, +z.toFixed(4))));
-    requestAnimationFrame(() => {
-      wrap.scrollLeft = 0;
-      wrap.scrollTop = 0;
-    });
-  }, [editorBaseCellSize, gridW, gridH]);
-
-  // Force scroll-wrap to fill available space by measuring its position
-  useEffect(() => {
-    const el = editorScrollWrapRef.current;
-    if (!el || activeTab !== 'edit') return;
-    const resize = () => {
-      const rect = el.getBoundingClientRect();
-      const tabBar = 50; // tab-bar height
-      const knotArea = window.innerHeight * 0.30; // 30dvh knot preview
-      const available = window.innerHeight - rect.top - tabBar - knotArea - 8;
-      if (available > 100) el.style.height = Math.floor(available) + 'px';
-    };
-    resize();
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
-  }, [activeTab, gridW, gridH, editorZoom]);
 
   useEffect(() => {
     const el = editorScrollWrapRef.current;
@@ -1228,11 +1304,11 @@ function KnotMakerMobile() {
       }}>
         <div className="knot-zoom-btns" style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 4 }}>
           <button onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
-            style={{ width: 36, height: 36, background: "rgba(22,19,15,0.85)", border: "1px solid var(--hair)", color: "var(--accent)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8, cursor: "pointer", fontFamily: "inherit", borderRadius: 4 }}>FIT</button>
+            style={{ width: 36, height: 36, background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)", color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8, cursor: "pointer", fontFamily: "inherit", borderRadius: 4 }}>FIT</button>
           <button onClick={() => setZoom(z => Math.max(0.15, +(z / 1.3).toFixed(2)))}
-            style={{ width: 36, height: 36, background: "rgba(22,19,15,0.85)", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 18, cursor: "pointer", fontFamily: "inherit", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
+            style={{ width: 36, height: 36, background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 18, cursor: "pointer", fontFamily: "inherit", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
           <button onClick={() => setZoom(z => Math.min(5, +(z * 1.3).toFixed(2)))}
-            style={{ width: 36, height: 36, background: "rgba(22,19,15,0.85)", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 18, cursor: "pointer", fontFamily: "inherit", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            style={{ width: 36, height: 36, background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 18, cursor: "pointer", fontFamily: "inherit", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
         </div>
         <svg
           width="100%" height="100%"
@@ -1282,7 +1358,7 @@ function KnotMakerMobile() {
                   onClick={() => clickGap(g.i)} />
                 <circle cx={g.x} cy={g.y} r={sel ? gr * 1.15 : gr * 0.65} fill={col} opacity={vis || sel ? 1 : 0.45}
                   style={{ pointerEvents: "none" }} filter={sel ? "url(#glo)" : undefined} />
-                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="#c8a96e" strokeWidth={1.2} opacity={0.4} style={{ pointerEvents: "none" }} />}
+                {sel && <circle cx={g.x} cy={g.y} r={gr * 2} fill="none" stroke="var(--accent-soft)" strokeWidth={1.2} opacity={0.45} style={{ pointerEvents: "none" }} />}
               </g>
             );
           })}
@@ -1306,7 +1382,7 @@ function KnotMakerMobile() {
             boxShadow: `0 0 4px ${cycleBalance.ratingColor}80`,
           }} title={cycleBalance.summary} />
         )}
-        <span style={{ color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>
+        <span style={{ color: "var(--accent-soft)", fontWeight: 700, whiteSpace: "nowrap" }}>
           {cycles.length}
         </span>
         <span style={{ color: "var(--bone-dim)", fontSize: 11 }}>
@@ -1334,7 +1410,7 @@ function KnotMakerMobile() {
           <button
             onClick={() => { setShowAll(true); setSelGap(null); setVisibleCycles({}); }}
             className="cycle-btn"
-            style={{ background: showAll ? "var(--accent)" : "transparent", color: showAll ? "var(--ink)" : "var(--bone-dim)", borderColor: showAll ? "var(--accent)" : "var(--hair)", fontSize: 10, letterSpacing: 1 }}>
+            style={{ background: showAll ? "var(--accent-fill)" : "transparent", color: showAll ? "var(--accent-on-fill)" : "var(--bone-dim)", borderColor: showAll ? "var(--accent)" : "var(--hair)", fontSize: 10, letterSpacing: 1 }}>
             ALL
           </button>
           {cycles.map((c, i) => {
@@ -1421,67 +1497,90 @@ function KnotMakerMobile() {
     <>
       {activeTab === 'edit' && (
         <div className="panel panel-edit" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
-              <div className="stepper">
-                <button onClick={() => { if (gridW > 3) resizeGrid(gridW - 1, gridH); }}>-</button>
-                <input type="number" min="3" max="100" value={editingW ? editW : gridW}
-                  onFocus={e => { setEditingW(true); setEditW(String(gridW)); e.target.select(); }}
-                  onChange={e => { setEditW(e.target.value); }}
-                  onBlur={e => { setEditingW(false); const v = parseInt(editW, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(v, gridH); }}
-                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
-                <button onClick={() => { if (gridW < 100) resizeGrid(gridW + 1, gridH); }}>+</button>
+          <div className="grid-size-toolbar">
+            <button
+              type="button"
+              className="grid-size-toggle"
+              onClick={toggleGridSizePanel}
+              aria-expanded={gridSizePanelOpen}
+              aria-controls="grid-size-panel"
+              id="grid-size-toggle"
+            >
+              <span>
+                Grid size{" "}
+                <span className="grid-size-toggle__dims">{gridW}×{gridH}</span>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="grid-size-toggle__hint">{gridSizePanelOpen ? "hide" : "change"}</span>
+                <span aria-hidden style={{ fontSize: 10, color: "var(--accent-soft)" }}>{gridSizePanelOpen ? "▾" : "▸"}</span>
+              </span>
+            </button>
+            {gridSizePanelOpen && (
+              <div className="grid-size-panel-body" id="grid-size-panel" role="region" aria-labelledby="grid-size-toggle">
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
+                    <div className="stepper">
+                      <button onClick={() => { if (gridW > 3) resizeGrid(gridW - 1, gridH); }}>-</button>
+                      <input type="number" min="3" max="100" value={editingW ? editW : gridW}
+                        onFocus={e => { setEditingW(true); setEditW(String(gridW)); e.target.select(); }}
+                        onChange={e => { setEditW(e.target.value); }}
+                        onBlur={e => { setEditingW(false); const v = parseInt(editW, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(v, gridH); }}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
+                      <button onClick={() => { if (gridW < 100) resizeGrid(gridW + 1, gridH); }}>+</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>H</span>
+                    <div className="stepper">
+                      <button onClick={() => { if (gridH > 3) resizeGrid(gridW, gridH - 1); }}>-</button>
+                      <input type="number" min="3" max="100" value={editingH ? editH : gridH}
+                        onFocus={e => { setEditingH(true); setEditH(String(gridH)); e.target.select(); }}
+                        onChange={e => { setEditH(e.target.value); }}
+                        onBlur={e => { setEditingH(false); const v = parseInt(editH, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(gridW, v); }}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
+                      <button onClick={() => { if (gridH < 100) resizeGrid(gridW, gridH + 1); }}>+</button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); }}
+                    style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Fill</button>
+                  <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); }}
+                    style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Clear</button>
+                </div>
               </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>H</span>
-              <div className="stepper">
-                <button onClick={() => { if (gridH > 3) resizeGrid(gridW, gridH - 1); }}>-</button>
-                <input type="number" min="3" max="100" value={editingH ? editH : gridH}
-                  onFocus={e => { setEditingH(true); setEditH(String(gridH)); e.target.select(); }}
-                  onChange={e => { setEditH(e.target.value); }}
-                  onBlur={e => { setEditingH(false); const v = parseInt(editH, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(gridW, v); }}
-                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
-                <button onClick={() => { if (gridH < 100) resizeGrid(gridW, gridH + 1); }}>+</button>
-              </div>
-            </div>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(true))); }}
-              style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Fill</button>
-            <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); }}
-              style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Clear</button>
+            )}
           </div>
           <div className="editor-viewport-frame">
             <div className="editor-toolbar-rows">
-            <div className="editor-zoom-row">
-            <button type="button" className="editor-zoom-btn" aria-label="Zoom out"
-              onClick={() => setEditorZoom(z => Math.max(0.25, +(z - 0.2).toFixed(2)))}>−</button>
-            <button type="button" className="editor-zoom-btn" aria-label="Zoom in"
-              onClick={() => setEditorZoom(z => Math.min(4, +(z + 0.2).toFixed(2)))}>+</button>
-            <button type="button" className="editor-zoom-reset" onClick={() => setEditorZoom(1)}>1:1</button>
-            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("width")}>Fit W</button>
-            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("height")}>Fit H</button>
-            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("both")}>Fit all</button>
+            <div className="editor-pan-zoom-bar">
+            <div className="editor-zoom-strip" role="toolbar" aria-label="Zoom cell grid">
+              <button type="button" className="editor-zoom-step" aria-label="Zoom out"
+                onClick={() => setEditorZoom(z => Math.max(0.25, +(z / 1.12).toFixed(3)))}>−</button>
+              <button type="button" className="editor-zoom-pct-btn" title="Reset zoom to 100%"
+                onClick={() => setEditorZoom(1)}>{Math.round(editorZoom * 100)}%</button>
+              <button type="button" className="editor-zoom-step" aria-label="Zoom in"
+                onClick={() => setEditorZoom(z => Math.min(4, +(z * 1.12).toFixed(3)))}>+</button>
             </div>
-            <div className="editor-toolbar-sep" />
-            <div className="editor-scroll-cluster" role="toolbar" aria-label="Scroll cell grid">
-            <button type="button" className="editor-scroll-btn" aria-label="Scroll left"
-              onClick={() => scrollEditorGrid(-EDITOR_SCROLL_STEP, 0)}>
-              <span className="editor-scroll-btn__arrow" aria-hidden>◀</span>
-            </button>
-            <button type="button" className="editor-scroll-btn" aria-label="Scroll up"
-              onClick={() => scrollEditorGrid(0, -EDITOR_SCROLL_STEP)}>
-              <span className="editor-scroll-btn__arrow" aria-hidden>▲</span>
-            </button>
-            <button type="button" className="editor-scroll-btn" aria-label="Scroll down"
-              onClick={() => scrollEditorGrid(0, EDITOR_SCROLL_STEP)}>
-              <span className="editor-scroll-btn__arrow" aria-hidden>▼</span>
-            </button>
-            <button type="button" className="editor-scroll-btn" aria-label="Scroll right"
-              onClick={() => scrollEditorGrid(EDITOR_SCROLL_STEP, 0)}>
-              <span className="editor-scroll-btn__arrow" aria-hidden>▶</span>
-            </button>
+            <div className="editor-dpad" role="toolbar" aria-label="Pan cell view">
+              <button type="button" className="editor-dpad-btn" aria-label="Pan left"
+                onClick={() => scrollEditorGrid(-EDITOR_SCROLL_STEP, 0)}>
+                <span className="editor-dpad-btn__arrow" aria-hidden>◀</span>
+              </button>
+              <button type="button" className="editor-dpad-btn" aria-label="Pan up"
+                onClick={() => scrollEditorGrid(0, -EDITOR_SCROLL_STEP)}>
+                <span className="editor-dpad-btn__arrow" aria-hidden>▲</span>
+              </button>
+              <button type="button" className="editor-dpad-btn" aria-label="Pan down"
+                onClick={() => scrollEditorGrid(0, EDITOR_SCROLL_STEP)}>
+                <span className="editor-dpad-btn__arrow" aria-hidden>▼</span>
+              </button>
+              <button type="button" className="editor-dpad-btn" aria-label="Pan right"
+                onClick={() => scrollEditorGrid(EDITOR_SCROLL_STEP, 0)}>
+                <span className="editor-dpad-btn__arrow" aria-hidden>▶</span>
+              </button>
+            </div>
             </div>
             </div>
           <div
@@ -1498,16 +1597,16 @@ function KnotMakerMobile() {
             }}>
             <div style={{
               display: "inline-grid", gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-              border: "2px solid #5a4d32", borderRadius: 4, background: "#0c0f12",
-              boxShadow: "inset 0 0 0 1px rgba(232,196,120,0.12)",
+              border: "2px solid #3a4a55", borderRadius: 4, background: "#0a0e14",
+              boxShadow: "inset 0 0 0 1px rgba(120,150,165,0.1)",
               position: "relative",
               width: gridW * editorCellSize, minWidth: gridW * editorCellSize,
             }}>
             {cells.flatMap((row, y) => row.map((on, x) => (
               <div key={`${x},${y}`} style={{
                 width: editorCellSize, height: editorCellSize,
-                background: on ? "#2d523f" : "#14110d",
-                border: "1px solid #2a2419",
+                background: on ? "#2a4a3a" : "#12161c",
+                border: "1px solid #252d36",
               }} />
             )))}
             {edgeRuns.map((r, i) => {
@@ -1517,7 +1616,7 @@ function KnotMakerMobile() {
                     position: "absolute", pointerEvents: "none", zIndex: 2,
                     left: r.x0 * editorCellSize, top: r.y * editorCellSize - 1.5,
                     width: (r.x1 - r.x0) * editorCellSize, height: 3,
-                    background: "linear-gradient(180deg, #f0d78c 0%, #c9a050 100%)",
+                    background: "linear-gradient(180deg, #5c726c 0%, #3d4e49 100%)",
                     boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
                   }} />
                 );
@@ -1527,7 +1626,7 @@ function KnotMakerMobile() {
                   position: "absolute", pointerEvents: "none", zIndex: 2,
                   left: r.x * editorCellSize - 1.5, top: r.y0 * editorCellSize,
                   width: 3, height: (r.y1 - r.y0) * editorCellSize,
-                  background: "linear-gradient(90deg, #f0d78c 0%, #c9a050 100%)",
+                  background: "linear-gradient(90deg, #5c726c 0%, #3d4e49 100%)",
                   boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
                 }} />
               );
@@ -1539,7 +1638,7 @@ function KnotMakerMobile() {
               const labelStyle = {
                 position: "absolute", pointerEvents: "none", zIndex: 3,
                 fontSize: badgeFont, fontFamily: "inherit", fontWeight: 700,
-                color: "#e8c46c",
+                color: "#a8bcc8",
                 lineHeight: 1,
                 letterSpacing: 0.3,
                 textShadow: "0 1px 3px rgba(0,0,0,0.7)",
@@ -1583,7 +1682,7 @@ function KnotMakerMobile() {
         <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
             <button onClick={saveCurrentShape}
-              style={{ padding: "10px 16px", background: "var(--accent)", color: "var(--ink)", border: "none", fontSize: 13, fontWeight: 600, letterSpacing: 1.4, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Save</button>
+              style={{ padding: "10px 16px", background: "var(--accent-fill)", color: "var(--accent-on-fill)", border: "1px solid var(--edge)", fontSize: 13, fontWeight: 600, letterSpacing: 1.4, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Save</button>
             <button onClick={exportShapes}
               style={{ padding: "10px 16px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Export</button>
             <button onClick={() => importFileRef.current?.click()}
@@ -1623,8 +1722,8 @@ function KnotMakerMobile() {
                 style={{
                   padding: "10px 16px", fontSize: 13, letterSpacing: 1, cursor: "pointer",
                   fontFamily: "inherit", textTransform: "uppercase", border: "1px solid",
-                  background: strandMode === mode ? "var(--accent)" : "transparent",
-                  color: strandMode === mode ? "var(--ink)" : "var(--bone-dim)",
+                  background: strandMode === mode ? "var(--accent-fill)" : "transparent",
+                  color: strandMode === mode ? "var(--accent-on-fill)" : "var(--bone-dim)",
                   borderColor: strandMode === mode ? "var(--accent)" : "var(--hair)",
                   fontWeight: strandMode === mode ? 600 : 400,
                 }}>
@@ -1647,8 +1746,8 @@ function KnotMakerMobile() {
               style={{
                 padding: "10px 16px", fontSize: 13, letterSpacing: 1, cursor: "pointer",
                 fontFamily: "inherit", textTransform: "uppercase", border: "1px solid",
-                background: showNails ? "var(--accent)" : "transparent",
-                color: showNails ? "var(--ink)" : "var(--bone-dim)",
+                background: showNails ? "var(--accent-fill)" : "transparent",
+                color: showNails ? "var(--accent-on-fill)" : "var(--bone-dim)",
                 borderColor: showNails ? "var(--accent)" : "var(--hair)",
               }}>
               Nails
@@ -1656,7 +1755,7 @@ function KnotMakerMobile() {
           </div>
           {stringStats.totalLen > 0 && (
             <div style={{ marginTop: 16, borderTop: "1px solid var(--hair)", paddingTop: 12 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "var(--accent)", marginBottom: 8 }}>
+              <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "var(--accent-soft)", marginBottom: 8 }}>
                 String lengths — total: {(stringStats.totalLen * 15 / 10).toFixed(0)}cm
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1670,7 +1769,7 @@ function KnotMakerMobile() {
                         <span style={{ width: 12, height: 12, background: hex, display: "inline-block", borderRadius: 2, flexShrink: 0 }} />
                         <span style={{ flex: 1, color: "var(--bone-dim)" }}>{name}</span>
                         <span style={{ color: "var(--bone-dim)" }}>{(len * 15 / 10).toFixed(0)}cm</span>
-                        <span style={{ color: "var(--accent)", minWidth: 36, textAlign: "right" }}>{pct}%</span>
+                        <span style={{ color: "var(--accent-soft)", minWidth: 36, textAlign: "right" }}>{pct}%</span>
                       </div>
                     );
                   })}
@@ -1684,7 +1783,7 @@ function KnotMakerMobile() {
 
   // ========== RENDER ==========
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", maxHeight: "100dvh", overflow: "hidden", minHeight: 0 }}>
       {landscapeSplit ? (
         <div className="land-split">
           <div className="land-split-main" style={{ overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -1697,15 +1796,17 @@ function KnotMakerMobile() {
           </div>
         </div>
       ) : activeTab === 'edit' ? (
-          <>
-            {statsBarEl}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-              {tabPanelsEl}
+          <div className="edit-tab-scroll">
+            <div className="edit-portrait-main">
+              {statsBarEl}
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                {tabPanelsEl}
+              </div>
             </div>
-            <div style={{ height: "30dvh", flexShrink: 0, borderTop: "1px solid var(--hair)", overflow: "hidden" }}>
+            <div className="knot-below-editor">
               {knotViewportEl}
             </div>
-          </>
+          </div>
         ) : (
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {statsBarEl}
