@@ -1439,7 +1439,29 @@ function KnotMakerMobile() {
                     toggleCycle(i);
                   }}
                   onContextMenu={(e) => { e.preventDefault(); openPicker(); }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    pressStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    longPressFiredRef.current = false;
+                    longPressTimerRef.current = setTimeout(() => {
+                      longPressFiredRef.current = true;
+                      longPressTimerRef.current = null;
+                      openPicker();
+                    }, 450);
+                  }}
+                  onTouchEnd={(e) => {
+                    clearLongPress();
+                    if (!longPressFiredRef.current && e.cancelable) {
+                      toggleCycle(i);
+                    }
+                  }}
+                  onTouchMove={(e) => {
+                    const s = pressStartRef.current;
+                    const t = e.touches[0];
+                    if (s && t && (Math.abs(t.clientX - s.x) > 5 || Math.abs(t.clientY - s.y) > 5)) clearLongPress();
+                  }}
                   onPointerDown={(e) => {
+                    if (e.pointerType === 'touch') return;
                     pressStartRef.current = { x: e.clientX, y: e.clientY };
                     longPressFiredRef.current = false;
                     longPressTimerRef.current = setTimeout(() => {
@@ -1448,10 +1470,11 @@ function KnotMakerMobile() {
                       openPicker();
                     }, 450);
                   }}
-                  onPointerUp={clearLongPress}
-                  onPointerLeave={clearLongPress}
-                  onPointerCancel={clearLongPress}
+                  onPointerUp={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
+                  onPointerLeave={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
+                  onPointerCancel={(e) => { if (e.pointerType !== 'touch') clearLongPress(); }}
                   onPointerMove={(e) => {
+                    if (e.pointerType === 'touch') return;
                     const s = pressStartRef.current;
                     if (s && (Math.abs(e.clientX - s.x) > 5 || Math.abs(e.clientY - s.y) > 5)) clearLongPress();
                   }}
@@ -1460,6 +1483,10 @@ function KnotMakerMobile() {
                     color: vis ? "#000" : "#6a6050",
                     borderColor: vis ? col : "#332e24",
                     opacity: vis ? 1 : 0.5,
+                    touchAction: "manipulation",
+                    WebkitTouchCallout: "none",
+                    WebkitUserSelect: "none",
+                    userSelect: "none",
                   }}>
                   {i + 1}
                 </button>
