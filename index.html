@@ -53,7 +53,7 @@
   .stats-balance .warn { color: #d4a574; }
 
   .panel { flex-shrink: 0; overflow-y: auto; max-height: 52dvh; }
-  .panel-edit { flex-shrink: 1; overflow: hidden; max-height: none; flex: 1 1 0%; min-height: 0; }
+  .panel-edit { flex: 1 1 0%; min-height: 0; overflow: hidden; max-height: none; display: flex; flex-direction: column; }
   .land-split {
     display: flex; flex: 1; min-height: 0; flex-direction: row;
   }
@@ -1112,6 +1112,22 @@ function KnotMakerMobile() {
       wrap.scrollTop = 0;
     });
   }, [editorBaseCellSize, gridW, gridH]);
+
+  // Force scroll-wrap to fill available space by measuring its position
+  useEffect(() => {
+    const el = editorScrollWrapRef.current;
+    if (!el || activeTab !== 'edit') return;
+    const resize = () => {
+      const rect = el.getBoundingClientRect();
+      const tabBar = 50; // tab-bar height
+      const knotArea = window.innerHeight * 0.30; // 30dvh knot preview
+      const available = window.innerHeight - rect.top - tabBar - knotArea - 8;
+      if (available > 100) el.style.height = Math.floor(available) + 'px';
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [activeTab, gridW, gridH, editorZoom]);
 
   useEffect(() => {
     const el = editorScrollWrapRef.current;
