@@ -115,39 +115,99 @@
     background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
   }
 
+  /* Cell editor: ultra-compact toolbar — grid gets the space */
+  .editor-viewport-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px max(4px, env(safe-area-inset-right, 0px)) 6px max(4px, env(safe-area-inset-left, 0px));
+    margin-top: 4px;
+    background: #10151c;
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    box-sizing: border-box;
+    max-width: 100%;
+    min-height: 0;
+    max-height: min(72dvh, 780px);
+    overflow: hidden;
+  }
+  .editor-viewport-frame__caption {
+    display: none;
+  }
+  .editor-scroll-cluster {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
   .editor-scroll-wrap {
+    flex: 1 1 0%;
+    min-height: 0;
+    min-width: 0;
     overflow: auto;
-    max-height: min(58dvh, 520px);
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y;
-    border: 1px solid var(--hair);
+    overscroll-behavior: contain;
+    border: 1.5px solid #3d4654;
     border-radius: 6px;
-    background: #080a0c;
+    background: #06080a;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: var(--accent) #2a3038;
+    max-height: min(64dvh, 640px);
   }
-  .editor-big-tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+  .editor-scroll-wrap::-webkit-scrollbar { width: 14px; height: 14px; }
+  .editor-scroll-wrap::-webkit-scrollbar-track { background: #2a3038; border-radius: 4px; }
+  .editor-scroll-wrap::-webkit-scrollbar-thumb {
+    background: var(--accent); border-radius: 4px;
+    border: 2px solid #2a3038; min-height: 30px;
   }
-  .editor-big-tools > span {
-    font-size: 11px;
-    color: var(--bone-dim);
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    width: 100%;
-  }
-  .editor-big-btn {
-    min-width: 56px;
-    min-height: 52px;
-    padding: 8px 14px;
-    font-size: 22px;
-    line-height: 1;
-    font-weight: 600;
+  .editor-scroll-btn {
     font-family: inherit;
-    border-radius: 8px;
-    border: 2px solid var(--hair);
+    font-size: 14px;
+    line-height: 1;
+    color: #0a0d10;
+    background: linear-gradient(180deg, #e8d9b8 0%, var(--accent) 50%, #9a7d48 100%);
+    border: 1.5px solid #d4c4a4;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 0 #5c4a2a;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .editor-scroll-btn:active { filter: brightness(0.9); transform: translateY(1px); box-shadow: none; }
+  .editor-scroll-btn__arrow { font-size: 15px; line-height: 1; font-weight: 800; }
+  .editor-toolbar-rows {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .editor-zoom-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+  .editor-zoom-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: inherit;
+    line-height: 1;
+    border-radius: 6px;
+    border: 1.5px solid var(--hair);
     background: var(--ink-2);
     color: var(--bone);
     cursor: pointer;
@@ -155,13 +215,26 @@
     align-items: center;
     justify-content: center;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    flex-shrink: 0;
   }
-  .editor-big-btn:active { background: #252a32; }
-  .editor-big-btn.accent {
-    border-color: var(--accent);
-    color: var(--accent);
-    font-size: 13px;
-    letter-spacing: 0.5px;
+  .editor-zoom-btn:active { background: #252a32; }
+  .editor-zoom-reset {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--hair);
+    background: transparent;
+    color: var(--bone-dim);
+    cursor: pointer;
+    touch-action: manipulation;
+    white-space: nowrap;
+  }
+  .editor-zoom-reset:active { background: rgba(255,255,255,0.06); }
+  .editor-toolbar-sep {
+    width: 1px; height: 24px; background: var(--hair); opacity: 0.4; flex-shrink: 0;
   }
 </style>
 </head>
@@ -1000,6 +1073,11 @@ function KnotMakerMobile() {
   }, [gridW, isLandscape]);
   const [editorZoom, setEditorZoom] = useState(1);
   const editorCellSize = Math.round(editorBaseCellSize * editorZoom);
+  /** Padding around the cell grid so edge length badges sit outside the frame and are not clipped. */
+  const editorEdgePad = useMemo(
+    () => Math.max(24, Math.min(48, Math.round(editorCellSize * 0.58))),
+    [editorCellSize]
+  );
   const editorRef = useRef(null);
   const editorScrollWrapRef = useRef(null);
   const editorZoomRef = useRef(1);
@@ -1008,11 +1086,34 @@ function KnotMakerMobile() {
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
 
+  const EDITOR_SCROLL_STEP = 100;
   const scrollEditorGrid = useCallback((dx, dy) => {
     const el = editorScrollWrapRef.current;
     if (!el) return;
-    el.scrollBy({ left: dx, top: dy, behavior: "smooth" });
+    el.scrollBy({ left: dx, top: dy, behavior: "auto" });
   }, []);
+
+  /** Zoom so the cell grid fits inside the editor window (measured on the scroll box). */
+  const fitEditorZoomToView = useCallback((mode) => {
+    const wrap = editorScrollWrapRef.current;
+    if (!wrap || gridW < 1 || gridH < 1 || editorBaseCellSize < 1) return;
+    const pad = 8;
+    const labelMargin = Math.max(48, Math.round(editorBaseCellSize * 1.25));
+    const cw = Math.max(1, wrap.clientWidth - pad - labelMargin);
+    const ch = Math.max(1, wrap.clientHeight - pad - labelMargin);
+    const zW = Math.floor(cw / gridW) / editorBaseCellSize;
+    const zH = Math.floor(ch / gridH) / editorBaseCellSize;
+    let z = 1;
+    if (mode === "width") z = zW;
+    else if (mode === "height") z = zH;
+    else z = Math.min(zW, zH);
+    if (!Number.isFinite(z) || z <= 0) return;
+    setEditorZoom(Math.max(0.25, Math.min(4, +z.toFixed(4))));
+    requestAnimationFrame(() => {
+      wrap.scrollLeft = 0;
+      wrap.scrollTop = 0;
+    });
+  }, [editorBaseCellSize, gridW, gridH]);
 
   useEffect(() => {
     const el = editorScrollWrapRef.current;
@@ -1058,13 +1159,13 @@ function KnotMakerMobile() {
     const clientX = e.clientX ?? e.touches?.[0]?.clientX;
     const clientY = e.clientY ?? e.touches?.[0]?.clientY;
     if (clientX == null) return null;
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
+    const px = clientX - rect.left - editorEdgePad;
+    const py = clientY - rect.top - editorEdgePad;
     const x = Math.floor(px / editorCellSize);
     const y = Math.floor(py / editorCellSize);
     if (x >= 0 && x < gridW && y >= 0 && y < gridH) return { x, y };
     return null;
-  }, [editorCellSize, gridW, gridH]);
+  }, [editorCellSize, editorEdgePad, gridW, gridH]);
 
   const onEditorPointerDown = useCallback((e) => {
     if (e.pointerType === "touch" && e.isPrimary === false) return;
@@ -1083,13 +1184,13 @@ function KnotMakerMobile() {
     const clientX = e.clientX ?? e.touches?.[0]?.clientX;
     const clientY = e.clientY ?? e.touches?.[0]?.clientY;
     if (clientX == null) return;
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
+    const px = clientX - rect.left - editorEdgePad;
+    const py = clientY - rect.top - editorEdgePad;
     const x = Math.max(0, Math.min(gridW - 1, Math.floor(px / editorCellSize)));
     const y = Math.max(0, Math.min(gridH - 1, Math.floor(py / editorCellSize)));
     if (x === marquee.x1 && y === marquee.y1) return;
     setMarquee({ ...marquee, x1: x, y1: y });
-  }, [marquee, editorCellSize, gridW, gridH]);
+  }, [marquee, editorCellSize, editorEdgePad, gridW, gridH]);
 
   const onEditorPointerUp = useCallback(() => {
     if (!marquee) return;
@@ -1352,24 +1453,38 @@ function KnotMakerMobile() {
             <button onClick={() => { setCells(Array.from({length: gridH}, () => Array(gridW).fill(false))); }}
               style={{ padding: "8px 14px", background: "transparent", border: "1px solid var(--hair)", color: "var(--bone-dim)", fontSize: 12, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Clear</button>
           </div>
-          <div className="editor-big-tools">
-            <span>Bigger / smaller cells (also pinch with two fingers on the grid)</span>
-            <button type="button" className="editor-big-btn" aria-label="Zoom out cells"
+          <div className="editor-viewport-frame">
+            <div className="editor-toolbar-rows">
+            <div className="editor-zoom-row">
+            <button type="button" className="editor-zoom-btn" aria-label="Zoom out"
               onClick={() => setEditorZoom(z => Math.max(0.25, +(z - 0.2).toFixed(2)))}>−</button>
-            <span className="editor-big-btn accent" style={{ opacity: 0.95, cursor: "default" }} aria-live="polite">
-              {Math.round(editorZoom * 100)}%
-            </span>
-            <button type="button" className="editor-big-btn" aria-label="Zoom in cells"
+            <button type="button" className="editor-zoom-btn" aria-label="Zoom in"
               onClick={() => setEditorZoom(z => Math.min(4, +(z + 0.2).toFixed(2)))}>+</button>
-            <button type="button" className="editor-big-btn accent" onClick={() => setEditorZoom(1)}>1:1</button>
-          </div>
-          <div className="editor-big-tools" style={{ marginBottom: 8 }}>
-            <span>Scroll the grid (when it does not fit)</span>
-            <button type="button" className="editor-big-btn" aria-label="Scroll grid left" onClick={() => scrollEditorGrid(-140, 0)}>◀</button>
-            <button type="button" className="editor-big-btn" aria-label="Scroll grid right" onClick={() => scrollEditorGrid(140, 0)}>▶</button>
-            <button type="button" className="editor-big-btn" aria-label="Scroll grid up" onClick={() => scrollEditorGrid(0, -120)}>▲</button>
-            <button type="button" className="editor-big-btn" aria-label="Scroll grid down" onClick={() => scrollEditorGrid(0, 120)}>▼</button>
-          </div>
+            <button type="button" className="editor-zoom-reset" onClick={() => setEditorZoom(1)}>1:1</button>
+            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("width")}>Fit W</button>
+            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("height")}>Fit H</button>
+            <button type="button" className="editor-zoom-reset" onClick={() => fitEditorZoomToView("both")}>Fit all</button>
+            </div>
+            <div className="editor-toolbar-sep" />
+            <div className="editor-scroll-cluster" role="toolbar" aria-label="Scroll cell grid">
+            <button type="button" className="editor-scroll-btn" aria-label="Scroll left"
+              onClick={() => scrollEditorGrid(-EDITOR_SCROLL_STEP, 0)}>
+              <span className="editor-scroll-btn__arrow" aria-hidden>◀</span>
+            </button>
+            <button type="button" className="editor-scroll-btn" aria-label="Scroll up"
+              onClick={() => scrollEditorGrid(0, -EDITOR_SCROLL_STEP)}>
+              <span className="editor-scroll-btn__arrow" aria-hidden>▲</span>
+            </button>
+            <button type="button" className="editor-scroll-btn" aria-label="Scroll down"
+              onClick={() => scrollEditorGrid(0, EDITOR_SCROLL_STEP)}>
+              <span className="editor-scroll-btn__arrow" aria-hidden>▼</span>
+            </button>
+            <button type="button" className="editor-scroll-btn" aria-label="Scroll right"
+              onClick={() => scrollEditorGrid(EDITOR_SCROLL_STEP, 0)}>
+              <span className="editor-scroll-btn__arrow" aria-hidden>▶</span>
+            </button>
+            </div>
+            </div>
           <div
             ref={editorScrollWrapRef}
             className="editor-scroll-wrap"
@@ -1378,41 +1493,83 @@ function KnotMakerMobile() {
           <div ref={editorRef}
             onPointerDown={onEditorPointerDown} onPointerMove={onEditorPointerMove} onPointerUp={onEditorPointerUp} onPointerCancel={onEditorPointerUp}
             style={{
+              position: "relative", display: "inline-block",
+              padding: editorEdgePad,
+              userSelect: "none", touchAction: "none", cursor: "crosshair",
+            }}>
+            <div style={{
               display: "inline-grid", gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-              border: "1px solid #332e24", borderRadius: 3, background: "#0c0f12",
-              userSelect: "none", touchAction: "none", cursor: "crosshair", position: "relative",
+              border: "2px solid #5a4d32", borderRadius: 4, background: "#0c0f12",
+              boxShadow: "inset 0 0 0 1px rgba(232,196,120,0.12)",
+              position: "relative",
               width: gridW * editorCellSize, minWidth: gridW * editorCellSize,
             }}>
             {cells.flatMap((row, y) => row.map((on, x) => (
               <div key={`${x},${y}`} style={{
                 width: editorCellSize, height: editorCellSize,
-                background: on ? "#2a4a3a" : "#1a1712",
-                border: "1px solid #28231b",
+                background: on ? "#2d523f" : "#14110d",
+                border: "1px solid #2a2419",
               }} />
             )))}
             {edgeRuns.map((r, i) => {
+              if (r.orient === "h") {
+                return (
+                  <div key={`eb-h${i}`} style={{
+                    position: "absolute", pointerEvents: "none", zIndex: 2,
+                    left: r.x0 * editorCellSize, top: r.y * editorCellSize - 1.5,
+                    width: (r.x1 - r.x0) * editorCellSize, height: 3,
+                    background: "linear-gradient(180deg, #f0d78c 0%, #c9a050 100%)",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
+                  }} />
+                );
+              }
+              return (
+                <div key={`eb-v${i}`} style={{
+                  position: "absolute", pointerEvents: "none", zIndex: 2,
+                  left: r.x * editorCellSize - 1.5, top: r.y0 * editorCellSize,
+                  width: 3, height: (r.y1 - r.y0) * editorCellSize,
+                  background: "linear-gradient(90deg, #f0d78c 0%, #c9a050 100%)",
+                  boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
+                }} />
+              );
+            })}
+            {edgeRuns.map((r, i) => {
+              const badgeFont = Math.max(11, Math.min(17, Math.round(editorCellSize * 0.38)));
+              const hOff = Math.max(12, Math.round(editorCellSize * 0.34));
+              const vOff = Math.max(11, Math.round(editorCellSize * 0.3));
               const labelStyle = {
-                position: "absolute", pointerEvents: "none",
-                fontSize: 10, fontFamily: "inherit", color: "#c8a96e",
-                textShadow: "0 0 3px #16130f, 0 0 3px #16130f",
-                lineHeight: 1, fontWeight: 600,
+                position: "absolute", pointerEvents: "none", zIndex: 3,
+                fontSize: badgeFont, fontFamily: "inherit", fontWeight: 700,
+                color: "#f5e6c8",
+                lineHeight: 1.15,
+                letterSpacing: 0.3,
+                background: "rgba(12,10,8,0.94)",
+                border: "1px solid rgba(232,196,120,0.85)",
+                borderRadius: 5,
+                padding: "3px 7px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.45)",
               };
               if (r.orient === "h") {
                 const cx = ((r.x0 + r.x1) / 2) * editorCellSize;
-                const cy = r.y * editorCellSize + (r.filledAbove ? 2 : -12);
-                return <div key={`h${i}`} style={{ ...labelStyle, left: cx, top: cy, transform: "translateX(-50%)" }}>{r.len}</div>;
-              } else {
-                const cy = ((r.y0 + r.y1) / 2) * editorCellSize;
-                const cx = r.x * editorCellSize + (r.filledLeft ? 2 : -10);
-                return <div key={`v${i}`} style={{ ...labelStyle, left: cx, top: cy, transform: "translateY(-50%)" }}>{r.len}</div>;
+                const edgeY = r.y * editorCellSize;
+                const top = edgeY + (r.filledAbove ? hOff : -hOff);
+                return (
+                  <div key={`h${i}`} style={{ ...labelStyle, left: cx, top, transform: "translate(-50%, -50%)" }}>{r.len}</div>
+                );
               }
+              const cy = ((r.y0 + r.y1) / 2) * editorCellSize;
+              const edgeX = r.x * editorCellSize;
+              const left = edgeX + (r.filledLeft ? vOff : -vOff);
+              return (
+                <div key={`v${i}`} style={{ ...labelStyle, left, top: cy, transform: "translate(-50%, -50%)" }}>{r.len}</div>
+              );
             })}
             {marquee && (() => {
               const xa = Math.min(marquee.x0, marquee.x1), xb = Math.max(marquee.x0, marquee.x1);
               const ya = Math.min(marquee.y0, marquee.y1), yb = Math.max(marquee.y0, marquee.y1);
               return (
                 <div style={{
-                  position: "absolute", pointerEvents: "none",
+                  position: "absolute", pointerEvents: "none", zIndex: 4,
                   left: xa * editorCellSize, top: ya * editorCellSize,
                   width: (xb - xa + 1) * editorCellSize, height: (yb - ya + 1) * editorCellSize,
                   background: marquee.val ? "rgba(74,170,120,0.25)" : "rgba(200,80,80,0.22)",
@@ -1420,10 +1577,9 @@ function KnotMakerMobile() {
                 }} />
               );
             })()}
+            </div>
           </div>
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: "#7a7268", textAlign: "center", letterSpacing: 0.5, lineHeight: 1.4 }}>
-            One finger: drag on cells to paint. Two fingers on the grid: pinch to zoom cells. Use arrows above if the grid is hard to move.
           </div>
         </div>
       )}
