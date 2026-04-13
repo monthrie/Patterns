@@ -1696,7 +1696,8 @@ function KnotMakerMobile() {
 
       {activeTab === 'shapes' && (
         <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)" }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+          {cycleStripEl}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap", marginTop: 10 }}>
             <button onClick={saveCurrentShape}
               style={{ padding: "10px 16px", background: "var(--accent-fill)", color: "var(--accent-on-fill)", border: "1px solid var(--edge)", fontSize: 13, fontWeight: 600, letterSpacing: 1.4, cursor: "pointer", fontFamily: "inherit", textTransform: "uppercase" }}>Save</button>
             <button onClick={exportShapes}
