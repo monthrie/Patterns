@@ -45,20 +45,11 @@
   .tab-btn.active { color: var(--accent); border-top-color: var(--accent); }
 
   .stats-bar {
-    display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 12px;
-    border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
+    display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 12px;
+    border-bottom: 1px solid var(--hair);
     background: var(--ink-2); flex-shrink: 0;
-    font-size: 12px; letter-spacing: 0.5px; min-height: 34px;
+    font-size: 12px; letter-spacing: 0.5px; min-height: 0;
   }
-  .stats-row-top {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    font-size: 13px; font-weight: 500;
-  }
-  .stats-balance {
-    font-size: 13px; line-height: 1.45; color: var(--bone);
-    word-break: break-word;
-  }
-  .stats-balance em { font-style: normal; color: var(--accent); font-weight: 600; }
   .stats-balance .warn { color: #d4a574; }
 
   .panel { flex-shrink: 0; overflow-y: auto; max-height: 52dvh; }
