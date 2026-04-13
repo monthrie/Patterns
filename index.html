@@ -478,6 +478,7 @@ function KnotMakerMobile() {
   }, []);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
+  const [cycleStripOpen, setCycleStripOpen] = useState(false);
   const [showNails, setShowNails] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
@@ -1011,7 +1012,13 @@ function KnotMakerMobile() {
     const summary = fair
       ? `Roughly balanced (each cycle ~${(100 / cycles.length).toFixed(0)}% of length).`
       : `Uneven: shortest cycle ${minP.toFixed(0)}% of total length, longest ${maxP.toFixed(0)}%.`;
-    return { pcts, minP, maxP, spread, fair, summary };
+    // Balance rating: green / orange / red
+    let rating = 'red';
+    if (cycles.length === 2) rating = 'green';
+    else if (fair) rating = 'green';
+    else if (spread <= 25) rating = 'orange';
+    const ratingColor = rating === 'green' ? '#4aaa78' : rating === 'orange' ? '#d4a03c' : '#c85050';
+    return { pcts, minP, maxP, spread, fair, summary, rating, ratingColor };
   }, [stringStats, cycles]);
 
   const clickGap = useCallback(g => {
@@ -1283,56 +1290,40 @@ function KnotMakerMobile() {
   );
 
   const statsBarEl = (
-      <div className="stats-bar">
-        <div className="stats-row-top">
-          <span style={{ color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>
-            {cycles.length} {cycles.length === 1 ? "cycle" : "cycles"}
-          </span>
-          {stringStats.totalLen > 0 && (
-            <>
-              <span style={{ color: "var(--hair)" }}>|</span>
-              <span style={{ color: "var(--bone-dim)", whiteSpace: "nowrap" }}>
-                ~{(stringStats.totalLen * 15 / 10).toFixed(0)} cm total string
-              </span>
-              {Object.entries(stringStats.byColor)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 4)
-                .map(([hex, len]) => {
-                  const pct = ((len / stringStats.totalLen) * 100).toFixed(0);
-                  return (
-                    <span key={hex} style={{ display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
-                      <span style={{ width: 8, height: 8, background: hex, display: "inline-block", borderRadius: 1, flexShrink: 0 }} />
-                      <span style={{ color: "var(--bone-dim)" }}>{pct}%</span>
-                    </span>
-                  );
-                })}
-            </>
-          )}
-          {selGap !== null && active && (
-            <>
-              <span style={{ color: "var(--hair)" }}>|</span>
-              <span style={{ color: "#9a8e78", whiteSpace: "nowrap" }}>{active.gaps.size} gaps</span>
-            </>
-          )}
-        </div>
-        {cycleBalance && cycles.length > 1 && (
-          <div className={`stats-balance ${cycleBalance.fair ? '' : 'warn'}`}>
-            <em>Balance:</em>{" "}
-            {cycleBalance.pcts.map((p, i) => (
-              <span key={i}>#{i + 1} <strong>{p.toFixed(0)}%</strong>{i < cycleBalance.pcts.length - 1 ? " · " : ""}</span>
-            ))}
-            <br />
-            <span className={cycleBalance.fair ? "" : "warn"}>{cycleBalance.summary}</span>
-          </div>
+      <div className="stats-bar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px", borderBottom: "1px solid var(--hair)", background: "var(--ink-2)", fontSize: 13 }}>
+        {cycleBalance && (
+          <span style={{
+            width: 10, height: 10, borderRadius: "50%",
+            background: cycleBalance.ratingColor,
+            display: "inline-block", flexShrink: 0,
+            boxShadow: `0 0 4px ${cycleBalance.ratingColor}80`,
+          }} title={cycleBalance.summary} />
         )}
-        {cycleBalance && cycles.length === 1 && stringStats.totalLen > 0 && (
-          <div className="stats-balance">One continuous strand — 100% of the length.</div>
+        <span style={{ color: "var(--accent)", fontWeight: 700, whiteSpace: "nowrap" }}>
+          {cycles.length}
+        </span>
+        <span style={{ color: "var(--bone-dim)", fontSize: 11 }}>
+          {cycles.length === 1 ? "cycle" : "cycles"}
+        </span>
+        {selGap !== null && active && (
+          <>
+            <span style={{ color: "var(--hair)" }}>|</span>
+            <span style={{ color: "#9a8e78", whiteSpace: "nowrap", fontSize: 11 }}>{active.gaps.size} gaps</span>
+          </>
         )}
       </div>
   );
 
   const cycleStripEl = (cycles.length > 0 && cycles.length <= 30) ? (
-        <div className="cycle-strip" style={{ padding: "6px 12px", borderBottom: "1px solid var(--hair)", background: "var(--ink-2)" }}>
+        <div style={{ borderBottom: "1px solid var(--hair)", background: "var(--ink-2)" }}>
+          <button onClick={() => setCycleStripOpen(o => !o)}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "6px 12px", background: "transparent", border: "none", color: "var(--bone-dim)",
+              fontSize: 11, fontFamily: "inherit", cursor: "pointer", letterSpacing: 0.5 }}>
+            <span>Colours ({cycles.length})</span>
+            <span style={{ fontSize: 14 }}>{cycleStripOpen ? "▾" : "▸"}</span>
+          </button>
+          {cycleStripOpen && <div className="cycle-strip" style={{ padding: "4px 12px 8px" }}>
           <button
             onClick={() => { setShowAll(true); setSelGap(null); setVisibleCycles({}); }}
             className="cycle-btn"
@@ -1415,6 +1406,7 @@ function KnotMakerMobile() {
               </div>
             );
           })}
+        </div>}
         </div>
   ) : null;
 
@@ -1702,12 +1694,12 @@ function KnotMakerMobile() {
           </div>
         </div>
       ) : (
-        <>
+        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {statsBarEl}
           {tabPanelsEl}
           {knotViewportEl}
           {cycleStripEl}
-        </>
+        </div>
       )}
 
       {/* TAB BAR — bottom */}
