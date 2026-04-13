@@ -583,6 +583,7 @@ function KnotMakerMobile() {
   }, []);
   const [selGap, setSelGap] = useState(null);
   const [showAll, setShowAll] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [cycleStripOpen, setCycleStripOpen] = useState(false);
   const [showNails, setShowNails] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -1497,6 +1498,21 @@ function KnotMakerMobile() {
     <>
       {activeTab === 'edit' && (
         <div className="panel panel-edit" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", display: "flex", flexDirection: "column" }}>
+          <div style={{ marginBottom: 6 }}>
+            <button onClick={() => setShowHelp(h => !h)}
+              style={{ background: "transparent", border: "1px solid var(--hair)", color: "var(--accent)", width: 28, height: 28, borderRadius: "50%", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>?</button>
+            {showHelp && (
+              <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(232,196,120,0.08)", border: "1px solid var(--hair)", borderRadius: 8, fontSize: 12, lineHeight: 1.6, color: "var(--bone-dim)" }}>
+                <p style={{ margin: "0 0 8px", fontWeight: 600, color: "var(--accent)" }}>Como usar o editor</p>
+                <p style={{ margin: "0 0 6px" }}>O número no topo mostra quantos <strong>ciclos</strong> o padrão tem. O ponto colorido indica o <strong>equilíbrio</strong>: verde = ciclos semelhantes, laranja = alguns dominantes, vermelho = um ciclo muito maior.</p>
+                <p style={{ margin: "0 0 6px" }}>Para começar com um retângulo, coloque as dimensões (pregos × pregos) no botão <strong>"Grid size"</strong>, e depois carregue em <strong>"Fill"</strong> para preencher.</p>
+                <p style={{ margin: "0 0 6px" }}><strong>Arraste o dedo</strong> na grelha para adicionar ou remover células — os ciclos atualizam em tempo real.</p>
+                <p style={{ margin: "0 0 6px" }}>Se gostar de uma forma, carregue em <strong>"Shapes" → "Save"</strong> para guardar.</p>
+                <p style={{ margin: "0 0 6px" }}>Em baixo pode ver o padrão. Para ver em detalhe, vá a <strong>"Mode"</strong> e escolha <strong>thick</strong>, <strong>thin</strong> ou <strong>string</strong> para ver como o padrão fica.</p>
+                <p style={{ margin: 0, opacity: 0.7 }}>De momento, a interface está pensada para facilitar a edição no telemóvel.</p>
+              </div>
+            )}
+          </div>
           <div className="grid-size-toolbar">
             <button
               type="button"
