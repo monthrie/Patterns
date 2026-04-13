@@ -53,6 +53,7 @@
   .stats-balance .warn { color: #d4a574; }
 
   .panel { flex-shrink: 0; overflow-y: auto; max-height: 52dvh; }
+  .panel-edit { flex-shrink: 1; overflow: hidden; max-height: none; flex: 1 1 0%; min-height: 0; }
   .land-split {
     display: flex; flex: 1; min-height: 0; flex-direction: row;
   }
@@ -118,7 +119,7 @@
     border-radius: 8px;
     box-sizing: border-box;
     max-width: 100%;
-    min-height: 45dvh;
+    min-height: 0;
     flex: 1 1 0%;
     overflow: hidden;
   }
@@ -1403,7 +1404,7 @@ function KnotMakerMobile() {
   const tabPanelsEl = (
     <>
       {activeTab === 'edit' && (
-        <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+        <div className="panel panel-edit" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
