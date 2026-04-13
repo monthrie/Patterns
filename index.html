@@ -1680,14 +1680,15 @@ function KnotMakerMobile() {
           </div>
         </div>
       ) : activeTab === 'edit' ? (
-          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <>
             {statsBarEl}
-            <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 80px)", overflow: "hidden" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
               {tabPanelsEl}
             </div>
-            {knotViewportEl}
-            {cycleStripEl}
-          </div>
+            <div style={{ height: "30dvh", flexShrink: 0, borderTop: "1px solid var(--hair)", overflow: "hidden" }}>
+              {knotViewportEl}
+            </div>
+          </>
         ) : (
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {statsBarEl}
