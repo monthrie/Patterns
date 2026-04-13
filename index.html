@@ -1683,8 +1683,7 @@ function KnotMakerMobile() {
             {knotViewportEl}
           </div>
         </div>
-      ) : (
-        {activeTab === 'edit' ? (
+      ) : activeTab === 'edit' ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
             {statsBarEl}
             {tabPanelsEl}
@@ -1697,7 +1696,6 @@ function KnotMakerMobile() {
             {cycleStripEl}
           </div>
         )}
-      )}
 
       {/* TAB BAR — bottom */}
       <div className="tab-bar">
