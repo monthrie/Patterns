@@ -118,9 +118,8 @@
     border-radius: 8px;
     box-sizing: border-box;
     max-width: 100%;
-    min-height: 0;
-    height: min(78dvh, 780px);
-    flex-shrink: 0;
+    min-height: 200px;
+    flex: 1 1 0%;
     overflow: hidden;
   }
   .editor-viewport-frame__caption {
@@ -145,7 +144,6 @@
     scrollbar-gutter: stable;
     scrollbar-width: auto;
     scrollbar-color: var(--accent) #2a3038;
-    max-height: min(64dvh, 640px);
   }
   .editor-scroll-wrap::-webkit-scrollbar { width: 14px; height: 14px; }
   .editor-scroll-wrap::-webkit-scrollbar-track { background: #2a3038; border-radius: 4px; }
@@ -1405,7 +1403,7 @@ function KnotMakerMobile() {
   const tabPanelsEl = (
     <>
       {activeTab === 'edit' && (
-        <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)" }}>
+        <div className="panel" style={{ padding: 12, background: "var(--ink-2)", borderBottom: "1px solid var(--hair)", flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
@@ -1686,12 +1684,19 @@ function KnotMakerMobile() {
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          {statsBarEl}
-          {tabPanelsEl}
-          {knotViewportEl}
-          {cycleStripEl}
-        </div>
+        {activeTab === 'edit' ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+            {statsBarEl}
+            {tabPanelsEl}
+          </div>
+        ) : (
+          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+            {statsBarEl}
+            {tabPanelsEl}
+            {knotViewportEl}
+            {cycleStripEl}
+          </div>
+        )}
       )}
 
       {/* TAB BAR — bottom */}
