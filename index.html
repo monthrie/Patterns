@@ -758,7 +758,9 @@ function KnotMakerMobile() {
 
   const gr = Math.max(5, cellSz * 0.13);
   const sw = cellSz * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
-  const bgColor = "#0c0f12";
+  const BG_OPTIONS = ["#0c0f12", "#2a2e35", "#5a5f66", "#a0a4a8", "#e8e6df"];
+  const [bgIndex, setBgIndex] = useState(0);
+  const bgColor = BG_OPTIONS[bgIndex];
 
   // Weave grid lines
   const weaveLines = useMemo(() => {
@@ -1305,6 +1307,9 @@ function KnotMakerMobile() {
         touchAction: "none", position: "relative",
       }}>
         <div className="knot-zoom-btns" style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 4 }}>
+          <button onClick={() => setBgIndex(i => (i + 1) % BG_OPTIONS.length)}
+            title="Change background"
+            style={{ width: 36, height: 36, background: BG_OPTIONS[(bgIndex + 1) % BG_OPTIONS.length], border: "1px solid var(--hair)", cursor: "pointer", fontFamily: "inherit", borderRadius: 4 }} />
           <button onClick={() => { setZoom(1); setPanX(0); setPanY(0); }}
             style={{ width: 36, height: 36, background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)", color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8, cursor: "pointer", fontFamily: "inherit", borderRadius: 4 }}>FIT</button>
           <button onClick={() => setZoom(z => Math.max(0.15, +(z / 1.3).toFixed(2)))}
