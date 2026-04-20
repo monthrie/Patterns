@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Diagonal Basket Weave</title>
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  .controls {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
+    max-width: 900px;
+  }
+  label { font-size: 14px; }
+  input[type=number] { width: 70px; padding: 4px; font-size: 14px; }
+  button {
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid #888;
+    background: #fafafa;
+    border-radius: 4px;
+  }
+  button:hover { background: #eee; }
+  .hint {
+    font-size: 12px;
+    color: #666;
+    max-width: 900px;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  canvas {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    display: block;
+  }
+  .layout { display: flex; gap: 20px; align-items: flex-start; }
+  .editor {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .editor h3 { margin: 0 0 8px 0; font-size: 14px; font-weight: 600; }
+  #grid { display: grid; gap: 0; touch-action: none; user-select: none; }
+  #grid .cell {
+    width: 20px; height: 20px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    box-sizing: border-box;
+  }
+  #grid .cell.on { background: #333; }
+  #grid .cell.marquee { outline: 2px solid #4a9; outline-offset: -2px; }
+  .editor .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .editor input[type=number] { width: 60px; }
+  @media print {
+    body { background: white; padding: 0; margin: 0; }
+    .controls, .hint { display: none; }
+    canvas { box-shadow: none; }
+    @page { margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="controls">
+    <label>Circle-center spacing: <input type="number" id="mm" min="1" max="50" step="0.5" value="8"></label> mm
+    <label>Canvas: <input type="number" id="wmm" min="20" max="400" step="1" value="190"></label> ×
+    <input type="number" id="hmm" min="20" max="400" step="1" value="277"> mm
+    <button id="clear">Clear</button>
+    <button id="a4">A4</button>
+    <button id="a3">A3</button>
+    <button id="print">Print</button>
+  </div>
+  <div class="hint">For true-size prints: in the print dialog choose <strong>Actual size</strong> / 100% scale (not "Fit to page"), and disable headers/footers.</div>
+  <div class="layout">
+    <div class="editor">
+      <h3>Cell editor</h3>
+      <div class="row">
+        Cols: <input type="number" id="cols" min="1" max="40" value="10">
+        Rows: <input type="number" id="rows" min="1" max="40" value="10">
+      </div>
+      <div id="grid"></div>
+    </div>
+    <canvas id="c"></canvas>
+  </div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const mmInput = document.getElementById('mm');
+const wInput = document.getElementById('wmm');
+const hInput = document.getElementById('hmm');
+const printBtn = document.getElementById('print');
+
+const PX_PER_MM = 96 / 25.4;            // CSS: 96px = 1in = 25.4mm
+const GAP = 0.35;                       // under-crossing gap as fraction of diagonal spacing
+const CIRCLE_R_MM = 0.75;               // 1.5mm diameter
+
+function draw() {
+  const mm = +mmInput.value;            // circle-center nearest-neighbour distance (mm)
+  const wMM = +wInput.value;
+  const hMM = +hInput.value;
+
+  // Diagonal line spacing in mm: nearest circle-center distance = S_mm / sqrt(2)
+  // so S_mm = mm * sqrt(2).
+  const S_mm = mm * Math.SQRT2;
+  const S = S_mm * PX_PER_MM;           // diagonal spacing in px
+  const CIRCLE_R = CIRCLE_R_MM * PX_PER_MM;
+
+  const W = Math.round(wMM * PX_PER_MM);
+  const H = Math.round(hMM * PX_PER_MM);
+
+  // High-DPI backing store so print output is crisp.
+  const DPR = window.devicePixelRatio || 1;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = wMM + 'mm';
+  canvas.style.height = hMM + 'mm';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  function clipLine(ax, ay, bx, by) {
+    let t0 = 0, t1 = 1;
+    const dx = bx - ax, dy = by - ay;
+    const p = [-dx, dx, -dy, dy];
+    const q = [ax, W - ax, ay, H - ay];
+    for (let i = 0; i < 4; i++) {
+      if (p[i] === 0) { if (q[i] < 0) return null; }
+      else {
+        const r = q[i] / p[i];
+        if (p[i] < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+        else { if (r < t0) return null; if (r < t1) t1 = r; }
+      }
+    }
+    return [ax + t0*dx, ay + t0*dy, ax + t1*dx, ay + t1*dy];
+  }
+
+  const slashes = [];
+  const dMin = 0, dMax = Math.ceil((W + H) / S);
+  for (let d = dMin; d <= dMax; d++) {
+    const off = d * S;
+    const ax = off + S, ay = -S;
+    const bx = -S, by = off + S;
+    const clipped = clipLine(ax, ay, bx, by);
+    if (clipped) slashes.push({ d, seg: clipped });
+  }
+
+  const backs = [];
+  const eMin = -Math.ceil(W / S), eMax = Math.ceil(H / S);
+  for (let e = eMin; e <= eMax; e++) {
+    const off = e * S;
+    const ax = -S, ay = -S + off;
+    const bx = W + S, by = W + S + off;
+    const clipped = clipLine(ax, ay, bx, by);
+    if (clipped) backs.push({ e, seg: clipped });
+  }
+
+  const gapLen = S * GAP;
+  const LW = 1;
+
+  function drawLineWithGaps(seg, gapCenters) {
+    const [x1,y1,x2,y2] = seg;
+    const len = Math.hypot(x2-x1, y2-y1);
+    if (len === 0) return;
+    const ux = (x2-x1)/len, uy = (y2-y1)/len;
+
+    const intervals = [];
+    for (const g of gapCenters) {
+      const s = Math.max(0, g.t - g.half);
+      const e = Math.min(len, g.t + g.half);
+      if (e > s) intervals.push([s,e]);
+    }
+    intervals.sort((a,b) => a[0]-b[0]);
+    const merged = [];
+    for (const iv of intervals) {
+      if (merged.length && iv[0] <= merged[merged.length-1][1]) {
+        merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], iv[1]);
+      } else merged.push([...iv]);
+    }
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = LW;
+    ctx.lineCap = 'butt';
+
+    let cursor = 0;
+    for (const [gs, ge] of merged) {
+      if (gs > cursor) {
+        ctx.beginPath();
+        ctx.moveTo(x1 + ux*cursor, y1 + uy*cursor);
+        ctx.lineTo(x1 + ux*gs, y1 + uy*gs);
+        ctx.stroke();
+      }
+      cursor = ge;
+    }
+    if (cursor < len) {
+      ctx.beginPath();
+      ctx.moveTo(x1 + ux*cursor, y1 + uy*cursor);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  }
+
+  function tOnSeg(seg, px, py) {
+    const [x1,y1,x2,y2] = seg;
+    const len = Math.hypot(x2-x1, y2-y1);
+    if (len === 0) return 0;
+    return ((px-x1)*(x2-x1) + (py-y1)*(y2-y1)) / len;
+  }
+
+  function slashOver(d, e) { return ((d + e) % 2 + 2) % 2 === 0; }
+
+  for (const sl of slashes) {
+    const gapCenters = [];
+    for (const bk of backs) {
+      const cx = (sl.d - bk.e) * S / 2;
+      const cy = (sl.d + bk.e) * S / 2;
+      if (cx < 0 || cx > W || cy < 0 || cy > H) continue;
+      if (!slashOver(sl.d, bk.e)) {
+        const t = tOnSeg(sl.seg, cx, cy);
+        const segLen = Math.hypot(sl.seg[2]-sl.seg[0], sl.seg[3]-sl.seg[1]);
+        if (t >= 0 && t <= segLen) gapCenters.push({ t, half: gapLen/2 });
+      }
+    }
+    drawLineWithGaps(sl.seg, gapCenters);
+  }
+
+  for (const bk of backs) {
+    const gapCenters = [];
+    for (const sl of slashes) {
+      const cx = (sl.d - bk.e) * S / 2;
+      const cy = (sl.d + bk.e) * S / 2;
+      if (cx < 0 || cx > W || cy < 0 || cy > H) continue;
+      if (slashOver(sl.d, bk.e)) {
+        const t = tOnSeg(bk.seg, cx, cy);
+        const segLen = Math.hypot(bk.seg[2]-bk.seg[0], bk.seg[3]-bk.seg[1]);
+        if (t >= 0 && t <= segLen) gapCenters.push({ t, half: gapLen/2 });
+      }
+    }
+    drawLineWithGaps(bk.seg, gapCenters);
+  }
+
+  // Circle centres indexed by (i, j) where i = d - e, j = d + e + 1 (i+j always odd).
+  // Position: (i*S/2, j*S/2). Filled circles live in the `filled` Set, keyed "i,j".
+  circlePositions.length = 0;
+  ctx.strokeStyle = '#000';
+  ctx.fillStyle = '#000';
+  ctx.lineWidth = 1;
+  for (let d = dMin; d <= dMax; d++) {
+    for (let e = eMin; e <= eMax; e++) {
+      const i = d - e, j = d + e + 1;
+      const cx = i * S / 2, cy = j * S / 2;
+      if (cx < 0 || cx > W || cy < 0 || cy > H) continue;
+      circlePositions.push({ i, j, cx, cy });
+      ctx.beginPath();
+      ctx.arc(cx, cy, CIRCLE_R, 0, Math.PI * 2);
+      if (filled.has(i + ',' + j)) ctx.fill();
+      else ctx.stroke();
+    }
+  }
+}
+
+// Cell editor: rows×cols grid. Each cell maps 1:1 to a circle on the paper.
+// The "filled" Set stores "i,j" keys of circles that are turned on.
+const filled = new Set();
+const circlePositions = [];
+const colsInput = document.getElementById('cols');
+const rowsInput = document.getElementById('rows');
+const gridEl = document.getElementById('grid');
+let cellState = [];   // 2D boolean array [row][col]
+
+function cellToCircle(r, c) {
+  // Map (row, col) -> circle index (i, j). Circles sit at (i*S/2, j*S/2) where i+j is odd.
+  // We pick a sub-lattice stepping by 2 in both i and j, centred on the canvas.
+  const cols = +colsInput.value, rows = +rowsInput.value;
+  const S_mm = +mmInput.value * Math.SQRT2;
+  const S = S_mm * PX_PER_MM;
+  const wMM = +wInput.value, hMM = +hInput.value;
+  const W = Math.round(wMM * PX_PER_MM);
+  const H = Math.round(hMM * PX_PER_MM);
+  // Find base i,j at canvas centre, with i+j odd.
+  let iBase = Math.round(W / S);
+  let jBase = Math.round(H / S);
+  if (((iBase + jBase) % 2) === 0) jBase += 1;   // ensure odd
+  // Offset cell block so it's centred around (iBase, jBase), stepping by 2 per cell.
+  const i = iBase + 2 * c - (cols - 1);
+  const j = jBase + 2 * r - (rows - 1);
+  return { i, j };
+}
+
+function rebuildGrid() {
+  const cols = +colsInput.value, rows = +rowsInput.value;
+  // Preserve existing state where possible.
+  const prev = cellState;
+  cellState = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, c) => !!(prev[r] && prev[r][c]))
+  );
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, 18px)`;
+  gridEl.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const el = document.createElement('div');
+      el.className = 'cell' + (cellState[r][c] ? ' on' : '');
+      el.dataset.r = r; el.dataset.c = c;
+      gridEl.appendChild(el);
+    }
+  }
+  syncFilledFromCells();
+}
+
+function syncFilledFromCells() {
+  filled.clear();
+  const rows = cellState.length;
+  const cols = rows ? cellState[0].length : 0;
+  const isOn = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols && cellState[r][c];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!isOn(r, c)) continue;
+      // Boundary = on-cell with at least one off (or off-grid) neighbour.
+      const boundary = !isOn(r-1, c) || !isOn(r+1, c) || !isOn(r, c-1) || !isOn(r, c+1);
+      if (boundary) {
+        const { i, j } = cellToCircle(r, c);
+        filled.add(i + ',' + j);
+      }
+    }
+  }
+  draw();
+}
+
+// Marquee drag: match index.html behavior. Drag a rectangle; on release, every
+// cell inside the rectangle is set to `val` (the inverse of the start cell's state).
+let marquee = null;
+
+function cellFromEvent(ev) {
+  const el = ev.target.closest('.cell');
+  if (!el || el.parentElement !== gridEl) return null;
+  return { r: +el.dataset.r, c: +el.dataset.c };
+}
+
+function updateMarqueeHighlight() {
+  const cells = gridEl.querySelectorAll('.cell');
+  if (!marquee) { cells.forEach(el => el.classList.remove('marquee')); return; }
+  const { r0, c0, r1, c1 } = marquee;
+  const ra = Math.min(r0, r1), rb = Math.max(r0, r1);
+  const ca = Math.min(c0, c1), cb = Math.max(c0, c1);
+  cells.forEach(el => {
+    const r = +el.dataset.r, c = +el.dataset.c;
+    el.classList.toggle('marquee', r >= ra && r <= rb && c >= ca && c <= cb);
+  });
+}
+
+gridEl.addEventListener('pointerdown', (ev) => {
+  const cell = cellFromEvent(ev);
+  if (!cell) return;
+  ev.preventDefault();
+  gridEl.setPointerCapture(ev.pointerId);
+  const val = !cellState[cell.r][cell.c];
+  marquee = { r0: cell.r, c0: cell.c, r1: cell.r, c1: cell.c, val };
+  updateMarqueeHighlight();
+});
+gridEl.addEventListener('pointermove', (ev) => {
+  if (!marquee) return;
+  const rect = gridEl.getBoundingClientRect();
+  const cols = +colsInput.value, rows = +rowsInput.value;
+  const cellW = rect.width / cols, cellH = rect.height / rows;
+  const c = Math.max(0, Math.min(cols - 1, Math.floor((ev.clientX - rect.left) / cellW)));
+  const r = Math.max(0, Math.min(rows - 1, Math.floor((ev.clientY - rect.top) / cellH)));
+  if (r === marquee.r1 && c === marquee.c1) return;
+  marquee.r1 = r; marquee.c1 = c;
+  updateMarqueeHighlight();
+});
+function finishMarquee() {
+  if (!marquee) return;
+  const { r0, c0, r1, c1, val } = marquee;
+  const ra = Math.min(r0, r1), rb = Math.max(r0, r1);
+  const ca = Math.min(c0, c1), cb = Math.max(c0, c1);
+  for (let r = ra; r <= rb; r++) {
+    for (let c = ca; c <= cb; c++) {
+      cellState[r][c] = val;
+      const el = gridEl.children[r * (+colsInput.value) + c];
+      if (el) el.classList.toggle('on', val);
+    }
+  }
+  marquee = null;
+  updateMarqueeHighlight();
+  syncFilledFromCells();
+}
+gridEl.addEventListener('pointerup', finishMarquee);
+gridEl.addEventListener('pointercancel', () => { marquee = null; updateMarqueeHighlight(); });
+
+document.getElementById('clear').addEventListener('click', () => {
+  for (let r = 0; r < cellState.length; r++) cellState[r].fill(false);
+  document.querySelectorAll('#grid .cell.on').forEach(el => el.classList.remove('on'));
+  syncFilledFromCells();
+});
+
+colsInput.addEventListener('input', rebuildGrid);
+rowsInput.addEventListener('input', rebuildGrid);
+
+[mmInput, wInput, hInput].forEach(el => el.addEventListener('input', syncFilledFromCells));
+
+rebuildGrid();
+document.getElementById('a4').addEventListener('click', () => {
+  wInput.value = 190; hInput.value = 277; syncFilledFromCells();
+});
+document.getElementById('a3').addEventListener('click', () => {
+  wInput.value = 277; hInput.value = 400; syncFilledFromCells();
+});
+printBtn.addEventListener('click', () => window.print());
+draw();
+</script>
+</body>
+</html>
