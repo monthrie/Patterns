@@ -1540,11 +1540,11 @@ function KnotMakerMobile() {
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>W</span>
                     <div className="stepper">
-                      <button onClick={() => { if (gridW > 3) resizeGrid(gridW - 1, gridH); }}>-</button>
-                      <input type="number" min="3" max="100" value={editingW ? editW : gridW}
+                      <button onClick={() => { if (gridW > 2) resizeGrid(gridW - 1, gridH); }}>-</button>
+                      <input type="number" min="2" max="100" value={editingW ? editW : gridW}
                         onFocus={e => { setEditingW(true); setEditW(String(gridW)); e.target.select(); }}
                         onChange={e => { setEditW(e.target.value); }}
-                        onBlur={e => { setEditingW(false); const v = parseInt(editW, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(v, gridH); }}
+                        onBlur={e => { setEditingW(false); const v = parseInt(editW, 10); if (!isNaN(v) && v >= 2 && v <= 100) resizeGrid(v, gridH); }}
                         onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
                       <button onClick={() => { if (gridW < 100) resizeGrid(gridW + 1, gridH); }}>+</button>
                     </div>
@@ -1552,11 +1552,11 @@ function KnotMakerMobile() {
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: 1 }}>H</span>
                     <div className="stepper">
-                      <button onClick={() => { if (gridH > 3) resizeGrid(gridW, gridH - 1); }}>-</button>
-                      <input type="number" min="3" max="100" value={editingH ? editH : gridH}
+                      <button onClick={() => { if (gridH > 2) resizeGrid(gridW, gridH - 1); }}>-</button>
+                      <input type="number" min="2" max="100" value={editingH ? editH : gridH}
                         onFocus={e => { setEditingH(true); setEditH(String(gridH)); e.target.select(); }}
                         onChange={e => { setEditH(e.target.value); }}
-                        onBlur={e => { setEditingH(false); const v = parseInt(editH, 10); if (!isNaN(v) && v >= 3 && v <= 100) resizeGrid(gridW, v); }}
+                        onBlur={e => { setEditingH(false); const v = parseInt(editH, 10); if (!isNaN(v) && v >= 2 && v <= 100) resizeGrid(gridW, v); }}
                         onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }} />
                       <button onClick={() => { if (gridH < 100) resizeGrid(gridW, gridH + 1); }}>+</button>
                     </div>
