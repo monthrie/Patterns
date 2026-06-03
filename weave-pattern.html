@@ -69,9 +69,8 @@
   .editor input[type=number] { width: 60px; }
   @media print {
     body { background: white; padding: 0; margin: 0; }
-    .controls, .hint { display: none; }
-    canvas { box-shadow: none; }
-    @page { margin: 10mm; }
+    .controls, .hint, .editor { display: none; }
+    canvas { box-shadow: none; display: block; }
   }
 </style>
 </head>
@@ -421,7 +420,20 @@ document.getElementById('a4').addEventListener('click', () => {
 document.getElementById('a3').addEventListener('click', () => {
   wInput.value = 277; hInput.value = 400; syncFilledFromCells();
 });
-printBtn.addEventListener('click', () => window.print());
+printBtn.addEventListener('click', () => {
+  const wMM = +wInput.value;
+  const hMM = +hInput.value;
+  // Inject a @page size rule so the browser creates a page exactly the canvas
+  // size — no "fit to page" scaling needed.
+  let style = document.getElementById('_print_page_style');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = '_print_page_style';
+    document.head.appendChild(style);
+  }
+  style.textContent = `@page { size: ${wMM}mm ${hMM}mm; margin: 0; }`;
+  window.print();
+});
 draw();
 </script>
 </body>
