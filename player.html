@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tear — trace-player demo</title>
+<style>
+  :root {
+    --ink: #171109; --panel: #211912; --line: #382c1e;
+    --bone: #f0e5cd; --dim: #ab9b7f; --brass: #d9a440; --brass-soft: #ecc87e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(165deg, #1c150c 0%, var(--ink) 60%, #120d05 100%);
+    color: var(--bone);
+    font-family: 'Atkinson Hyperlegible', Georgia, serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 20px 120px; }
+  h1 { font-size: 30px; color: var(--brass-soft); font-weight: 700; letter-spacing: 0.5px; }
+  .sub { color: var(--dim); margin: 8px 0 56px; font-size: 15px; line-height: 1.6; }
+  section { margin-bottom: 88px; }
+  .station {
+    display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;
+  }
+  .station .n {
+    font-size: 44px; font-weight: 700; color: var(--brass);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .station .lbl { font-size: 17px; color: var(--bone); font-weight: 700; }
+  .station .meta { font-size: 13px; color: var(--dim); margin-left: auto; }
+  .caption { color: var(--dim); font-size: 14px; line-height: 1.6; margin: 4px 0 18px; max-width: 60ch; }
+  .player {
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+    aspect-ratio: auto;
+  }
+  .controls { display: flex; gap: 10px; margin-top: 12px; }
+  .controls button {
+    min-height: 40px; padding: 8px 18px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+    font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .controls button:active { color: var(--brass-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>O fio que volta ao princípio</h1>
+  <p class="sub">Demo do trace-player embebível — a peça central do futuro site.
+  Cada padrão é traçado prego a prego, fio a fio, exatamente como na tábua.
+  Faça scroll: cada animação começa quando entra no ecrã.</p>
+
+  <section>
+    <div class="station"><span class="n">2</span><span class="lbl">fios</span><span class="meta">tábua 18×10 — mdc(18,10) = 2</span></div>
+    <p class="caption">Dois fios fechados cobrem a tábua inteira. O primeiro percorre o seu caminho completo e volta ao prego de partida; depois começa o segundo.</p>
+    <div class="player" id="p2" style="aspect-ratio: 20/12;"></div>
+    <div class="controls"><button data-for="p2">↻ Outra vez</button></div>
+  </section>
+
+  <section>
+    <div class="station"><span class="n">8</span><span class="lbl">fios</span><span class="meta">tábua 16×24 — mdc(16,24) = 8 · como o casaco</span></div>
+    <p class="caption">Oito circuitos — o mesmo número de fios do casaco do João: ~200 horas, sem costuras, cada fio unido invisivelmente a si próprio.</p>
+    <div class="player" id="p8" style="aspect-ratio: 18/26; max-width: 460px;"></div>
+    <div class="controls"><button data-for="p8">↻ Outra vez</button></div>
+  </section>
+
+  <section>
+    <div class="station"><span class="n">15</span><span class="lbl">fios</span><span class="meta">tábua 30×15 — mdc(30,15) = 15</span></div>
+    <p class="caption">Quinze fios, quinze cores possíveis. Os mestres da areia evitavam padrões assim; o João fez deles a sua paleta.</p>
+    <div class="player" id="p15" style="aspect-ratio: 32/17;"></div>
+    <div class="controls"><button data-for="p15">↻ Outra vez</button></div>
+  </section>
+
+  <section>
+    <div class="station"><span class="n">?</span><span class="lbl">forma irregular</span><span class="meta">um L com recorte — sem fórmula conhecida</span></div>
+    <p class="caption">Para formas assim, a matemática não tem fórmula — o número de fios só se descobre traçando. Está a ver um padrão que muito provavelmente nenhum humano tinha visto antes.</p>
+    <div class="player" id="pL" style="aspect-ratio: 20/12;"></div>
+    <div class="controls"><button data-for="pL">↻ Outra vez</button></div>
+  </section>
+</div>
+
+<script src="src/engine.js"></script>
+<script src="src/player.js"></script>
+<script>
+window.addEventListener('error', e => { document.title = 'ERRO: ' + (e.message || '?'); });
+
+const players = {};
+players.p2 = TearPlayer.create(document.getElementById('p2'), {
+  gw: 18, gh: 10,
+  colors: ['#d4242c', '#2aa0b4'],
+  autoplay: 'visible',
+});
+players.p8 = TearPlayer.create(document.getElementById('p8'), {
+  gw: 16, gh: 24,
+  colors: ['#d4242c', '#2aa0b4', '#ecdcb0', '#e8a020', '#2e9a5e', '#e4287c', '#1e40c8', '#f4f1e8'],
+  autoplay: 'visible', speedFactor: 1.4,
+});
+players.p15 = TearPlayer.create(document.getElementById('p15'), {
+  gw: 30, gh: 15,
+  autoplay: 'visible', speedFactor: 1.8,
+});
+// L-shape with a notch — open-problem territory
+(function () {
+  const gw = 18, gh = 10;
+  const cells = Array.from({ length: gh }, (_, y) =>
+    Array.from({ length: gw }, (_, x) => {
+      if (y < 4 && x >= 10) return false;          // L cutout
+      if (y >= 7 && x >= 3 && x <= 4) return false; // notch
+      return true;
+    }));
+  players.pL = TearPlayer.create(document.getElementById('pL'), {
+    cells, autoplay: 'visible', speedFactor: 1.2,
+  });
+  document.querySelector('#pL').closest('section').querySelector('.n').textContent = players.pL.cycles;
+})();
+
+document.querySelectorAll('.controls button').forEach(b => {
+  b.addEventListener('click', () => {
+    const p = players[b.dataset.for];
+    if (p) { p.restart(); p.play(); }
+  });
+});
+// test hook: ?finish renders every player's completed weave instantly
+if (location.search.includes('finish')) {
+  for (const k in players) { players[k].pause(); players[k].finish(); }
+}
+</script>
+</body>
+</html>

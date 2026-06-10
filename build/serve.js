@@ -14,4 +14,6 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
-}).listen(8901, () => console.log('serving on 8901'));
+}).listen(process.env.PORT || process.argv[2] || 8901, function () {
+  console.log('serving on ' + this.address().port);
+});
