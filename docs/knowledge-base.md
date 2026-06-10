@@ -19,6 +19,7 @@ Working record of everything established so far. **Facts, not prose** — the es
   4. Realized loops can **encode colour** → multi-cycle colour patterns became his central fascination.
 - Before the app: hand-drew every candidate pattern, bounce by bounce; never knew a pattern beyond ~4 cycles. The app removed that wall; he has since designed **and physically built 15-cycle patterns**.
 - Pattern discovery is the part that excites him most.
+- **He wants to teach** (Wilmon, 2026-06-10): open invitation — get in touch with João if you would like to learn to do what he does. (Logistics — format, language, who — not yet decided.)
 - Wilmon: "the best thing I have seen a human do."
 
 ## 2. Craft mechanics & hard-won practical truths
