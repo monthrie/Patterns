@@ -1,0 +1,13 @@
+{
+  "name": "knot-maker-smoke",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Automated smoke tests for Knot Maker Mobile (index.html)",
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}
