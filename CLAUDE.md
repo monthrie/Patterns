@@ -14,11 +14,14 @@ The app is generated — **never hand-edit `index.html`**:
 
 ```
 src/app.js              ← edit this (application code; plain JS + React.createElement via Babel-style output)
+src/engine.js           ← shared pure billiard/weave engine (TearEngine global; verbatim twin of app's inline copy)
+src/player.js           ← embeddable trace-player (TearPlayer; "watch the laying" overlay + website embeds)
 build/template.html     ← head, CSS design system, body shell ( /* %%SCRIPTS%% */ marker )
 build/vendor-react.js, build/vendor-react-dom.js  ← React 18 UMD, inlined verbatim
 
-cd build && node assemble.js     # → writes ../index.html
-node build/serve.js              # static server on http://localhost:8901
+cd build && node assemble.js     # → writes ../index.html (inlines engine + player + app)
+node build/serve.js [port]       # static server, default 8901
+node scripts/smoke.mjs           # 22 automated browser checks (PORT=#### to target a server)
 ```
 
 Note: `assemble.js` must keep the function-replacer form of `String.replace` — the code contains `$$` sequences that string replacement would corrupt.
@@ -36,14 +39,17 @@ Single React component `KnotMakerMobile` plus pure engine functions. Coordinate 
 - `getAllCycles(cells, gw, gh)` — all cycles covering every gap
 - Weave parity: `(k + m + W) % 2` checkerboard decides over/under at each crossing; under-crossings are rendered as geometric gap cutouts in `renderStrandSVG`
 
-**UI:** three bottom tabs (Edit = cell-grid shape editor with marquee drag; Shapes = save/load/presets/import/export + per-cycle color pickers; Mode = strand thickness, zoom, nails overlay, string-length stats). Stats bar shows cycle count + balance dot. Knot viewport: side-by-side in landscape (≥500px wide), below the editor in portrait. Pinch zoom on both surfaces. Saved shapes in `localStorage` key `celtic.savedShapes`.
+**UI:** bilingual (PT default, EN via stats-bar toggle; all strings in the `STR` dict + `HELP`). Three intent tabs: Desenhar (cell-grid editor with marquee drag), Fios (string visibility chips + colour pickers + balance + per-colour lengths), Guardadas (save/load/presets/import/export). View properties live ON the canvas as floating controls: background, zoom/100%, nails toggle, strand thickness cycler, and ▶ which opens a fullscreen overlay playing the current pattern being laid (TearPlayer). Stats bar: cycle count + tappable balance dot + EN/PT + fullscreen toggle. Knot viewport: side-by-side in landscape (pane `clamp(340px,46vw,620px)`, wheel-zoom), below the editor in portrait. Pinch zoom on both surfaces. Saved shapes in `localStorage` key `celtic.savedShapes`; language in `knot.lang`.
 
-**Design system:** CSS variables in `build/template.html` (`--ink`, `--bone`, `--accent` brass, `--hair`, …) — warm "workshop at night" palette. Fonts: Atkinson Hyperlegible (UI, chosen for older eyes) + JetBrains Mono (numbers). All inline styles in app code reference the same variables; retheme via tokens, not per-component edits.
+**Design system:** CSS variables in `build/template.html` (`--ink`, `--bone`, `--accent` sea-glass, `--hair`, …) — cool slate, modern, minimal. Font: JetBrains Mono throughout. All inline styles in app code reference the same variables. HARD RULE from the owner: no warm/rustic theming, no decorative fonts, no rope/texture shading — flat clean strands; animated strings must be continuous (gaps only where diving under already-laid cord).
 
 ## Repo layout
 
 - `index.html` — the product (generated, committed)
+- `about.html` — the story page (static; live player embeds; links into the tool)
+- `player.html` — trace-player demo / animation studio (static)
 - `src/app.js` — application source of truth (the original JSX source was lost; this is readable transpiled output)
+- `src/engine.js`, `src/player.js` — shared engine + embeddable player (used by index.html overlay, about.html, player.html)
 - `build/` — assembler, template, vendored React, dev server (`node_modules/` gitignored)
 - `docs/` — reference photos
 - `archive/` — superseded variants, rejected redesign, salvageable experiments (see `archive/README.md`; notably the string-tracing animation in `archive/reference/celtic-knot-L.html`)

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knot Maker — the story</title>
+<meta name="theme-color" content="#090c0f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #090c0f; --ink-2: #121a22; --hair: #1e2832;
+    --bone: #c1cad3; --dim: #6d7884; --accent: #a3b8c4; --accent-strong: #7e9aaa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink); color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 64px 20px 140px; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  h2 {
+    font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--accent); margin: 72px 0 16px; padding-top: 18px; border-top: 1px solid var(--hair);
+  }
+  p { font-size: 14px; line-height: 1.85; color: var(--bone); margin-bottom: 14px; }
+  p.dim { color: var(--dim); }
+  strong { color: var(--accent); font-weight: 600; }
+  .player { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin: 22px 0 8px; }
+  .cap { font-size: 11.5px; color: var(--dim); margin-bottom: 22px; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0 8px; }
+  .trio .player { margin: 0; }
+  .stat { font-size: 28px; color: var(--accent); font-weight: 600; }
+  .cta {
+    display: inline-block; margin: 8px 12px 0 0; padding: 12px 20px;
+    border: 1px solid var(--accent-strong); border-radius: 8px;
+    color: var(--accent); text-decoration: none; font-size: 13px; letter-spacing: 0.5px;
+  }
+  .cta:hover { background: var(--ink-2); }
+  .footer { margin-top: 80px; padding-top: 18px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--dim); line-height: 1.8; }
+  @media (max-width: 620px) { .trio { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>One cord, bouncing.</h1>
+  <p class="dim">The story behind a small web tool, an elderly Portuguese craftsman,
+  and a kind of textile that — as far as we can tell — nobody else on Earth makes.</p>
+
+  <div class="player" id="hero" style="aspect-ratio: 20/12;"></div>
+  <p class="cap">An 18×10 board. Watch: the cord starts at the dashed ring, travels at 45°,
+  bounces off the edges like a billiard ball, and returns exactly to where it began.
+  Then a second cord covers everything the first one missed. When the last cord closes,
+  the weave tightens into finished cloth.</p>
+
+  <h2>The craft</h2>
+  <p>João hammers nails around the edge of a board, ties a cotton cord to one,
+  and pulls it diagonally across. At each edge it catches a nail and bounces. It crosses
+  other strands — over, under, over, under — until eventually it arrives back at its
+  starting nail, where he splices the end to the beginning so cleanly you cannot find the join.</p>
+  <p>The result is real cloth with <strong>no warp, no weft, no hems and no stitches</strong>.
+  Every strand in it is a closed loop. He has made cushions, bags, <strong>shoes (12 loops)</strong>
+  and an entire <strong>jacket — exactly 8 loops of cord, ~200 hours, not one seam</strong>.
+  If you pulled a strand free and shook it out, you'd be holding one enormous unbroken circle.</p>
+
+  <h2>The painstaking problem</h2>
+  <p>Here's the catch: João doesn't design the pattern. He only designs the <strong>board's shape</strong> —
+  the rule does the rest. And the one thing he needs to know before hammering a hundred nails is:
+  <strong>how many separate cords will this shape need?</strong></p>
+  <p>For years the only way to find out was to trace the whole path by hand on paper, bounce by
+  bounce — hours per attempt, one slip and the trace is worthless. In practice he could never
+  explore beyond four loops. The shape of every future piece was rationed by pencil labour.</p>
+
+  <h2>The mathematics</h2>
+  <p>It turns out this question has a deep history. The bouncing paths are
+  <strong>mirror curves</strong> — the same mathematics behind the <em>sona</em> sand drawings of
+  Angola, Celtic knotwork and Tamil kolam. For a plain rectangle there is a theorem:
+  an <em>m</em>×<em>n</em> board needs exactly <strong>gcd(m,&nbsp;n)</strong> cords.
+  18×10 → 2. 17×10 → 1. 15×10 → 5. The cloth computes the greatest common divisor of its own sides.</p>
+  <p>But for the shapes João actually builds — L-shapes, crosses, boards with holes —
+  <strong>no formula is known</strong>. Counting the loops of an arbitrary shape without tracing
+  is an open problem, posed as recently as 2020. The only general tool is simulation:
+  run the billiard, see what closes.</p>
+  <p>So this app does exactly that. Draw any shape; it traces every path in milliseconds,
+  counts the cords, colours them, measures how many metres of each colour to buy. The wall
+  that capped João at four loops is gone — he has since designed and physically woven
+  <strong>15-loop patterns that quite possibly no human had ever seen</strong>, since they exist
+  only by computation and the space of shapes is astronomically large.</p>
+
+  <h2>A principle to play with</h2>
+  <p>Two cords is two cords. As long as a rectangle's sides share a greatest common divisor
+  of 2, the weave has the same character — the same cloth at different sizes:</p>
+  <div class="trio">
+    <div class="player" id="t1" style="aspect-ratio: 20/12;"></div>
+    <div class="player" id="t2" style="aspect-ratio: 16/14;"></div>
+    <div class="player" id="t3" style="aspect-ratio: 10/8;"></div>
+  </div>
+  <p class="cap">18×10, 14×12, 8×6 — all gcd 2, all the same two-cord cloth.</p>
+  <p>And some boards are special: when the sides share no divisor at all, a
+  <strong>single cord</strong> covers the entire board and returns home — the hardest kind
+  to weave (one pass drags the whole cord's length through every crossing) and the kind
+  João once insisted was the only kind worth making, before he discovered that extra loops
+  are extra <em>colours</em>:</p>
+  <div class="player" id="one" style="aspect-ratio: 19/12;"></div>
+  <p class="cap">17×10 — gcd(17,10) = 1. One cord. No visible beginning, no end.</p>
+
+  <h2>Try it</h2>
+  <p class="dim">Draw any shape — the cord count updates live as you drag. Tap ▶ on the
+  pattern to watch it being laid. Everything runs in one offline file; it's the same tool
+  João uses on his tablet in the workshop.</p>
+  <a class="cta" href="index.html">Open the tool</a>
+  <a class="cta" href="player.html">More animations</a>
+
+  <div class="footer">
+    A collaboration: João invented the craft and weaves the cloth; this tool was built for him
+    so the mathematics would stop rationing his imagination. Patterns are first seen on this
+    screen, then made real in cotton.
+  </div>
+</div>
+
+<script src="src/engine.js"></script>
+<script src="src/player.js"></script>
+<script>
+window.addEventListener('error', e => { document.title = 'ERRO: ' + (e.message || '?'); });
+TearPlayer.create(document.getElementById('hero'), { gw: 18, gh: 10, autoplay: 'visible' });
+TearPlayer.create(document.getElementById('t1'), { gw: 18, gh: 10, autoplay: 'visible', speedFactor: 1.6 });
+TearPlayer.create(document.getElementById('t2'), { gw: 14, gh: 12, autoplay: 'visible', speedFactor: 1.6 });
+TearPlayer.create(document.getElementById('t3'), { gw: 8, gh: 6, autoplay: 'visible', speedFactor: 1.6 });
+TearPlayer.create(document.getElementById('one'), { gw: 17, gh: 10, autoplay: 'visible', speedFactor: 1.3 });
+</script>
+</body>
+</html>

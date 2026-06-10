@@ -16,10 +16,12 @@ const here = p => path.join(__dirname, p);
 const template = fs.readFileSync(here('template.html'), 'utf8');
 const react = fs.readFileSync(here('vendor-react.js'), 'utf8');
 const reactDom = fs.readFileSync(here('vendor-react-dom.js'), 'utf8');
+const engine = fs.readFileSync(here('../src/engine.js'), 'utf8');
+const player = fs.readFileSync(here('../src/player.js'), 'utf8');
 const app = fs.readFileSync(here('../src/app.js'), 'utf8');
 
 // Replacer must be a function: the code contains `$$` sequences that string
 // replacements would interpret as escapes (corrupting React's $$typeof).
-const out = template.replace('/* %%SCRIPTS%% */', () => react + reactDom + app);
+const out = template.replace('/* %%SCRIPTS%% */', () => react + reactDom + '\n' + engine + '\n' + player + '\n' + app);
 fs.writeFileSync(path.join(__dirname, '..', 'index.html'), out);
 console.log('Wrote ../index.html (' + (out.length / 1024).toFixed(0) + ' KB)');

@@ -358,6 +358,7 @@ const STR = {
     balanced: p => `Fios equilibrados (cada um ~${p}% do comprimento).`,
     unbalanced: (a, b) => `Desigual: o fio mais curto tem ${a}% do comprimento e o mais longo ${b}%.`,
     tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas",
+    playTitle: "Ver a montagem", playClose: "Fechar", playAgain: "Outra vez",
     presets: { rectangle: "Ret\u00e2ngulo", "L-shape": "Forma L", "staircase-boot": "Escada", cross: "Cruz" },
     strand: { thin: "fino", full: "grosso", string: "linha" },
   },
@@ -377,6 +378,7 @@ const STR = {
     balanced: p => `Strings are balanced (each ~${p}% of the length).`,
     unbalanced: (a, b) => `Uneven: the shortest string is ${a}% of the length, the longest ${b}%.`,
     tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved",
+    playTitle: "Watch the laying", playClose: "Close", playAgain: "Replay",
     presets: { rectangle: "Rectangle", "L-shape": "L-shape", "staircase-boot": "Staircase", cross: "Cross" },
     strand: { thin: "thin", full: "thick", string: "line" },
   },
@@ -469,6 +471,20 @@ function KnotMakerMobile() {
   });
   useEffect(() => { try { localStorage.setItem('knot.lang', lang); } catch {} }, [lang]);
   const T = STR[lang];
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const playerBoxRef = useRef(null);
+  const playerApiRef = useRef(null);
+  useEffect(() => {
+    if (!playerOpen || !playerBoxRef.current || typeof TearPlayer === 'undefined') return;
+    const api = TearPlayer.create(playerBoxRef.current, {
+      cells: cells.map(r => [...r]),
+      colors: cycles.map((_, i) => getCycleColor(i)),
+      bg: bgColor,
+      autoplay: true,
+    });
+    playerApiRef.current = api;
+    return () => { playerApiRef.current = null; api.destroy(); };
+  }, [playerOpen]);
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
     const q = () => setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth >= 500);
@@ -1613,7 +1629,17 @@ function KnotMakerMobile() {
       color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8,
       cursor: "pointer", fontFamily: "inherit", borderRadius: 4, textTransform: "uppercase"
     }
-  }, T.strand[strandMode])), /*#__PURE__*/React.createElement("svg", {
+  }, T.strand[strandMode]), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerOpen(true),
+    title: T.playTitle,
+    style: {
+      width: 36, height: 36,
+      background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)",
+      color: "var(--accent-soft)", fontSize: 13, cursor: "pointer",
+      fontFamily: "inherit", borderRadius: 4,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  }, "\u25b6")), /*#__PURE__*/React.createElement("svg", {
     width: "100%",
     height: "100%",
     viewBox: `${vbX} ${vbY} ${vbW} ${vbH}`,
@@ -2602,7 +2628,38 @@ function KnotMakerMobile() {
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
     }
-  }, statsBarEl, tabPanelsEl, knotViewportEl), /*#__PURE__*/React.createElement("div", {
+  }, statsBarEl, tabPanelsEl, knotViewportEl), playerOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
+      background: "rgba(9,12,15,0.97)",
+      display: "flex", flexDirection: "column"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 14px", borderBottom: "1px solid var(--hair)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 13, letterSpacing: 1, textTransform: "uppercase", color: "var(--accent-soft)" }
+  }, T.playTitle), /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const a = playerApiRef.current; if (a) { a.restart(); a.play(); } },
+    style: {
+      marginLeft: "auto", padding: "8px 14px", background: "transparent",
+      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone-dim)",
+      fontSize: 12, letterSpacing: 0.6, cursor: "pointer", fontFamily: "inherit"
+    }
+  }, "\u21bb " + T.playAgain), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerOpen(false),
+    "aria-label": T.playClose,
+    style: {
+      width: 38, height: 38, background: "transparent",
+      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone)",
+      fontSize: 16, cursor: "pointer", fontFamily: "inherit"
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    ref: playerBoxRef,
+    style: { flex: 1, minHeight: 0 }
+  })), /*#__PURE__*/React.createElement("div", {
     className: "tab-bar"
   }, /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'edit' ? 'active' : ''}`,

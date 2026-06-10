@@ -663,6 +663,682 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 
+
+/*
+ * TearEngine — the pure billiard-weaving engine, shared by:
+ *   - the Knot Maker app (src/app.js keeps its own inline copy for now — do not diverge logic)
+ *   - the embeddable trace-player (src/player.js)
+ *   - the future Toy app and website embeds
+ * Verbatim port of the verified engine functions. Change with extreme care.
+ */
+(function (global) {
+  'use strict';
+
+  function buildEdges(cells, gw, gh) {
+    const hUnits = [];
+    const vUnits = [];
+    for (let y = 0; y <= gh; y++)
+      for (let x = 0; x < gw; x++) {
+        const above = y > 0 ? cells[y - 1][x] : false;
+        const below = y < gh ? cells[y][x] : false;
+        if (above !== below) hUnits.push({ y, x });
+      }
+    for (let x = 0; x <= gw; x++)
+      for (let y = 0; y < gh; y++) {
+        const left = x > 0 ? cells[y][x - 1] : false;
+        const right = x < gw ? cells[y][x] : false;
+        if (left !== right) vUnits.push({ x, y });
+      }
+    const edges = [];
+    const hByY = {};
+    for (const e of hUnits) { if (!hByY[e.y]) hByY[e.y] = []; hByY[e.y].push(e.x); }
+    for (const y in hByY) {
+      const xs = hByY[y].sort((a, b) => a - b);
+      let start = xs[0];
+      for (let i = 1; i <= xs.length; i++) {
+        if (i < xs.length && xs[i] === xs[i - 1] + 1) continue;
+        edges.push({ y: +y, x0: start, x1: xs[i - 1] + 1, type: 'h' });
+        if (i < xs.length) start = xs[i];
+      }
+    }
+    const vByX = {};
+    for (const e of vUnits) { if (!vByX[e.x]) vByX[e.x] = []; vByX[e.x].push(e.y); }
+    for (const x in vByX) {
+      const ys = vByX[x].sort((a, b) => a - b);
+      let start = ys[0];
+      for (let i = 1; i <= ys.length; i++) {
+        if (i < ys.length && ys[i] === ys[i - 1] + 1) continue;
+        edges.push({ x: +x, y0: start, y1: ys[i - 1] + 1, type: 'v' });
+        if (i < ys.length) start = ys[i];
+      }
+    }
+    return edges;
+  }
+
+  function buildGaps(cells, gw, gh) {
+    const gaps = [];
+    for (let y = 0; y <= gh; y++)
+      for (let x = 0; x < gw; x++) {
+        const above = y > 0 ? cells[y - 1][x] : false;
+        const below = y < gh ? cells[y][x] : false;
+        if (above !== below) gaps.push({ x: x + 0.5, y, isH: true, interiorBelow: !!below });
+      }
+    for (let x = 0; x <= gw; x++)
+      for (let y = 0; y < gh; y++) {
+        const left = x > 0 ? cells[y][x - 1] : false;
+        const right = x < gw ? cells[y][x] : false;
+        if (left !== right) gaps.push({ x, y: y + 0.5, isH: false, interiorRight: !!right });
+      }
+    return gaps;
+  }
+
+  function getInitialDir(gap) {
+    if (gap.isH) {
+      return gap.interiorBelow ? { dx: 1, dy: 1 } : { dx: -1, dy: -1 };
+    }
+    return gap.interiorRight ? { dx: 1, dy: -1 } : { dx: -1, dy: 1 };
+  }
+
+  function pointToGapIdx(px, py, gaps) {
+    for (let i = 0; i < gaps.length; i++)
+      if (Math.abs(px - gaps[i].x) < 0.1 && Math.abs(py - gaps[i].y) < 0.1) return i;
+    return -1;
+  }
+
+  function isOnBoundary(px, py, cells, gw, gh) {
+    const E = 0.01;
+    const iy = Math.round(py), ix = Math.round(px);
+    if (Math.abs(py - iy) < E) {
+      const cx = Math.floor(px);
+      if (cx >= 0 && cx < gw) {
+        const above = iy > 0 ? !!(cells[iy - 1] && cells[iy - 1][cx]) : false;
+        const below = iy < gh ? !!(cells[iy] && cells[iy][cx]) : false;
+        if (above !== below) return true;
+      }
+    }
+    if (Math.abs(px - ix) < E) {
+      const cy = Math.floor(py);
+      if (cy >= 0 && cy < gh) {
+        const left = ix > 0 ? !!(cells[cy] && cells[cy][ix - 1]) : false;
+        const right = ix < gw ? !!(cells[cy] && cells[cy][ix]) : false;
+        if (left !== right) return true;
+      }
+    }
+    return false;
+  }
+
+  function tracePath(startIdx, gaps, edges) {
+    const EPS = 1e-9;
+    const sc = gaps[startIdx];
+    const pts = [{ x: sc.x, y: sc.y }];
+    let { dx, dy } = getInitialDir(sc);
+    let x = sc.x, y = sc.y;
+    const maxIter = edges.length * 200 + 2000;
+    for (let iter = 0; iter < maxIter; iter++) {
+      let minT = Infinity, hitH = false, hitV = false;
+      for (const edge of edges) {
+        let t;
+        if (edge.type === 'h') {
+          if (Math.abs(dy) < EPS) continue;
+          t = (edge.y - y) / dy;
+          if (t < EPS) continue;
+          const hx = x + dx * t;
+          if (hx < edge.x0 - EPS || hx > edge.x1 + EPS) continue;
+        } else {
+          if (Math.abs(dx) < EPS) continue;
+          t = (edge.x - x) / dx;
+          if (t < EPS) continue;
+          const hy = y + dy * t;
+          if (hy < edge.y0 - EPS || hy > edge.y1 + EPS) continue;
+        }
+        if (t < minT - EPS) {
+          minT = t; hitH = edge.type === 'h'; hitV = edge.type === 'v';
+        } else if (Math.abs(t - minT) < EPS * 100) {
+          if (edge.type === 'h') hitH = true;
+          if (edge.type === 'v') hitV = true;
+        }
+      }
+      if (minT === Infinity || minT > 1e6) break;
+      x += dx * minT; y += dy * minT;
+      x = Math.round(x * 1e6) / 1e6;
+      y = Math.round(y * 1e6) / 1e6;
+      pts.push({ x, y });
+      if (pts.length > 2 && Math.abs(x - sc.x) < 0.01 && Math.abs(y - sc.y) < 0.01) break;
+      if (hitH && hitV) { dx = -dx; dy = -dy; }
+      else if (hitH) dy = -dy;
+      else if (hitV) dx = -dx;
+    }
+    return pts;
+  }
+
+  function getAllCycles(cells, gw, gh) {
+    const edges = buildEdges(cells, gw, gh);
+    const gaps = buildGaps(cells, gw, gh);
+    if (gaps.length === 0) return { cycles: [], gaps, edges };
+    const vis = new Set(), cycles = [];
+    for (let g = 0; g < gaps.length; g++) {
+      if (vis.has(g)) continue;
+      const pts = tracePath(g, gaps, edges);
+      const gapSet = new Set();
+      for (const p of pts) {
+        const gi = pointToGapIdx(p.x, p.y, gaps);
+        if (gi >= 0) { gapSet.add(gi); vis.add(gi); }
+      }
+      cycles.push({ startGap: g, points: pts, gaps: gapSet });
+    }
+    return { cycles, gaps, edges };
+  }
+
+  // ---- path measurement helpers ----
+  function arcLen(pts) {
+    let t = 0;
+    for (let s = 0; s < pts.length - 1; s++)
+      t += Math.hypot(pts[s + 1].x - pts[s].x, pts[s + 1].y - pts[s].y);
+    return t;
+  }
+  function cumLens(pts) {
+    const out = [0];
+    for (let s = 0; s < pts.length - 1; s++)
+      out.push(out[s] + Math.hypot(pts[s + 1].x - pts[s].x, pts[s + 1].y - pts[s].y));
+    return out;
+  }
+  function pointAtArc(pts, cums, t) {
+    if (t <= 0) return { x: pts[0].x, y: pts[0].y, seg: 0 };
+    for (let i = 1; i < cums.length; i++) {
+      if (cums[i] >= t) {
+        const f = (t - cums[i - 1]) / (cums[i] - cums[i - 1] || 1);
+        return {
+          x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * f,
+          y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * f,
+          seg: i - 1,
+        };
+      }
+    }
+    const n = pts.length - 1;
+    return { x: pts[n].x, y: pts[n].y, seg: n - 1 };
+  }
+
+  // ---- shape helpers ----
+  function rectCells(w, h) {
+    return Array.from({ length: h }, () => Array(w).fill(true));
+  }
+
+  // ---- João's physical yarn palette ----
+  const JOAO = [
+    { name: 'Branco', hex: '#f4f1e8' }, { name: 'Creme', hex: '#ecdcb0' },
+    { name: 'Amarelo', hex: '#e8c838' }, { name: 'Âmbar', hex: '#e8a020' },
+    { name: 'Coral', hex: '#e84030' }, { name: 'Vermelho', hex: '#d4242c' },
+    { name: 'Rosa Claro', hex: '#e68a96' }, { name: 'Rosa Choque', hex: '#e4287c' },
+    { name: 'Magenta', hex: '#c41878' }, { name: 'Roxo', hex: '#6a2aa0' },
+    { name: 'Verde Neon', hex: '#8ab840' }, { name: 'Verde Mar', hex: '#2e9a5e' },
+    { name: 'Turquesa', hex: '#2aa0b4' }, { name: 'Azul', hex: '#1e40c8' },
+    { name: 'Preto', hex: '#1a1c28' },
+  ];
+  const COLORS = ['#d4242c', '#2aa0b4', '#ecdcb0', '#e4287c', '#2e9a5e', '#e8a020', '#1e40c8', '#6a2aa0', '#e84030', '#8ab840', '#c41878', '#e68a96', '#e8c838', '#f4f1e8'];
+
+  global.TearEngine = {
+    buildEdges, buildGaps, getInitialDir, pointToGapIdx, isOnBoundary,
+    tracePath, getAllCycles,
+    arcLen, cumLens, pointAtArc, rectCells,
+    JOAO, COLORS,
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * TearPlayer — embeddable trace-player ("The Pull").
+ * Lays each string nail-to-nail in real time, exactly like the craft:
+ *   - a string being laid is CONTINUOUS — the only gaps are where it dives
+ *     under cord that is already on the board (painter's order = laying order)
+ *   - later strings simply lie on top where they cross over
+ * Flat, clean rendering. Vanilla JS + SVG, zero dependencies.
+ * Requires TearEngine (src/engine.js).
+ *
+ * Usage:
+ *   const p = TearPlayer.create(el, { cells, gw, gh, colors: [...], autoplay: 'visible' });
+ *   p.play(); p.pause(); p.restart(); p.finish(); p.destroy();
+ */
+(function (global) {
+  'use strict';
+  const E = global.TearEngine;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  function el(name, attrs, parent) {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function luminance(hex) {
+    const h = hex.replace('#', '');
+    const v = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    return (parseInt(v.slice(0, 2), 16) + parseInt(v.slice(2, 4), 16) + parseInt(v.slice(4, 6), 16)) / 3;
+  }
+
+  /**
+   * For every interior crossing point, record which cycle passes through it on
+   * each diagonal and at what arc position — the laying order at that point.
+   * key -> { bs: {ci, arc}, fs: {ci, arc} }
+   */
+  function buildPassMap(cycleData, W, H) {
+    const map = new Map();
+    cycleData.forEach((cd, ci) => {
+      const pts = cd.pts, cums = cd.cums;
+      for (let seg = 0; seg < pts.length - 1; seg++) {
+        const p1 = pts[seg], p2 = pts[seg + 1];
+        const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+        if (sdx === 0 || sdy === 0) continue;
+        const axis = sdx === sdy ? 'bs' : 'fs';
+        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+        const visit = (ix, iy) => {
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01) {
+            const key = ix.toFixed(2) + ',' + iy.toFixed(2);
+            let e = map.get(key);
+            if (!e) { e = {}; map.set(key, e); }
+            e[axis] = { ci, arc: cums[seg] + Math.hypot(ix - p1.x, iy - p1.y) };
+          }
+        };
+        if (axis === 'bs') {
+          const kVal = p1.y - p1.x;
+          for (let mi = -1; mi <= W + H; mi++) {
+            const mVal = mi + 0.5;
+            visit((mVal - kVal) / 2, (mVal + kVal) / 2);
+          }
+        } else {
+          const mVal = p1.y + p1.x;
+          for (let ki = -W; ki <= H; ki++) {
+            const kVal2 = ki + 0.5;
+            visit((mVal - kVal2) / 2, (mVal + kVal2) / 2);
+          }
+        }
+      }
+    });
+    return map;
+  }
+
+  /**
+   * Cut a cycle's path into drawable pieces. A cut exists ONLY where this
+   * string passes under a strand that was laid earlier (earlier cycle, or an
+   * earlier pass of itself). Everything else stays continuous — later strands
+   * are simply drawn on top, as in real life.
+   */
+  function buildPieces(ctx, ci, pts, cums) {
+    const { W, H, cells, gaps, cornerGapSet, toX, toY, cellSz, gapHalf, passMap } = ctx;
+    const pieces = [];
+    for (let seg = 0; seg < pts.length - 1; seg++) {
+      const p1 = pts[seg], p2 = pts[seg + 1];
+      const segArc0 = cums[seg];
+      const sx1 = toX(p1.x), sy1 = toY(p1.y);
+      const sx2 = toX(p2.x), sy2 = toY(p2.y);
+      const ddx = sx2 - sx1, ddy = sy2 - sy1;
+      const len = Math.hypot(ddx, ddy);
+      if (len < 0.5) continue;
+      const ux = ddx / len, uy = ddy / len;
+      const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      const p1Edge = E.isOnBoundary(p1.x, p1.y, cells, W, H);
+      const p2Edge = E.isOnBoundary(p2.x, p2.y, cells, W, H);
+      const p1gi = E.pointToGapIdx(p1.x, p1.y, gaps);
+      const p2gi = E.pointToGapIdx(p2.x, p2.y, gaps);
+      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      // corner shortcut segments are replaced by corner arcs
+      if (p1gi >= 0 && cornerGapSet.has(p1gi) && p2gi >= 0 && cornerGapSet.has(p2gi) && segLen < 1.1) continue;
+      const diagonal = sdx !== 0 && sdy !== 0;
+      const cuts = [];
+      if (diagonal) {
+        const axis = sdx === sdy ? 'bs' : 'fs';
+        const other = axis === 'bs' ? 'fs' : 'bs';
+        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+        const tryCut = (ix, iy, underHere) => {
+          if (!(ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01)) return;
+          if (!underHere) return;                        // we pass over here
+          const entry = passMap.get(ix.toFixed(2) + ',' + iy.toFixed(2));
+          const partner = entry && entry[other];
+          if (!partner) return;                          // nothing ever crosses here
+          const myArc = segArc0 + Math.hypot(ix - p1.x, iy - p1.y);
+          const partnerFirst = partner.ci < ci || (partner.ci === ci && partner.arc < myArc - 1e-9);
+          if (!partnerFirst) return;                     // we lay first; it covers us later
+          cuts.push({ sx: toX(ix), sy: toY(iy) });
+        };
+        if (axis === 'bs') {
+          const kVal = p1.y - p1.x;
+          const ki = Math.round(kVal - 0.5);
+          for (let mi = -1; mi <= W + H; mi++) {
+            const mVal = mi + 0.5;
+            tryCut((mVal - kVal) / 2, (mVal + kVal) / 2, (ki + mi + W) % 2 === 1);
+          }
+        } else {
+          const mVal = p1.y + p1.x;
+          const mi = Math.round(mVal - 0.5);
+          for (let ki = -W; ki <= H; ki++) {
+            const kVal2 = ki + 0.5;
+            tryCut((mVal - kVal2) / 2, (mVal + kVal2) / 2, (ki + mi + W) % 2 === 0);
+          }
+        }
+        cuts.sort((a, b) => ((a.sx - sx1) * ux + (a.sy - sy1) * uy) - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
+      }
+      const projToArc = (px, py) => segArc0 + Math.hypot(px - sx1, py - sy1) / cellSz;
+      let cx = sx1, cy = sy1;
+      let isFirst = true;
+      for (const cut of cuts) {
+        const gsx = cut.sx - ux * gapHalf, gsy = cut.sy - uy * gapHalf;
+        const proj = (gsx - cx) * ux + (gsy - cy) * uy;
+        if (proj > 0.5) pieces.push({
+          x1: cx, y1: cy, x2: gsx, y2: gsy,
+          arcStart: projToArc(cx, cy), arcEnd: projToArc(gsx, gsy),
+          lenPx: Math.hypot(gsx - cx, gsy - cy),
+          edgeStart: isFirst && p1Edge, edgeEnd: false,
+        });
+        cx = cut.sx + ux * gapHalf; cy = cut.sy + uy * gapHalf;
+        isFirst = false;
+      }
+      const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
+      if (projEnd > 0.5) pieces.push({
+        x1: cx, y1: cy, x2: sx2, y2: sy2,
+        arcStart: projToArc(cx, cy), arcEnd: projToArc(sx2, sy2),
+        lenPx: Math.hypot(sx2 - cx, sy2 - cy),
+        edgeStart: isFirst && p1Edge, edgeEnd: p2Edge,
+      });
+    }
+    return pieces;
+  }
+
+  function buildCornerData(ctx) {
+    const { W, H, cells, gaps } = ctx;
+    const arcs = [];
+    for (let vy = 0; vy <= H; vy++) for (let vx = 0; vx <= W; vx++) {
+      const tl = vy > 0 && vx > 0 && cells[vy - 1][vx - 1] ? 1 : 0;
+      const tr = vy > 0 && vx < W && cells[vy - 1][vx] ? 1 : 0;
+      const bl = vy < H && vx > 0 && cells[vy][vx - 1] ? 1 : 0;
+      const br = vy < H && vx < W && cells[vy][vx] ? 1 : 0;
+      if (tl + tr + bl + br !== 1) continue;
+      let g1, g2, sweep;
+      if (br) { g1 = { x: vx + 0.5, y: vy }; g2 = { x: vx, y: vy + 0.5 }; sweep = 0; }
+      else if (bl) { g1 = { x: vx - 0.5, y: vy }; g2 = { x: vx, y: vy + 0.5 }; sweep = 1; }
+      else if (tr) { g1 = { x: vx + 0.5, y: vy }; g2 = { x: vx, y: vy - 0.5 }; sweep = 1; }
+      else { g1 = { x: vx - 0.5, y: vy }; g2 = { x: vx, y: vy - 0.5 }; sweep = 0; }
+      const gi1 = E.pointToGapIdx(g1.x, g1.y, gaps);
+      const gi2 = E.pointToGapIdx(g2.x, g2.y, gaps);
+      arcs.push({ g1, g2, gi1, gi2, sweep, vx, vy });
+    }
+    return arcs;
+  }
+
+  function cornerArcRange(pts, cums, g1, g2) {
+    const near = (p, g) => Math.abs(p.x - g.x) < 0.05 && Math.abs(p.y - g.y) < 0.05;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if ((near(pts[i], g1) && near(pts[i + 1], g2)) || (near(pts[i], g2) && near(pts[i + 1], g1)))
+        return [cums[i], cums[i + 1]];
+    }
+    return null;
+  }
+
+  // ---------- the player ----------
+  function create(container, opts) {
+    opts = opts || {};
+    const cells = opts.cells || E.rectCells(opts.gw || 18, opts.gh || 10);
+    const H = cells.length, W = cells[0].length;
+    const bg = opts.bg || '#0c0f12';
+    const lightBg = luminance(bg) > 140;
+    const showNails = opts.nails !== false;
+    const speedFactor = opts.speedFactor || 1;
+    const loop = !!opts.loop;
+
+    const { cycles, gaps } = E.getAllCycles(cells, W, H);
+    const colors = cycles.map((c, i) =>
+      (opts.colors && opts.colors[i]) || E.COLORS[i % E.COLORS.length]);
+
+    // geometry
+    const cellSz = 44;
+    const pad = cellSz * 1.0;
+    const svgW = W * cellSz + pad * 2, svgH = H * cellSz + pad * 2;
+    const toX = x => pad + x * cellSz;
+    const toY = y => pad + y * cellSz;
+    const sw = cellSz * (opts.strand || 0.45);
+    const FULL_W = cellSz * 0.707;          // strands touch — finished cloth has no gaps
+    const gapHalf = FULL_W / 2;             // cuts sized for the finished cloth
+
+    const ctx = { W, H, cells, gaps, toX, toY, cellSz, sw, gapHalf };
+    ctx.cornerGapSet = new Set();
+    const cornerData = buildCornerData(ctx);
+    for (const a of cornerData) {
+      if (a.gi1 >= 0) ctx.cornerGapSet.add(a.gi1);
+      if (a.gi2 >= 0) ctx.cornerGapSet.add(a.gi2);
+    }
+
+    const baseCycleData = cycles.map(c => ({ pts: c.points, cums: E.cumLens(c.points) }));
+    ctx.passMap = buildPassMap(baseCycleData, W, H);
+
+    // ---------- DOM ----------
+    container.classList.add('tear-player');
+    const svg = el('svg', {
+      viewBox: `0 0 ${svgW} ${svgH}`,
+      preserveAspectRatio: 'xMidYMid meet',
+      style: `display:block;width:100%;height:100%;background:${bg};`,
+    }, container);
+    const styleEl = el('style', {}, svg);
+    styleEl.textContent = 'line, path { transition: stroke-width 650ms ease; } circle { transition: r 650ms ease; }';
+
+    const gBoard = el('g', {}, svg);
+    const gWeave = el('g', {}, svg);   // cycles appended in laying order — painter's order IS weave order
+    const gAnim = el('g', {}, svg);
+
+    // faint boundary
+    for (const e of E.buildEdges(cells, W, H)) {
+      const a = e.type === 'h'
+        ? { x1: toX(e.x0), y1: toY(e.y), x2: toX(e.x1), y2: toY(e.y) }
+        : { x1: toX(e.x), y1: toY(e.y0), x2: toX(e.x), y2: toY(e.y1) };
+      el('line', Object.assign(a, {
+        stroke: lightBg ? 'rgba(0,0,0,0.16)' : 'rgba(193,202,211,0.10)', 'stroke-width': 1.2,
+      }), gBoard);
+    }
+    // nails: quiet dots
+    if (showNails) {
+      const fill = lightBg ? 'rgba(0,0,0,0.30)' : 'rgba(193,202,211,0.35)';
+      gaps.forEach((g, i) => {
+        if (!ctx.cornerGapSet.has(i)) el('circle', { cx: toX(g.x), cy: toY(g.y), r: 2.2, fill }, gBoard);
+      });
+      for (const a of cornerData) el('circle', { cx: toX(a.vx), cy: toY(a.vy), r: 2.2, fill }, gBoard);
+    }
+
+    // ---------- per-cycle visuals ----------
+    const cycleData = baseCycleData.map((cd, ci) => {
+      const { pts, cums } = cd;
+      const total = cums[cums.length - 1];
+      const color = colors[ci];
+      const gCycle = el('g', {}, gWeave);
+      const pieces = buildPieces(ctx, ci, pts, cums);
+      const nodes = pieces.map(p => {
+        const line = el('line', {
+          x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2,
+          stroke: color, 'stroke-width': sw, 'stroke-linecap': 'butt',
+          visibility: 'hidden',
+        }, gCycle);
+        const extras = [];
+        const cap = (x, y, at) => {
+          const c = el('circle', { cx: x, cy: y, r: sw / 2, fill: color, opacity: 0 }, gCycle);
+          extras.push({ node: c, at });
+        };
+        if (p.edgeStart) cap(p.x1, p.y1, p.arcStart + 0.02);
+        if (p.edgeEnd) cap(p.x2, p.y2, p.arcEnd);
+        return { piece: p, line, extras };
+      });
+      const arcs = [];
+      for (const a of cornerData) {
+        const range = cornerArcRange(pts, cums, a.g1, a.g2);
+        if (!range) continue;
+        const x1 = toX(a.g1.x), y1 = toY(a.g1.y), x2 = toX(a.g2.x), y2 = toY(a.g2.y);
+        const r = Math.hypot(x2 - x1, y2 - y1) / 2;
+        const node = el('path', {
+          d: `M${x1},${y1} A${r},${r} 0 0,${a.sweep} ${x2},${y2}`,
+          fill: 'none', stroke: color, 'stroke-width': sw, 'stroke-linecap': 'butt', opacity: 0,
+        }, gCycle);
+        arcs.push({ at: range[1], node });
+      }
+      return { pts, cums, total, color, nodes, arcs };
+    });
+
+    // needle + home marker — minimal
+    const homeRing = el('circle', { r: cellSz * 0.38, fill: 'none', stroke: lightBg ? 'rgba(0,0,0,0.5)' : 'rgba(238,242,245,0.7)', 'stroke-width': 1.6, 'stroke-dasharray': '4 4', opacity: 0 }, gAnim);
+    const needleDot = el('circle', { r: Math.max(4, sw * 0.42), fill: '#ffffff', stroke: 'rgba(0,0,0,0.35)', 'stroke-width': 1, opacity: 0 }, gAnim);
+
+    // ---------- timeline ----------
+    const totalAll = cycleData.reduce((a, c) => a + c.total, 0);
+    let curCycle = 0;
+    let t = 0;
+    let playing = false;
+    let raf = null;
+    let lastNow = 0;
+    let pauseUntil = 0;
+    let done = false;
+    let restartTimer = null;
+
+    // pace the whole board: first string slow, later strings accelerate
+    const totalDur = Math.min(22, Math.max(6, totalAll * 0.022)) / speedFactor;
+    const baseRate = totalAll / totalDur;
+    const rateFor = ci => baseRate * (cycleData.length <= 1 ? 1 : (0.7 + 0.75 * (ci / (cycleData.length - 1))));
+    const cyclePause = cycleData.length > 4 ? 220 : 450;
+
+    let isFull = false;
+    function setFull(full) {
+      if (full === isFull) return;
+      isFull = full;
+      const w = full ? FULL_W : sw;
+      for (const c of cycleData) {
+        for (const g of c.nodes) {
+          g.line.setAttribute('stroke-width', w);
+          for (const ex of g.extras) if (ex.node.tagName === 'circle') ex.node.setAttribute('r', w / 2);
+        }
+        for (const a of c.arcs) a.node.setAttribute('stroke-width', w);
+      }
+    }
+
+    function setPieceProgress(g, tt) {
+      const p = g.piece;
+      if (tt >= p.arcEnd) {
+        g.line.setAttribute('visibility', 'visible');
+        g.line.removeAttribute('stroke-dasharray');
+      } else if (tt <= p.arcStart) {
+        g.line.setAttribute('visibility', 'hidden');
+      } else {
+        const vis = ((tt - p.arcStart) / (p.arcEnd - p.arcStart)) * p.lenPx;
+        g.line.setAttribute('visibility', 'visible');
+        g.line.setAttribute('stroke-dasharray', `${vis} ${p.lenPx + 2}`);
+      }
+      for (const ex of g.extras) ex.node.setAttribute('opacity', tt >= ex.at ? 1 : 0);
+    }
+
+    function renderCycleAt(ci, tt) {
+      const c = cycleData[ci];
+      for (const g of c.nodes) setPieceProgress(g, tt);
+      for (const a of c.arcs) a.node.setAttribute('opacity', tt >= a.at ? 1 : 0);
+    }
+
+    function renderState() {
+      for (let i = 0; i < cycleData.length; i++) {
+        if (i < curCycle) renderCycleAt(i, Infinity);
+        else if (i > curCycle) renderCycleAt(i, -1);
+        else renderCycleAt(i, t);
+      }
+      const c = cycleData[curCycle];
+      if (!c) return;
+      const home = c.pts[0];
+      homeRing.setAttribute('cx', toX(home.x));
+      homeRing.setAttribute('cy', toY(home.y));
+      if (!done && t > 0 && t < c.total) {
+        const pos = E.pointAtArc(c.pts, c.cums, t);
+        needleDot.setAttribute('cx', toX(pos.x));
+        needleDot.setAttribute('cy', toY(pos.y));
+        needleDot.setAttribute('opacity', 1);
+        homeRing.setAttribute('opacity', 0.55);
+      } else {
+        needleDot.setAttribute('opacity', 0);
+        homeRing.setAttribute('opacity', done ? 0 : 0.55);
+      }
+    }
+
+    function tick(now) {
+      raf = null;
+      if (!playing) return;
+      const dt = Math.min(0.05, (now - lastNow) / 1000 || 0);
+      lastNow = now;
+      if (now >= pauseUntil) {
+        const c = cycleData[curCycle];
+        if (c) {
+          t += rateFor(curCycle) * dt;
+          if (t >= c.total) {
+            t = c.total;
+            renderState();
+            if (curCycle < cycleData.length - 1) {
+              curCycle++;
+              t = 0;
+              pauseUntil = now + cyclePause;
+            } else {
+              done = true;
+              playing = false;
+              renderState();
+              if (opts.fullOnDone !== false) setFull(true);
+              if (typeof opts.onDone === 'function') opts.onDone();
+              if (loop) restartTimer = setTimeout(() => { api.restart(); api.play(); }, 1800);
+              return;
+            }
+          }
+        }
+      }
+      renderState();
+      raf = requestAnimationFrame(tick);
+    }
+
+    const api = {
+      svg,
+      cycles: cycles.length,
+      play() {
+        if (done) api.restart();
+        if (playing) return;
+        playing = true;
+        lastNow = performance.now();
+        if (!raf) raf = requestAnimationFrame(tick);
+      },
+      pause() { playing = false; if (raf) { cancelAnimationFrame(raf); raf = null; } },
+      restart() {
+        if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+        curCycle = 0; t = 0; done = false; pauseUntil = 0;
+        setFull(false);
+        renderState();
+      },
+      finish() {
+        curCycle = cycleData.length - 1;
+        t = cycleData[curCycle] ? cycleData[curCycle].total : 0;
+        done = true; playing = false;
+        if (opts.fullOnDone !== false) setFull(true);
+        renderState();
+      },
+      destroy() {
+        api.pause();
+        if (observer) observer.disconnect();
+        svg.remove();
+      },
+    };
+
+    renderState();
+
+    let observer = null;
+    if (opts.autoplay === 'visible' && typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(entries => {
+        for (const en of entries) {
+          if (en.isIntersecting && !done) api.play();
+          else if (!en.isIntersecting) api.pause();
+        }
+      }, { threshold: 0.35 });
+      observer.observe(container);
+    } else if (opts.autoplay !== false) {
+      api.play();
+    }
+
+    return api;
+  }
+
+  global.TearPlayer = { create };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* === App (Babel-transpiled, target iOS 13.4+) === */
 "use strict";
 
@@ -1023,6 +1699,7 @@ const STR = {
     balanced: p => `Fios equilibrados (cada um ~${p}% do comprimento).`,
     unbalanced: (a, b) => `Desigual: o fio mais curto tem ${a}% do comprimento e o mais longo ${b}%.`,
     tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas",
+    playTitle: "Ver a montagem", playClose: "Fechar", playAgain: "Outra vez",
     presets: { rectangle: "Ret\u00e2ngulo", "L-shape": "Forma L", "staircase-boot": "Escada", cross: "Cruz" },
     strand: { thin: "fino", full: "grosso", string: "linha" },
   },
@@ -1042,6 +1719,7 @@ const STR = {
     balanced: p => `Strings are balanced (each ~${p}% of the length).`,
     unbalanced: (a, b) => `Uneven: the shortest string is ${a}% of the length, the longest ${b}%.`,
     tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved",
+    playTitle: "Watch the laying", playClose: "Close", playAgain: "Replay",
     presets: { rectangle: "Rectangle", "L-shape": "L-shape", "staircase-boot": "Staircase", cross: "Cross" },
     strand: { thin: "thin", full: "thick", string: "line" },
   },
@@ -1134,6 +1812,20 @@ function KnotMakerMobile() {
   });
   useEffect(() => { try { localStorage.setItem('knot.lang', lang); } catch {} }, [lang]);
   const T = STR[lang];
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const playerBoxRef = useRef(null);
+  const playerApiRef = useRef(null);
+  useEffect(() => {
+    if (!playerOpen || !playerBoxRef.current || typeof TearPlayer === 'undefined') return;
+    const api = TearPlayer.create(playerBoxRef.current, {
+      cells: cells.map(r => [...r]),
+      colors: cycles.map((_, i) => getCycleColor(i)),
+      bg: bgColor,
+      autoplay: true,
+    });
+    playerApiRef.current = api;
+    return () => { playerApiRef.current = null; api.destroy(); };
+  }, [playerOpen]);
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
     const q = () => setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth >= 500);
@@ -2278,7 +2970,17 @@ function KnotMakerMobile() {
       color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8,
       cursor: "pointer", fontFamily: "inherit", borderRadius: 4, textTransform: "uppercase"
     }
-  }, T.strand[strandMode])), /*#__PURE__*/React.createElement("svg", {
+  }, T.strand[strandMode]), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerOpen(true),
+    title: T.playTitle,
+    style: {
+      width: 36, height: 36,
+      background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)",
+      color: "var(--accent-soft)", fontSize: 13, cursor: "pointer",
+      fontFamily: "inherit", borderRadius: 4,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  }, "\u25b6")), /*#__PURE__*/React.createElement("svg", {
     width: "100%",
     height: "100%",
     viewBox: `${vbX} ${vbY} ${vbW} ${vbH}`,
@@ -3267,7 +3969,38 @@ function KnotMakerMobile() {
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
     }
-  }, statsBarEl, tabPanelsEl, knotViewportEl), /*#__PURE__*/React.createElement("div", {
+  }, statsBarEl, tabPanelsEl, knotViewportEl), playerOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
+      background: "rgba(9,12,15,0.97)",
+      display: "flex", flexDirection: "column"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 14px", borderBottom: "1px solid var(--hair)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 13, letterSpacing: 1, textTransform: "uppercase", color: "var(--accent-soft)" }
+  }, T.playTitle), /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const a = playerApiRef.current; if (a) { a.restart(); a.play(); } },
+    style: {
+      marginLeft: "auto", padding: "8px 14px", background: "transparent",
+      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone-dim)",
+      fontSize: 12, letterSpacing: 0.6, cursor: "pointer", fontFamily: "inherit"
+    }
+  }, "\u21bb " + T.playAgain), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerOpen(false),
+    "aria-label": T.playClose,
+    style: {
+      width: 38, height: 38, background: "transparent",
+      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone)",
+      fontSize: 16, cursor: "pointer", fontFamily: "inherit"
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    ref: playerBoxRef,
+    style: { flex: 1, minHeight: 0 }
+  })), /*#__PURE__*/React.createElement("div", {
     className: "tab-bar"
   }, /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'edit' ? 'active' : ''}`,

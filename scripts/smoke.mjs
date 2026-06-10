@@ -150,6 +150,14 @@ async function runSuite(browser, vp) {
     await page.locator('.knot-zoom-btns button', { hasText: /^linha$/i }).first().click(); // back to fino
   });
 
+  // 3b-ii-b. play overlay: open, player renders, close
+  await check(t('play button opens the laying animation overlay'), async () => {
+    await page.locator('.knot-zoom-btns button[title]', { hasText: /^\u25b6$/ }).first().click();
+    await page.locator('div[style*="fixed"] svg').first().waitFor({ state: 'visible', timeout: 4000 });
+    await page.locator('button[aria-label]', { hasText: /^\u2715$/ }).first().click();
+    await page.locator('div[style*="fixed"] svg').first().waitFor({ state: 'detached', timeout: 4000 });
+  });
+
   // 3b-iii. language toggle EN -> PT
   await check(t('EN/PT toggle switches the interface language'), async () => {
     await page.locator('.stats-bar button', { hasText: /^EN$/ }).click();

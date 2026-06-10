@@ -207,7 +207,8 @@
     const toX = x => pad + x * cellSz;
     const toY = y => pad + y * cellSz;
     const sw = cellSz * (opts.strand || 0.45);
-    const gapHalf = sw / 2;
+    const FULL_W = cellSz * 0.707;          // strands touch — finished cloth has no gaps
+    const gapHalf = FULL_W / 2;             // cuts sized for the finished cloth
 
     const ctx = { W, H, cells, gaps, toX, toY, cellSz, sw, gapHalf };
     ctx.cornerGapSet = new Set();
@@ -227,6 +228,8 @@
       preserveAspectRatio: 'xMidYMid meet',
       style: `display:block;width:100%;height:100%;background:${bg};`,
     }, container);
+    const styleEl = el('style', {}, svg);
+    styleEl.textContent = 'line, path { transition: stroke-width 650ms ease; } circle { transition: r 650ms ease; }';
 
     const gBoard = el('g', {}, svg);
     const gWeave = el('g', {}, svg);   // cycles appended in laying order — painter's order IS weave order
@@ -308,6 +311,20 @@
     const rateFor = ci => baseRate * (cycleData.length <= 1 ? 1 : (0.7 + 0.75 * (ci / (cycleData.length - 1))));
     const cyclePause = cycleData.length > 4 ? 220 : 450;
 
+    let isFull = false;
+    function setFull(full) {
+      if (full === isFull) return;
+      isFull = full;
+      const w = full ? FULL_W : sw;
+      for (const c of cycleData) {
+        for (const g of c.nodes) {
+          g.line.setAttribute('stroke-width', w);
+          for (const ex of g.extras) if (ex.node.tagName === 'circle') ex.node.setAttribute('r', w / 2);
+        }
+        for (const a of c.arcs) a.node.setAttribute('stroke-width', w);
+      }
+    }
+
     function setPieceProgress(g, tt) {
       const p = g.piece;
       if (tt >= p.arcEnd) {
@@ -372,6 +389,7 @@
               done = true;
               playing = false;
               renderState();
+              if (opts.fullOnDone !== false) setFull(true);
               if (typeof opts.onDone === 'function') opts.onDone();
               if (loop) restartTimer = setTimeout(() => { api.restart(); api.play(); }, 1800);
               return;
@@ -397,12 +415,14 @@
       restart() {
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
         curCycle = 0; t = 0; done = false; pauseUntil = 0;
+        setFull(false);
         renderState();
       },
       finish() {
         curCycle = cycleData.length - 1;
         t = cycleData[curCycle] ? cycleData[curCycle].total : 0;
         done = true; playing = false;
+        if (opts.fullOnDone !== false) setFull(true);
         renderState();
       },
       destroy() {
