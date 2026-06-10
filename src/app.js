@@ -604,7 +604,7 @@ function KnotMakerMobile() {
   })), [gaps, toX, toY]);
   const gr = Math.max(5, cellSz * 0.13);
   const sw = cellSz * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
-  const BG_OPTIONS = ["#101b16", "#171109", "#3c352a", "#9b9484", "#f3ead4"];
+  const BG_OPTIONS = ["#0c0f12", "#2a2e35", "#5a5f66", "#a0a4a8", "#f8f8f5"];
   const [bgIndex, setBgIndex] = useState(0);
   const bgColor = BG_OPTIONS[bgIndex];
 
@@ -1485,7 +1485,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--accent-soft)",
       fontSize: 10,
@@ -1500,7 +1500,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -1516,7 +1516,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -1550,7 +1550,7 @@ function KnotMakerMobile() {
     y1: e.y1,
     x2: e.x2,
     y2: e.y2,
-    stroke: "#3a2f1f",
+    stroke: "#2a2519",
     strokeWidth: 1.5
   })), renderElements.map((el, i) => /*#__PURE__*/React.createElement("line", {
     key: i,
@@ -1590,7 +1590,7 @@ function KnotMakerMobile() {
     const sel = selGap === g.i;
     const ci = cycles.findIndex(c => c.gaps.has(g.i));
     const vis = ci >= 0 && isCycleVisible(ci);
-    const col = vis && ci >= 0 ? getCycleColor(ci) : "#4d4232";
+    const col = vis && ci >= 0 ? getCycleColor(ci) : "#2e2920";
     return /*#__PURE__*/React.createElement("g", {
       key: `g${g.i}`
     }, /*#__PURE__*/React.createElement("circle", {
@@ -2221,10 +2221,10 @@ function KnotMakerMobile() {
     style: {
       display: "inline-grid",
       gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-      border: "2px solid #5a4a2e",
+      border: "2px solid #3a4a55",
       borderRadius: 4,
-      background: "#0f0b07",
-      boxShadow: "inset 0 0 0 1px rgba(217,164,64,0.10)",
+      background: "#0a0e14",
+      boxShadow: "inset 0 0 0 1px rgba(120,150,165,0.1)",
       position: "relative",
       width: gridW * editorCellSize,
       minWidth: gridW * editorCellSize
@@ -2234,8 +2234,8 @@ function KnotMakerMobile() {
     style: {
       width: editorCellSize,
       height: editorCellSize,
-      background: on ? "#2e5040" : "#161210",
-      border: "1px solid #2b2218"
+      background: on ? "#2a4a3a" : "#12161c",
+      border: "1px solid #252d36"
     }
   }))), edgeRuns.map((r, i) => {
     if (r.orient === "h") {
@@ -2249,7 +2249,7 @@ function KnotMakerMobile() {
           top: r.y * editorCellSize - 1.5,
           width: (r.x1 - r.x0) * editorCellSize,
           height: 3,
-          background: "linear-gradient(180deg, #d9a440 0%, #8a6a24 100%)",
+          background: "linear-gradient(180deg, #5c726c 0%, #3d4e49 100%)",
           boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
         }
       });
@@ -2264,7 +2264,7 @@ function KnotMakerMobile() {
         top: r.y0 * editorCellSize,
         width: 3,
         height: (r.y1 - r.y0) * editorCellSize,
-        background: "linear-gradient(90deg, #d9a440 0%, #8a6a24 100%)",
+        background: "linear-gradient(90deg, #5c726c 0%, #3d4e49 100%)",
         boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
       }
     });
@@ -2279,7 +2279,7 @@ function KnotMakerMobile() {
       fontSize: badgeFont,
       fontFamily: "inherit",
       fontWeight: 700,
-      color: "#ecc87e",
+      color: "#a8bcc8",
       lineHeight: 1,
       letterSpacing: 0.3,
       textShadow: "0 1px 3px rgba(0,0,0,0.7)"

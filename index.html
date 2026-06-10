@@ -4,44 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Knot Maker — Mobile</title>
-<meta name="theme-color" content="#171109">
+<meta name="theme-color" content="#090c0f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* Warm workshop-at-night palette — lamplight brass on dark timber */
-    --ink: #171109;
-    --ink-2: #211912;
-    --bone: #f0e5cd;
-    --bone-dim: #ab9b7f;
-    --bone-faint: #4d4232;
-    --hair: #382c1e;
-    --accent: #d9a440;
-    --accent-soft: #ecc87e;
-    --accent-fill: #c8973a;
-    --accent-on-fill: #241a06;
-    --accent-glow: rgba(217, 164, 64, 0.22);
-    --edge: #4d3b21;
-    --panel-inner: #1b140c;
-    --oxblood: #c8502e;
+    --ink: #090c0f;
+    --ink-2: #121a22;
+    --bone: #c1cad3;
+    --bone-dim: #6d7884;
+    --bone-faint: #2a323b;
+    --hair: #1e2832;
+    /* Cool slate / sea-glass */
+    --accent: #7e9aaa;
+    --accent-soft: #a3b8c4;
+    --accent-fill: #3d4e5a;
+    --accent-on-fill: #eef2f5;
+    --accent-glow: rgba(126, 154, 170, 0.22);
+    --edge: #2a3540;
+    --panel-inner: #0e141b;
+    --oxblood: #8a4048;
     /* Height reserved for bottom tab bar — keeps flex scroll math honest */
     --tab-bar-h: 56px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    background:
-      repeating-linear-gradient(93deg, rgba(255,228,160,0.016) 0 2px, transparent 2px 7px),
-      linear-gradient(165deg, #1c150c 0%, var(--ink) 60%, #120d05 100%);
-    color: var(--bone);
-    font-family: 'Atkinson Hyperlegible', 'Segoe UI', Verdana, sans-serif;
+    background: var(--ink); color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     height: 100%; overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  /* tabular numbers for stats readability */
   .stats-bar, .stepper, .grid-size-toggle__dims { font-variant-numeric: tabular-nums; }
   #root { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
   /* App shell uses vh fallback then dvh — older iPad Safari (<15.4) lacks dvh and would collapse to 0. */
@@ -53,7 +49,7 @@
 
   .tab-bar {
     display: flex; border-top: 1px solid var(--hair);
-    background: linear-gradient(180deg, var(--ink-2), #1a130c);
+    background: var(--ink-2);
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -61,15 +57,11 @@
     flex: 1; padding: 15px 0 14px; text-align: center; font-size: 13px;
     letter-spacing: 1.6px; text-transform: uppercase; color: var(--bone-dim);
     background: transparent; border: none; cursor: pointer;
-    font-family: inherit; font-weight: 700;
+    font-family: inherit; font-weight: 600;
     border-top: 3px solid transparent;
     transition: color 150ms ease;
   }
-  .tab-btn.active {
-    color: var(--accent-soft); border-top-color: var(--accent);
-    background: linear-gradient(180deg, var(--accent-glow), transparent 75%);
-    text-shadow: 0 0 14px rgba(217,164,64,0.35);
-  }
+  .tab-btn.active { color: var(--accent-soft); border-top-color: var(--accent); }
   .tab-btn:active { color: var(--accent); }
 
   .stats-bar {
@@ -78,7 +70,7 @@
     background: var(--ink-2); flex-shrink: 0;
     font-size: 12px; letter-spacing: 0.5px; min-height: 0;
   }
-  .stats-balance .warn { color: #b89f7a; }
+  .stats-balance .warn { color: #8fa3ad; }
 
   .panel { flex-shrink: 0; overflow-y: auto; max-height: 52vh; max-height: 52dvh; }
   .panel-edit { flex: 1 1 0%; min-height: 0; overflow: hidden; max-height: none; display: flex; flex-direction: column; }
@@ -204,7 +196,7 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
-  .editor-zoom-step:active { background: #2a2218; }
+  .editor-zoom-step:active { background: #252a32; }
   .editor-zoom-pct-btn {
     min-width: 44px;
     padding: 4px 6px;
@@ -239,17 +231,17 @@
     overscroll-behavior-y: auto;
     border: 1px solid var(--edge);
     border-radius: 6px;
-    background: #0e0a06;
+    background: #080b0f;
       scrollbar-gutter: stable;
     scrollbar-width: auto;
-    scrollbar-color: #6a5638 #241c12;
+    scrollbar-color: #4a5c66 #1a222a;
   }
   .editor-scroll-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
-  .editor-scroll-wrap::-webkit-scrollbar-track { background: #241c12; border-radius: 4px; }
+  .editor-scroll-wrap::-webkit-scrollbar-track { background: #1a222a; border-radius: 4px; }
   .editor-scroll-wrap::-webkit-scrollbar-thumb {
-    background: #6a5638;
+    background: #4a5c66;
       border-radius: 4px;
-      border: 2px solid #241c12;
+      border: 2px solid #1a222a;
     min-height: 28px;
   }
   .editor-dpad-btn {
@@ -273,7 +265,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .editor-dpad-btn:active { background: #221a10; transform: translateY(1px); box-shadow: none; }
+  .editor-dpad-btn:active { background: #1a222c; transform: translateY(1px); box-shadow: none; }
   .editor-dpad-btn__arrow { font-size: 12px; line-height: 1; font-weight: 800; }
   .editor-toolbar-rows {
     display: flex;
@@ -342,7 +334,7 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  .grid-size-toggle:active { background: #191309; }
+  .grid-size-toggle:active { background: #12161c; }
   .grid-size-toggle__dims {
     color: var(--accent-soft);
     font-weight: 600;
@@ -1268,7 +1260,7 @@ function KnotMakerMobile() {
   })), [gaps, toX, toY]);
   const gr = Math.max(5, cellSz * 0.13);
   const sw = cellSz * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
-  const BG_OPTIONS = ["#101b16", "#171109", "#3c352a", "#9b9484", "#f3ead4"];
+  const BG_OPTIONS = ["#0c0f12", "#2a2e35", "#5a5f66", "#a0a4a8", "#f8f8f5"];
   const [bgIndex, setBgIndex] = useState(0);
   const bgColor = BG_OPTIONS[bgIndex];
 
@@ -2149,7 +2141,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--accent-soft)",
       fontSize: 10,
@@ -2164,7 +2156,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -2180,7 +2172,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(23,17,9,0.92)",
+      background: "rgba(18,22,28,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -2214,7 +2206,7 @@ function KnotMakerMobile() {
     y1: e.y1,
     x2: e.x2,
     y2: e.y2,
-    stroke: "#3a2f1f",
+    stroke: "#2a2519",
     strokeWidth: 1.5
   })), renderElements.map((el, i) => /*#__PURE__*/React.createElement("line", {
     key: i,
@@ -2254,7 +2246,7 @@ function KnotMakerMobile() {
     const sel = selGap === g.i;
     const ci = cycles.findIndex(c => c.gaps.has(g.i));
     const vis = ci >= 0 && isCycleVisible(ci);
-    const col = vis && ci >= 0 ? getCycleColor(ci) : "#4d4232";
+    const col = vis && ci >= 0 ? getCycleColor(ci) : "#2e2920";
     return /*#__PURE__*/React.createElement("g", {
       key: `g${g.i}`
     }, /*#__PURE__*/React.createElement("circle", {
@@ -2885,10 +2877,10 @@ function KnotMakerMobile() {
     style: {
       display: "inline-grid",
       gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-      border: "2px solid #5a4a2e",
+      border: "2px solid #3a4a55",
       borderRadius: 4,
-      background: "#0f0b07",
-      boxShadow: "inset 0 0 0 1px rgba(217,164,64,0.10)",
+      background: "#0a0e14",
+      boxShadow: "inset 0 0 0 1px rgba(120,150,165,0.1)",
       position: "relative",
       width: gridW * editorCellSize,
       minWidth: gridW * editorCellSize
@@ -2898,8 +2890,8 @@ function KnotMakerMobile() {
     style: {
       width: editorCellSize,
       height: editorCellSize,
-      background: on ? "#2e5040" : "#161210",
-      border: "1px solid #2b2218"
+      background: on ? "#2a4a3a" : "#12161c",
+      border: "1px solid #252d36"
     }
   }))), edgeRuns.map((r, i) => {
     if (r.orient === "h") {
@@ -2913,7 +2905,7 @@ function KnotMakerMobile() {
           top: r.y * editorCellSize - 1.5,
           width: (r.x1 - r.x0) * editorCellSize,
           height: 3,
-          background: "linear-gradient(180deg, #d9a440 0%, #8a6a24 100%)",
+          background: "linear-gradient(180deg, #5c726c 0%, #3d4e49 100%)",
           boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
         }
       });
@@ -2928,7 +2920,7 @@ function KnotMakerMobile() {
         top: r.y0 * editorCellSize,
         width: 3,
         height: (r.y1 - r.y0) * editorCellSize,
-        background: "linear-gradient(90deg, #d9a440 0%, #8a6a24 100%)",
+        background: "linear-gradient(90deg, #5c726c 0%, #3d4e49 100%)",
         boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
       }
     });
@@ -2943,7 +2935,7 @@ function KnotMakerMobile() {
       fontSize: badgeFont,
       fontFamily: "inherit",
       fontWeight: 700,
-      color: "#ecc87e",
+      color: "#a8bcc8",
       lineHeight: 1,
       letterSpacing: 0.3,
       textShadow: "0 1px 3px rgba(0,0,0,0.7)"

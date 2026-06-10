@@ -4,79 +4,72 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tear — trace-player demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #171109; --panel: #211912; --line: #382c1e;
-    --bone: #f0e5cd; --dim: #ab9b7f; --brass: #d9a440; --brass-soft: #ecc87e;
+    --ink: #090c0f; --ink-2: #121a22; --hair: #1e2832;
+    --bone: #c1cad3; --dim: #6d7884; --accent: #a3b8c4;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: linear-gradient(165deg, #1c150c 0%, var(--ink) 60%, #120d05 100%);
-    color: var(--bone);
-    font-family: 'Atkinson Hyperlegible', Georgia, serif;
-    min-height: 100vh;
+    background: var(--ink); color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    min-height: 100vh; -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 20px 120px; }
-  h1 { font-size: 30px; color: var(--brass-soft); font-weight: 700; letter-spacing: 0.5px; }
-  .sub { color: var(--dim); margin: 8px 0 56px; font-size: 15px; line-height: 1.6; }
-  section { margin-bottom: 88px; }
-  .station {
-    display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;
-  }
-  .station .n {
-    font-size: 44px; font-weight: 700; color: var(--brass);
-    font-variant-numeric: tabular-nums; line-height: 1;
-  }
-  .station .lbl { font-size: 17px; color: var(--bone); font-weight: 700; }
-  .station .meta { font-size: 13px; color: var(--dim); margin-left: auto; }
-  .caption { color: var(--dim); font-size: 14px; line-height: 1.6; margin: 4px 0 18px; max-width: 60ch; }
-  .player {
-    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
-    box-shadow: 0 18px 50px rgba(0,0,0,0.45);
-    aspect-ratio: auto;
-  }
-  .controls { display: flex; gap: 10px; margin-top: 12px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 20px 120px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; color: var(--bone); }
+  .sub { color: var(--dim); margin: 10px 0 64px; font-size: 13px; line-height: 1.7; max-width: 64ch; }
+  section { margin-bottom: 96px; }
+  .station { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--hair); padding-bottom: 10px; margin-bottom: 14px; }
+  .station .n { font-size: 28px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+  .station .lbl { font-size: 13px; color: var(--bone); letter-spacing: 1px; text-transform: uppercase; }
+  .station .meta { font-size: 12px; color: var(--dim); margin-left: auto; }
+  .caption { color: var(--dim); font-size: 12.5px; line-height: 1.7; margin: 0 0 18px; max-width: 64ch; }
+  .player { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
+  .controls { display: flex; gap: 10px; margin-top: 10px; }
   .controls button {
-    min-height: 40px; padding: 8px 18px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--panel); color: var(--dim);
-    font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    min-height: 36px; padding: 7px 16px; border-radius: 7px;
+    border: 1px solid var(--hair); background: var(--ink-2); color: var(--dim);
+    font-family: inherit; font-size: 12px; letter-spacing: 0.5px; cursor: pointer;
   }
-  .controls button:active { color: var(--brass-soft); }
+  .controls button:active { color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>O fio que volta ao princípio</h1>
-  <p class="sub">Demo do trace-player embebível — a peça central do futuro site.
-  Cada padrão é traçado prego a prego, fio a fio, exatamente como na tábua.
-  Faça scroll: cada animação começa quando entra no ecrã.</p>
+  <p class="sub">Demo do trace-player embebível. Cada padrão é traçado prego a prego,
+  fio a fio, exatamente como na tábua: o fio é contínuo, e só desaparece onde mergulha
+  por baixo de fio que já lá está. Faça scroll — cada animação começa quando entra no ecrã.</p>
 
   <section>
-    <div class="station"><span class="n">2</span><span class="lbl">fios</span><span class="meta">tábua 18×10 — mdc(18,10) = 2</span></div>
-    <p class="caption">Dois fios fechados cobrem a tábua inteira. O primeiro percorre o seu caminho completo e volta ao prego de partida; depois começa o segundo.</p>
+    <div class="station"><span class="n">2</span><span class="lbl">fios</span><span class="meta">18×10 · mdc(18,10) = 2</span></div>
+    <p class="caption">Dois fios fechados cobrem a tábua inteira. O primeiro percorre o caminho completo e volta ao prego de partida; depois começa o segundo, tecendo por cima e por baixo do primeiro.</p>
     <div class="player" id="p2" style="aspect-ratio: 20/12;"></div>
-    <div class="controls"><button data-for="p2">↻ Outra vez</button></div>
+    <div class="controls"><button data-for="p2">↻ outra vez</button></div>
   </section>
 
   <section>
-    <div class="station"><span class="n">8</span><span class="lbl">fios</span><span class="meta">tábua 16×24 — mdc(16,24) = 8 · como o casaco</span></div>
+    <div class="station"><span class="n">8</span><span class="lbl">fios</span><span class="meta">16×24 · mdc(16,24) = 8 · como o casaco</span></div>
     <p class="caption">Oito circuitos — o mesmo número de fios do casaco do João: ~200 horas, sem costuras, cada fio unido invisivelmente a si próprio.</p>
-    <div class="player" id="p8" style="aspect-ratio: 18/26; max-width: 460px;"></div>
-    <div class="controls"><button data-for="p8">↻ Outra vez</button></div>
+    <div class="player" id="p8" style="aspect-ratio: 18/26; max-width: 440px;"></div>
+    <div class="controls"><button data-for="p8">↻ outra vez</button></div>
   </section>
 
   <section>
-    <div class="station"><span class="n">15</span><span class="lbl">fios</span><span class="meta">tábua 30×15 — mdc(30,15) = 15</span></div>
+    <div class="station"><span class="n">15</span><span class="lbl">fios</span><span class="meta">30×15 · mdc(30,15) = 15</span></div>
     <p class="caption">Quinze fios, quinze cores possíveis. Os mestres da areia evitavam padrões assim; o João fez deles a sua paleta.</p>
     <div class="player" id="p15" style="aspect-ratio: 32/17;"></div>
-    <div class="controls"><button data-for="p15">↻ Outra vez</button></div>
+    <div class="controls"><button data-for="p15">↻ outra vez</button></div>
   </section>
 
   <section>
-    <div class="station"><span class="n">?</span><span class="lbl">forma irregular</span><span class="meta">um L com recorte — sem fórmula conhecida</span></div>
-    <p class="caption">Para formas assim, a matemática não tem fórmula — o número de fios só se descobre traçando. Está a ver um padrão que muito provavelmente nenhum humano tinha visto antes.</p>
+    <div class="station"><span class="n" id="nL">?</span><span class="lbl">fios</span><span class="meta">L com recorte · sem fórmula conhecida</span></div>
+    <p class="caption">Para formas assim a matemática não tem fórmula — o número de fios só se descobre traçando. Está a ver um padrão que muito provavelmente nenhum humano tinha visto antes.</p>
     <div class="player" id="pL" style="aspect-ratio: 20/12;"></div>
-    <div class="controls"><button data-for="pL">↻ Outra vez</button></div>
+    <div class="controls"><button data-for="pL">↻ outra vez</button></div>
   </section>
 </div>
 
@@ -87,18 +80,13 @@ window.addEventListener('error', e => { document.title = 'ERRO: ' + (e.message |
 
 const players = {};
 players.p2 = TearPlayer.create(document.getElementById('p2'), {
-  gw: 18, gh: 10,
-  colors: ['#d4242c', '#2aa0b4'],
-  autoplay: 'visible',
+  gw: 18, gh: 10, autoplay: 'visible',
 });
 players.p8 = TearPlayer.create(document.getElementById('p8'), {
-  gw: 16, gh: 24,
-  colors: ['#d4242c', '#2aa0b4', '#ecdcb0', '#e8a020', '#2e9a5e', '#e4287c', '#1e40c8', '#f4f1e8'],
-  autoplay: 'visible', speedFactor: 1.4,
+  gw: 16, gh: 24, autoplay: 'visible', speedFactor: 1.4,
 });
 players.p15 = TearPlayer.create(document.getElementById('p15'), {
-  gw: 30, gh: 15,
-  autoplay: 'visible', speedFactor: 1.8,
+  gw: 30, gh: 15, autoplay: 'visible', speedFactor: 1.8,
 });
 // L-shape with a notch — open-problem territory
 (function () {
@@ -112,7 +100,7 @@ players.p15 = TearPlayer.create(document.getElementById('p15'), {
   players.pL = TearPlayer.create(document.getElementById('pL'), {
     cells, autoplay: 'visible', speedFactor: 1.2,
   });
-  document.querySelector('#pL').closest('section').querySelector('.n').textContent = players.pL.cycles;
+  document.getElementById('nL').textContent = players.pL.cycles;
 })();
 
 document.querySelectorAll('.controls button').forEach(b => {
