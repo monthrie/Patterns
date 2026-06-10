@@ -58,6 +58,14 @@ João — who knew none of this — has closed the circle in both senses. He wor
 
 Gerdes and Jablan, the two people who would have understood instantly what João's jacket is, died within months of each other, a decade ago. But the field they built is alive — their collaborators and successors work on mirror curves, knot mosaics and billiard knots today, and an entire community of mathematician-artists meets every year (the *Bridges* conference) to study exactly this territory. We believe they may be the first people, outside this family, to truly understand the value of what João does. The patterns he discovers in irregular boards are not just pretty: they are **data on an open problem**, produced by hand, in cotton, at a scale of two hundred hours per theorem.
 
+## The patterns nobody has seen
+
+There is one more thing to understand about what comes off João's bench: most of his patterns are not just unmade before him — they are **unseen**.
+
+For plain rectangles, mathematics *implies* the patterns the way a map implies coordinates nobody has visited: the theorem says a 45×30 board carries fifteen loops, but a theorem is not a picture. Nobody hand-traces a fifteen-loop figure — hundreds of bounces per loop is exactly the wall of labour that once capped João at four. The drawings that actually exist in the literature and in the sand corpus are small, with few lines. And for João's irregular boards — the notched, holed, crossed shapes where no formula exists — a pattern exists *only* once someone runs the path. The space of possible boards is astronomically vast. When his simulator traces a fifteen-loop figure on a shape he invented that morning, the overwhelming likelihood is that **no human being has ever seen that pattern before** — and by evening it can exist in cotton.
+
+Stranger still: the tradition that came closest would not have made these figures even if it could. For the Chokwe masters, the mark of mastery was **monolinearity** — completing the whole figure in a single unbroken line; many lines meant a lesser drawing, sometimes a corrupted variant of a one-line original. The sand tradition spent centuries optimizing *away* from many loops. João inverted the aesthetic: in cloth, every loop is a **colour**. Fifteen loops is not a failure of mastery — it is a fifteen-colour palette, and the source of the richest patterns he makes. He found treasure in the exact region of pattern-space the old masters had declared worthless.
+
 ## What the jacket is
 
 So here is what you are actually looking at, stated plainly:
