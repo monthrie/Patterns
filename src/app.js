@@ -706,7 +706,7 @@ function KnotMakerMobile() {
       length: newH
     }, (_, y) => Array.from({
       length: newW
-    }, (_, x) => y < prev.length && x < (prev[0]?.length || 0) ? prev[y][x] : false)));
+    }, (_, x) => y < prev.length && x < (prev[0]?.length || 0) ? prev[y][x] : true)));
     setGridW(newW);
     setGridH(newH);
     setSelGap(null);
