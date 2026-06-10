@@ -86,12 +86,18 @@
   .land-split {
     display: flex; flex: 1; min-height: 0; flex-direction: row;
   }
+  /* Panel column width follows intent: drawing needs space, lists don't —
+     whatever the panel gives up, the weave takes. */
   .land-split-main {
-    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    flex: none; width: 52vw; min-width: 0; display: flex; flex-direction: column;
     overflow: hidden;
+    transition: width 200ms ease;
   }
+  .land-split.land-tab-fios .land-split-main,
+  .land-split.land-tab-shapes .land-split-main { width: clamp(360px, 34vw, 480px); }
+  .land-split.land-tab-none .land-split-main { width: clamp(280px, 24vw, 360px); }
   .land-split-knot {
-    width: clamp(340px, 46vw, 620px); flex-shrink: 0; min-height: 0;
+    flex: 1; min-width: 0; min-height: 0;
     border-left: 1px solid var(--hair); background: var(--ink);
     display: flex; flex-direction: column; position: relative;
   }
@@ -2009,7 +2015,7 @@ function KnotMakerMobile() {
   const svgW = 600,
     svgH = 600;
   const pad = 40;
-  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.74;
+  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.92;
   const ox = (svgW - W * cellSz) / 2,
     oy = (svgH - H * cellSz) / 2;
   // ViewBox: zoom < 1 shows more area (zoom out), zoom > 1 shows less (zoom in)
@@ -3941,7 +3947,7 @@ function KnotMakerMobile() {
   return /*#__PURE__*/React.createElement("div", {
     className: "app-shell"
   }, landscapeSplit ? /*#__PURE__*/React.createElement("div", {
-    className: "land-split"
+    className: "land-split land-tab-" + (activeTab || "none")
   }, /*#__PURE__*/React.createElement("div", {
     className: "land-split-main",
     style: {

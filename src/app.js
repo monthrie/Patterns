@@ -668,7 +668,7 @@ function KnotMakerMobile() {
   const svgW = 600,
     svgH = 600;
   const pad = 40;
-  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.74;
+  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.92;
   const ox = (svgW - W * cellSz) / 2,
     oy = (svgH - H * cellSz) / 2;
   // ViewBox: zoom < 1 shows more area (zoom out), zoom > 1 shows less (zoom in)
@@ -2600,7 +2600,7 @@ function KnotMakerMobile() {
   return /*#__PURE__*/React.createElement("div", {
     className: "app-shell"
   }, landscapeSplit ? /*#__PURE__*/React.createElement("div", {
-    className: "land-split"
+    className: "land-split land-tab-" + (activeTab || "none")
   }, /*#__PURE__*/React.createElement("div", {
     className: "land-split-main",
     style: {
