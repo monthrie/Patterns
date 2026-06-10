@@ -4,39 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Knot Maker — Mobile</title>
+<meta name="theme-color" content="#171109">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #090c0f;
-    --ink-2: #121a22;
-    --bone: #c1cad3;
-    --bone-dim: #6d7884;
-    --bone-faint: #2a323b;
-    --hair: #1e2832;
-    /* Cool slate / sea-glass — replaces loud brass */
-    --accent: #7e9aaa;
-    --accent-soft: #a3b8c4;
-    --accent-fill: #3d4e5a;
-    --accent-on-fill: #eef2f5;
-    --accent-glow: rgba(126, 154, 170, 0.22);
-    --edge: #2a3540;
-    --panel-inner: #0e141b;
-    --oxblood: #8a4048;
+    /* Warm workshop-at-night palette — lamplight brass on dark timber */
+    --ink: #171109;
+    --ink-2: #211912;
+    --bone: #f0e5cd;
+    --bone-dim: #ab9b7f;
+    --bone-faint: #4d4232;
+    --hair: #382c1e;
+    --accent: #d9a440;
+    --accent-soft: #ecc87e;
+    --accent-fill: #c8973a;
+    --accent-on-fill: #241a06;
+    --accent-glow: rgba(217, 164, 64, 0.22);
+    --edge: #4d3b21;
+    --panel-inner: #1b140c;
+    --oxblood: #c8502e;
     /* Height reserved for bottom tab bar — keeps flex scroll math honest */
-    --tab-bar-h: 52px;
+    --tab-bar-h: 56px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    background: var(--ink); color: var(--bone);
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    background:
+      repeating-linear-gradient(93deg, rgba(255,228,160,0.016) 0 2px, transparent 2px 7px),
+      linear-gradient(165deg, #1c150c 0%, var(--ink) 60%, #120d05 100%);
+    color: var(--bone);
+    font-family: 'Atkinson Hyperlegible', 'Segoe UI', Verdana, sans-serif;
     height: 100%; overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* tabular numbers for stats readability */
+  .stats-bar, .stepper, .grid-size-toggle__dims { font-variant-numeric: tabular-nums; }
   #root { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
   /* App shell uses vh fallback then dvh — older iPad Safari (<15.4) lacks dvh and would collapse to 0. */
   .app-shell {
@@ -46,17 +52,25 @@
   }
 
   .tab-bar {
-    display: flex; border-top: 1px solid var(--hair); background: var(--ink-2);
+    display: flex; border-top: 1px solid var(--hair);
+    background: linear-gradient(180deg, var(--ink-2), #1a130c);
     flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .tab-btn {
-    flex: 1; padding: 12px 0; text-align: center; font-size: 12px;
-    letter-spacing: 1.4px; text-transform: uppercase; color: var(--bone-dim);
+    flex: 1; padding: 15px 0 14px; text-align: center; font-size: 13px;
+    letter-spacing: 1.6px; text-transform: uppercase; color: var(--bone-dim);
     background: transparent; border: none; cursor: pointer;
-    font-family: inherit; font-weight: 500;
-    border-top: 2px solid transparent;
+    font-family: inherit; font-weight: 700;
+    border-top: 3px solid transparent;
+    transition: color 150ms ease;
   }
-  .tab-btn.active { color: var(--accent-soft); border-top-color: var(--accent); }
+  .tab-btn.active {
+    color: var(--accent-soft); border-top-color: var(--accent);
+    background: linear-gradient(180deg, var(--accent-glow), transparent 75%);
+    text-shadow: 0 0 14px rgba(217,164,64,0.35);
+  }
+  .tab-btn:active { color: var(--accent); }
 
   .stats-bar {
     display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 12px;
@@ -88,24 +102,30 @@
     -webkit-overflow-scrolling: touch; flex-shrink: 0;
   }
   .cycle-btn {
-    min-width: 36px; height: 36px; border-radius: 6px; border: 2px solid;
-    font-size: 12px; font-weight: bold; font-family: inherit;
+    min-width: 42px; height: 42px; border-radius: 10px; border: 2px solid;
+    font-size: 14px; font-weight: bold; font-family: inherit;
     cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.4);
+    transition: transform 90ms ease;
   }
+  .cycle-btn:active { transform: scale(0.92); }
 
-  .stepper { display: flex; align-items: center; gap: 0; }
+  .stepper { display: flex; align-items: center; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--hair); }
   .stepper button {
-    width: 36px; height: 36px; font-size: 18px; background: var(--ink-2);
-    border: 1px solid var(--hair); color: var(--bone); cursor: pointer;
+    width: 44px; height: 44px; font-size: 20px; background: var(--ink-2);
+    border: none; color: var(--accent-soft); cursor: pointer; font-weight: 700;
     font-family: inherit; display: flex; align-items: center; justify-content: center;
   }
+  .stepper button:active { background: var(--panel-inner); }
   .stepper span {
-    min-width: 36px; text-align: center; font-size: 14px; color: var(--bone);
+    min-width: 40px; text-align: center; font-size: 16px; font-weight: 700; color: var(--bone);
     padding: 0 4px;
   }
   .stepper input {
-    width: 44px; height: 36px; text-align: center; font-size: 14px; color: var(--bone);
-    background: var(--ink); border: 1px solid var(--hair); font-family: inherit;
+    width: 50px; height: 44px; text-align: center; font-size: 16px; font-weight: 700; color: var(--bone);
+    background: var(--panel-inner); border: none;
+    border-left: 1px solid var(--hair); border-right: 1px solid var(--hair);
+    font-family: inherit;
     -moz-appearance: textfield; padding: 0;
   }
   .stepper input::-webkit-outer-spin-button,
@@ -113,11 +133,15 @@
 
   .knm-chip {
     display: inline-flex; align-items: center; gap: 7px;
-    border: 1px solid var(--hair); padding: 8px 12px; font-size: 13px;
-    color: var(--bone-dim); cursor: pointer; letter-spacing: 0.5px;
+    border: 1px solid var(--hair); border-radius: 999px;
+    padding: 10px 16px; font-size: 13.5px; font-weight: 700;
+    background: var(--ink-2);
+    color: var(--bone-dim); cursor: pointer; letter-spacing: 0.4px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.35);
   }
+  .knm-chip:active { background: var(--panel-inner); color: var(--accent-soft); }
   .knm-chip-x {
-    color: var(--oxblood); font-size: 14px; line-height: 1;
+    color: var(--oxblood); font-size: 15px; line-height: 1;
     background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
   }
 
@@ -180,7 +204,7 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
-  .editor-zoom-step:active { background: #252a32; }
+  .editor-zoom-step:active { background: #2a2218; }
   .editor-zoom-pct-btn {
     min-width: 44px;
     padding: 4px 6px;
@@ -215,17 +239,17 @@
     overscroll-behavior-y: auto;
     border: 1px solid var(--edge);
     border-radius: 6px;
-    background: #080b0f;
-    scrollbar-gutter: stable;
+    background: #0e0a06;
+      scrollbar-gutter: stable;
     scrollbar-width: auto;
-    scrollbar-color: #4a5c66 #1a222a;
+    scrollbar-color: #6a5638 #241c12;
   }
   .editor-scroll-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
-  .editor-scroll-wrap::-webkit-scrollbar-track { background: #1a222a; border-radius: 4px; }
+  .editor-scroll-wrap::-webkit-scrollbar-track { background: #241c12; border-radius: 4px; }
   .editor-scroll-wrap::-webkit-scrollbar-thumb {
-    background: #4a5c66;
-    border-radius: 4px;
-    border: 2px solid #1a222a;
+    background: #6a5638;
+      border-radius: 4px;
+      border: 2px solid #241c12;
     min-height: 28px;
   }
   .editor-dpad-btn {
@@ -249,7 +273,7 @@
     -webkit-user-select: none;
     user-select: none;
   }
-  .editor-dpad-btn:active { background: #1a222c; transform: translateY(1px); box-shadow: none; }
+  .editor-dpad-btn:active { background: #221a10; transform: translateY(1px); box-shadow: none; }
   .editor-dpad-btn__arrow { font-size: 12px; line-height: 1; font-weight: 800; }
   .editor-toolbar-rows {
     display: flex;
@@ -318,7 +342,7 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  .grid-size-toggle:active { background: #12161c; }
+  .grid-size-toggle:active { background: #191309; }
   .grid-size-toggle__dims {
     color: var(--accent-soft);
     font-weight: 600;
@@ -979,7 +1003,8 @@ const JOAO = [{
   hex: "#1a1c28"
 }];
 const JOAO_DEFAULTS = JOAO.filter(c => c.hex !== "#1a1a1a");
-const COLORS = JOAO_DEFAULTS.map(c => c.hex);
+// Curated default rotation — vivid, high-contrast neighbours (red/turquoise/cream first, like the cushion)
+const COLORS = ["#d4242c", "#2aa0b4", "#ecdcb0", "#e4287c", "#2e9a5e", "#e8a020", "#1e40c8", "#6a2aa0", "#e84030", "#8ab840", "#c41878", "#e68a96", "#e8c838", "#f4f1e8"];
 function subtractInterval(a0, a1, b0, b1) {
   if (b0 >= a1 || b1 <= a0) return [[a0, a1]];
   const r = [];
@@ -1240,7 +1265,7 @@ function KnotMakerMobile() {
   })), [gaps, toX, toY]);
   const gr = Math.max(5, cellSz * 0.13);
   const sw = cellSz * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
-  const BG_OPTIONS = ["#0c0f12", "#2a2e35", "#5a5f66", "#a0a4a8", "#f8f8f5"];
+  const BG_OPTIONS = ["#101b16", "#171109", "#3c352a", "#9b9484", "#f3ead4"];
   const [bgIndex, setBgIndex] = useState(0);
   const bgColor = BG_OPTIONS[bgIndex];
 
@@ -2121,7 +2146,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(18,22,28,0.92)",
+      background: "rgba(23,17,9,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--accent-soft)",
       fontSize: 10,
@@ -2136,7 +2161,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(18,22,28,0.92)",
+      background: "rgba(23,17,9,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -2152,7 +2177,7 @@ function KnotMakerMobile() {
     style: {
       width: 36,
       height: 36,
-      background: "rgba(18,22,28,0.92)",
+      background: "rgba(23,17,9,0.92)",
       border: "1px solid var(--hair)",
       color: "var(--bone-dim)",
       fontSize: 18,
@@ -2186,7 +2211,7 @@ function KnotMakerMobile() {
     y1: e.y1,
     x2: e.x2,
     y2: e.y2,
-    stroke: "#2a2519",
+    stroke: "#3a2f1f",
     strokeWidth: 1.5
   })), renderElements.map((el, i) => /*#__PURE__*/React.createElement("line", {
     key: i,
@@ -2226,7 +2251,7 @@ function KnotMakerMobile() {
     const sel = selGap === g.i;
     const ci = cycles.findIndex(c => c.gaps.has(g.i));
     const vis = ci >= 0 && isCycleVisible(ci);
-    const col = vis && ci >= 0 ? getCycleColor(ci) : "#2e2920";
+    const col = vis && ci >= 0 ? getCycleColor(ci) : "#4d4232";
     return /*#__PURE__*/React.createElement("g", {
       key: `g${g.i}`
     }, /*#__PURE__*/React.createElement("circle", {
@@ -2819,10 +2844,10 @@ function KnotMakerMobile() {
     style: {
       display: "inline-grid",
       gridTemplateColumns: `repeat(${gridW}, ${editorCellSize}px)`,
-      border: "2px solid #3a4a55",
+      border: "2px solid #5a4a2e",
       borderRadius: 4,
-      background: "#0a0e14",
-      boxShadow: "inset 0 0 0 1px rgba(120,150,165,0.1)",
+      background: "#0f0b07",
+      boxShadow: "inset 0 0 0 1px rgba(217,164,64,0.10)",
       position: "relative",
       width: gridW * editorCellSize,
       minWidth: gridW * editorCellSize
@@ -2832,8 +2857,8 @@ function KnotMakerMobile() {
     style: {
       width: editorCellSize,
       height: editorCellSize,
-      background: on ? "#2a4a3a" : "#12161c",
-      border: "1px solid #252d36"
+      background: on ? "#2e5040" : "#161210",
+      border: "1px solid #2b2218"
     }
   }))), edgeRuns.map((r, i) => {
     if (r.orient === "h") {
@@ -2847,7 +2872,7 @@ function KnotMakerMobile() {
           top: r.y * editorCellSize - 1.5,
           width: (r.x1 - r.x0) * editorCellSize,
           height: 3,
-          background: "linear-gradient(180deg, #5c726c 0%, #3d4e49 100%)",
+          background: "linear-gradient(180deg, #d9a440 0%, #8a6a24 100%)",
           boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
         }
       });
@@ -2862,7 +2887,7 @@ function KnotMakerMobile() {
         top: r.y0 * editorCellSize,
         width: 3,
         height: (r.y1 - r.y0) * editorCellSize,
-        background: "linear-gradient(90deg, #5c726c 0%, #3d4e49 100%)",
+        background: "linear-gradient(90deg, #d9a440 0%, #8a6a24 100%)",
         boxShadow: "0 0 0 1px rgba(0,0,0,0.35)"
       }
     });
@@ -2877,7 +2902,7 @@ function KnotMakerMobile() {
       fontSize: badgeFont,
       fontFamily: "inherit",
       fontWeight: 700,
-      color: "#a8bcc8",
+      color: "#ecc87e",
       lineHeight: 1,
       letterSpacing: 0.3,
       textShadow: "0 1px 3px rgba(0,0,0,0.7)"
