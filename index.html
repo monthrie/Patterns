@@ -673,36 +673,6 @@ const {
   useEffect
 } = React;
 
-// ========== COLOR HELPERS (rope rendering — pure, no engine math) ==========
-function hexToRgb(hex) {
-  let h = String(hex).replace('#', '');
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  const n = parseInt(h, 16);
-  if (isNaN(n)) return [128, 128, 128];
-  return [n >> 16 & 255, n >> 8 & 255, n & 255];
-}
-function rgbToHex(r, g, b) {
-  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
-}
-function mixHex(hexA, hexB, t) {
-  const a = hexToRgb(hexA),
-    b = hexToRgb(hexB);
-  return rgbToHex(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
-}
-function darken(hex, amt) {
-  return mixHex(hex, '#000000', amt);
-}
-function lighten(hex, amt) {
-  return mixHex(hex, '#ffffff', amt);
-}
-function isLightColor(hex) {
-  const [r, g, b] = hexToRgb(hex);
-  return (r * 0.299 + g * 0.587 + b * 0.114) / 255 > 0.55;
-}
-function ropeGradId(axis, color) {
-  return `ropeg-${axis}-${String(color).replace(/[^0-9a-zA-Z]/g, '')}`;
-}
-
 // ========== SHAPE PRESETS ==========
 function makePreset(name, curW, curH) {
   if (name === 'staircase-boot') {
@@ -1302,23 +1272,6 @@ function KnotMakerMobile() {
   const [bgIndex, setBgIndex] = useState(0);
   const bgColor = BG_OPTIONS[bgIndex];
 
-  // Rope rendering: derived under-stroke (outline) colour per strand colour.
-  // On light backgrounds darken harder so cream/white yarns stay legible.
-  const isLightBg = isLightColor(bgColor);
-  const outlineFor = useMemo(() => {
-    const cache = new Map();
-    const amt = isLightBg ? 0.55 : 0.4;
-    const mixT = isLightBg ? 0.08 : 0.15;
-    return c => {
-      let v = cache.get(c);
-      if (!v) {
-        v = mixHex(darken(c, amt), bgColor, mixT);
-        cache.set(c, v);
-      }
-      return v;
-    };
-  }, [bgColor, isLightBg]);
-
   // Weave grid lines
   const weaveLines = useMemo(() => {
     const lines = [];
@@ -1692,13 +1645,11 @@ function KnotMakerMobile() {
           w: lineW,
           z: 2,
           edgeStart: p1Edge,
-          edgeEnd: p2Edge,
-          axis: null
+          edgeEnd: p2Edge
         });
         continue;
       }
       const isBS = sdx === sdy;
-      const axis = isBS ? 'bs' : 'fs';
       const cuts = [];
       const minX = Math.min(p1.x, p2.x),
         maxX = Math.max(p1.x, p2.x);
@@ -1736,45 +1687,6 @@ function KnotMakerMobile() {
         }
       }
       cuts.sort((a, b) => (a.sx - sx1) * ux + (a.sy - sy1) * uy - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
-      // Crossing depth: at every cut, the cut-facing piece-end gets a short
-      // dark overlay so the cord reads as diving under the crossing strand.
-      const shadeLen = gap * 0.8;
-      const pushPiece = (x1, y1, x2, y2, edgeStart, edgeEnd, cutStart, cutEnd) => {
-        elements.push({
-          type: 'strand',
-          x1,
-          y1,
-          x2,
-          y2,
-          color,
-          w: lineW,
-          z: 2,
-          edgeStart,
-          edgeEnd,
-          axis
-        });
-        const plen = Math.hypot(x2 - x1, y2 - y1);
-        const sl = Math.min(shadeLen, plen);
-        if (sl < 0.5) return;
-        if (cutStart) elements.push({
-          type: 'shade',
-          x1,
-          y1,
-          x2: x1 + ux * sl,
-          y2: y1 + uy * sl,
-          w: lineW,
-          z: 4
-        });
-        if (cutEnd) elements.push({
-          type: 'shade',
-          x1: x2 - ux * sl,
-          y1: y2 - uy * sl,
-          x2,
-          y2,
-          w: lineW,
-          z: 4
-        });
-      };
       let cx = sx1,
         cy = sy1;
       let isFirst = true;
@@ -1782,13 +1694,35 @@ function KnotMakerMobile() {
         const gsx = cut.sx - ux * gap,
           gsy = cut.sy - uy * gap;
         const proj = (gsx - cx) * ux + (gsy - cy) * uy;
-        if (proj > 0.5) pushPiece(cx, cy, gsx, gsy, isFirst && p1Edge, false, !isFirst, true);
+        if (proj > 0.5) elements.push({
+          type: 'strand',
+          x1: cx,
+          y1: cy,
+          x2: gsx,
+          y2: gsy,
+          color,
+          w: lineW,
+          z: 2,
+          edgeStart: isFirst && p1Edge,
+          edgeEnd: false
+        });
         cx = cut.sx + ux * gap;
         cy = cut.sy + uy * gap;
         isFirst = false;
       }
       const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
-      if (projEnd > 0.5) pushPiece(cx, cy, sx2, sy2, isFirst && p1Edge, p2Edge, !isFirst, false);
+      if (projEnd > 0.5) elements.push({
+        type: 'strand',
+        x1: cx,
+        y1: cy,
+        x2: sx2,
+        y2: sy2,
+        color,
+        w: lineW,
+        z: 2,
+        edgeStart: isFirst && p1Edge,
+        edgeEnd: p2Edge
+      });
     }
     return elements;
   }
@@ -1857,19 +1791,6 @@ function KnotMakerMobile() {
       return [];
     }
   }, [cycles, isCycleVisible, cells, W, H, cellSz, toX, toY, sw, cycleColors, cycleSecondary, strandMode]);
-
-  // Rope rendering passes: split pieces by type; collect the active strand
-  // colours so one shared repeating gradient per colour+axis can be defined.
-  const ropeMode = strandMode !== 'string';
-  const strandPieces = useMemo(() => renderElements.filter(el => el.type === 'strand'), [renderElements]);
-  const shadePieces = useMemo(() => renderElements.filter(el => el.type === 'shade'), [renderElements]);
-  const ropeColors = useMemo(() => {
-    if (!ropeMode) return [];
-    const set = new Set();
-    for (const el of strandPieces) if (el.axis) set.add(el.color);
-    return Array.from(set);
-  }, [strandPieces, ropeMode]);
-  const paintFor = el => ropeMode && el.axis ? `url(#${ropeGradId(el.axis, el.color)})` : el.color;
 
   // String stats
   const stringStats = useMemo(() => {
@@ -2287,59 +2208,7 @@ function KnotMakerMobile() {
     in: "b"
   }), /*#__PURE__*/React.createElement("feMergeNode", {
     in: "SourceGraphic"
-  }))), /*#__PURE__*/React.createElement("radialGradient", {
-    id: "nailHead",
-    cx: "0.5",
-    cy: "0.5",
-    r: "0.65",
-    fx: "0.35",
-    fy: "0.3"
-  }, /*#__PURE__*/React.createElement("stop", {
-    offset: "0%",
-    stopColor: "#f7e3a8"
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "55%",
-    stopColor: "#b98c3a"
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "100%",
-    stopColor: "#6e4f1d"
-  })), ropeColors.map(c => {
-    // Rope-cylinder shading: ONE shared repeating gradient per active colour
-    // per diagonal axis. Parallel strand centre-lines are spaced cellSz/√2
-    // apart, so the gradient vector runs along the axis normal with that
-    // period, anchored at grid point (0.5, 0) — it lies on a centre-line of
-    // both the "\" (y−x=−0.5) and "/" (y+x=0.5) families, so offset 0 always
-    // falls ON a strand centre-line.
-    const ax = toX(0.5),
-      ay = toY(0);
-    const lt = lighten(c, 0.22),
-      dk = darken(c, 0.28);
-    return ['bs', 'fs'].map(axis => /*#__PURE__*/React.createElement("linearGradient", {
-      key: ropeGradId(axis, c),
-      id: ropeGradId(axis, c),
-      gradientUnits: "userSpaceOnUse",
-      spreadMethod: "repeat",
-      x1: ax,
-      y1: ay,
-      x2: ax + cellSz / 2,
-      y2: axis === 'bs' ? ay - cellSz / 2 : ay + cellSz / 2
-    }, /*#__PURE__*/React.createElement("stop", {
-      offset: "0%",
-      stopColor: lt
-    }), /*#__PURE__*/React.createElement("stop", {
-      offset: "30%",
-      stopColor: c
-    }), /*#__PURE__*/React.createElement("stop", {
-      offset: "50%",
-      stopColor: dk
-    }), /*#__PURE__*/React.createElement("stop", {
-      offset: "70%",
-      stopColor: c
-    }), /*#__PURE__*/React.createElement("stop", {
-      offset: "100%",
-      stopColor: lt
-    })));
-  })), boundaryEdges.map((e, i) => /*#__PURE__*/React.createElement("line", {
+  })))), boundaryEdges.map((e, i) => /*#__PURE__*/React.createElement("line", {
     key: `be${i}`,
     x1: e.x1,
     y1: e.y1,
@@ -2347,47 +2216,13 @@ function KnotMakerMobile() {
     y2: e.y2,
     stroke: "#3a2f1f",
     strokeWidth: 1.5
-  })), ropeMode && strandPieces.map((el, i) => /*#__PURE__*/React.createElement("line", {
-    key: `u${i}`,
-    x1: el.x1,
-    y1: el.y1,
-    x2: el.x2,
-    y2: el.y2,
-    stroke: outlineFor(el.color),
-    strokeWidth: el.w + 2.5,
-    strokeLinecap: "butt"
-  })), ropeMode && cornerArcs.map((arc, i) => /*#__PURE__*/React.createElement("path", {
-    key: `cau${i}`,
-    d: `M${arc.sx1},${arc.sy1} A${arc.r},${arc.r} 0 0,${arc.sweep} ${arc.sx2},${arc.sy2}`,
-    fill: "none",
-    stroke: outlineFor(arc.color),
-    strokeWidth: sw + 2.5,
-    strokeLinecap: "butt"
-  })), ropeMode && strandPieces.filter(el => el.edgeStart || el.edgeEnd).map((el, i) => {
-    const r = el.w / 2 + 1.25;
-    const caps = [];
-    if (el.edgeStart) caps.push(/*#__PURE__*/React.createElement("circle", {
-      key: `esu${i}`,
-      cx: el.x1,
-      cy: el.y1,
-      r: r,
-      fill: outlineFor(el.color)
-    }));
-    if (el.edgeEnd) caps.push(/*#__PURE__*/React.createElement("circle", {
-      key: `eeu${i}`,
-      cx: el.x2,
-      cy: el.y2,
-      r: r,
-      fill: outlineFor(el.color)
-    }));
-    return caps;
-  }), strandPieces.map((el, i) => /*#__PURE__*/React.createElement("line", {
+  })), renderElements.map((el, i) => /*#__PURE__*/React.createElement("line", {
     key: i,
     x1: el.x1,
     y1: el.y1,
     x2: el.x2,
     y2: el.y2,
-    stroke: paintFor(el),
+    stroke: el.color,
     strokeWidth: el.w,
     strokeLinecap: "butt"
   })), cornerArcs.map((arc, i) => /*#__PURE__*/React.createElement("path", {
@@ -2397,7 +2232,7 @@ function KnotMakerMobile() {
     stroke: arc.color,
     strokeWidth: sw,
     strokeLinecap: "butt"
-  })), strandPieces.filter(el => el.edgeStart || el.edgeEnd).map((el, i) => {
+  })), renderElements.filter(el => el.type === 'strand' && (el.edgeStart || el.edgeEnd)).map((el, i) => {
     const r = el.w / 2;
     const caps = [];
     if (el.edgeStart) caps.push(/*#__PURE__*/React.createElement("circle", {
@@ -2415,16 +2250,7 @@ function KnotMakerMobile() {
       fill: el.color
     }));
     return caps;
-  }), shadePieces.map((el, i) => /*#__PURE__*/React.createElement("line", {
-    key: `sh${i}`,
-    x1: el.x1,
-    y1: el.y1,
-    x2: el.x2,
-    y2: el.y2,
-    stroke: "rgba(0,0,0,0.28)",
-    strokeWidth: el.w,
-    strokeLinecap: "butt"
-  })), gapDots.map(g => {
+  }), gapDots.map(g => {
     const sel = selGap === g.i;
     const ci = cycles.findIndex(c => c.gaps.has(g.i));
     const vis = ci >= 0 && isCycleVisible(ci);
@@ -2462,35 +2288,17 @@ function KnotMakerMobile() {
         pointerEvents: "none"
       }
     }));
-  }), showNails && nailPositions.map((n, i) => {
-    // Brass pinheads: shared radial gradient, soft drop shadow, white glint.
-    // Corner pins are subtly larger than edge pins.
-    const nx = toX(n.x),
-      ny = toY(n.y);
-    const r = n.type === 'corner' ? 4.2 : 3.5;
-    return /*#__PURE__*/React.createElement("g", {
-      key: `nail${i}`,
-      style: {
-        pointerEvents: "none"
-      }
-    }, /*#__PURE__*/React.createElement("ellipse", {
-      cx: nx + 1.5,
-      cy: ny + 1.5,
-      rx: r,
-      ry: r * 0.9,
-      fill: "rgba(0,0,0,0.25)"
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: nx,
-      cy: ny,
-      r: r,
-      fill: "url(#nailHead)"
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: nx - r * 0.35,
-      cy: ny - r * 0.35,
-      r: 0.9,
-      fill: "rgba(255,255,255,0.85)"
-    }));
-  })));
+  }), showNails && nailPositions.map((n, i) => /*#__PURE__*/React.createElement("circle", {
+    key: `nail${i}`,
+    cx: toX(n.x),
+    cy: toY(n.y),
+    r: 4,
+    fill: n.type === 'corner' ? "#ff4444" : "#44ff44",
+    opacity: 0.8,
+    style: {
+      pointerEvents: "none"
+    }
+  }))));
   const statsBarEl = /*#__PURE__*/React.createElement("div", {
     className: "stats-bar",
     style: {
