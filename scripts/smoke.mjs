@@ -115,9 +115,9 @@ async function runSuite(browser, vp) {
     if (n !== 2) throw new Error(`expected 2 fios, stats bar shows ${n}`);
   });
 
-  // 3a. FORMAS tab
-  await check(t('FORMAS tab opens with Guardar/Exportar/Importar + presets'), async () => {
-    await page.locator('.tab-bar .tab-btn', { hasText: /^Formas$/ }).click();
+  // 3a. GUARDADAS tab (library)
+  await check(t('GUARDADAS tab opens with Guardar/Exportar/Importar + presets'), async () => {
+    await page.locator('.tab-bar .tab-btn', { hasText: /^Guardadas$/ }).click();
     for (const label of ['Guardar', 'Exportar', 'Importar']) {
       const btn = page.locator('button', { hasText: new RegExp(`^${label}$`) }).first();
       await btn.waitFor({ state: 'visible' });
@@ -126,17 +126,36 @@ async function runSuite(browser, vp) {
     if (chips < 4) throw new Error(`expected >= 4 preset chips, found ${chips}`);
   });
 
-  // 3b. VER tab
-  await check(t('VER tab opens with Fio strand options'), async () => {
-    await page.locator('.tab-bar .tab-btn', { hasText: /^Ver$/ }).click();
+  // 3b. FIOS tab (strings: visibility, colours, lengths)
+  await check(t('FIOS tab opens with TODOS chip and string lengths'), async () => {
+    await page.locator('.tab-bar .tab-btn', { hasText: /^Fios$/ }).click();
     await page
-      .locator('span', { hasText: /^Fio$/ })
+      .locator('button', { hasText: /^TODOS$/ })
       .first()
       .waitFor({ state: 'visible' });
-    for (const label of ['fino', 'grosso', 'linha']) {
-      const btn = page.locator('button', { hasText: new RegExp(`^${label}$`) }).first();
-      await btn.waitFor({ state: 'visible' });
-    }
+    await page
+      .locator('div', { hasText: /^Fio total: \d+cm$/ })
+      .first()
+      .waitFor({ state: 'visible' });
+  });
+
+  // 3b-ii. canvas view controls (strand thickness cycles on the canvas now)
+  await check(t('canvas strand button cycles fino -> grosso'), async () => {
+    const btn = page.locator('.knot-zoom-btns button', { hasText: /^fino$/i }).first();
+    await btn.waitFor({ state: 'visible' });
+    await btn.click();
+    await page.locator('.knot-zoom-btns button', { hasText: /^grosso$/i }).first().waitFor({ state: 'visible' });
+    await page.locator('.knot-zoom-btns button', { hasText: /^grosso$/i }).first().click();
+    await page.locator('.knot-zoom-btns button', { hasText: /^linha$/i }).first().waitFor({ state: 'visible' });
+    await page.locator('.knot-zoom-btns button', { hasText: /^linha$/i }).first().click(); // back to fino
+  });
+
+  // 3b-iii. language toggle EN -> PT
+  await check(t('EN/PT toggle switches the interface language'), async () => {
+    await page.locator('.stats-bar button', { hasText: /^EN$/ }).click();
+    await page.locator('.tab-bar .tab-btn', { hasText: /^Draw$/ }).waitFor({ state: 'visible' });
+    await page.locator('.stats-bar button', { hasText: /^PT$/ }).click();
+    await page.locator('.tab-bar .tab-btn', { hasText: /^Desenhar$/ }).waitFor({ state: 'visible' });
   });
 
   // 3c. DESENHAR tab (also leaves us on the editor for the drawing test)

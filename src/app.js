@@ -341,8 +341,64 @@ const JOAO = [{
 const JOAO_DEFAULTS = JOAO.filter(c => c.hex !== "#1a1a1a");
 // Curated default rotation — vivid, high-contrast neighbours (red/turquoise/cream first, like the cushion)
 const COLORS = ["#d4242c", "#2aa0b4", "#ecdcb0", "#e4287c", "#2e9a5e", "#e8a020", "#1e40c8", "#6a2aa0", "#e84030", "#8ab840", "#c41878", "#e68a96", "#e8c838", "#f4f1e8"];
-const PRESET_LABELS = { rectangle: "Ret\u00e2ngulo", "L-shape": "Forma L", "staircase-boot": "Escada", cross: "Cruz" };
-const STRAND_LABELS = { thin: "fino", full: "grosso", string: "linha" };
+const STR = {
+  pt: {
+    fio: "fio", fios: "fios", pregos: "pregos",
+    soPadrao: "S\u00d3 O PADR\u00c3O", voltar: "VOLTAR",
+    tamanho: "Tamanho", hide: "esconder", change: "mudar", wLbl: "L", hLbl: "A",
+    fill: "Preencher", clear: "Limpar",
+    save: "Guardar", exportar: "Exportar", importar: "Importar",
+    stripTitle: "Fios", all: "TODOS",
+    tapHint: "Toque num fio para mudar a cor", custom: "Outra cor\u2026",
+    changeBg: "Mudar o fundo", strandTitle: "Grossura do fio", nailsTitle: "Mostrar pregos",
+    namePrompt: "Nome da forma:",
+    deleteConfirm: n => `Apagar "${n}"?`,
+    importErr: m => `N\u00e3o consegui importar: ${m}`,
+    totalLen: "Fio total: ",
+    balanced: p => `Fios equilibrados (cada um ~${p}% do comprimento).`,
+    unbalanced: (a, b) => `Desigual: o fio mais curto tem ${a}% do comprimento e o mais longo ${b}%.`,
+    tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas",
+    presets: { rectangle: "Ret\u00e2ngulo", "L-shape": "Forma L", "staircase-boot": "Escada", cross: "Cruz" },
+    strand: { thin: "fino", full: "grosso", string: "linha" },
+  },
+  en: {
+    fio: "string", fios: "strings", pregos: "nails",
+    soPadrao: "PATTERN ONLY", voltar: "BACK",
+    tamanho: "Size", hide: "hide", change: "change", wLbl: "W", hLbl: "H",
+    fill: "Fill", clear: "Clear",
+    save: "Save", exportar: "Export", importar: "Import",
+    stripTitle: "Strings", all: "ALL",
+    tapHint: "Tap a string to change its colour", custom: "Custom\u2026",
+    changeBg: "Change background", strandTitle: "String thickness", nailsTitle: "Show nails",
+    namePrompt: "Shape name:",
+    deleteConfirm: n => `Delete "${n}"?`,
+    importErr: m => `Could not import: ${m}`,
+    totalLen: "Total string: ",
+    balanced: p => `Strings are balanced (each ~${p}% of the length).`,
+    unbalanced: (a, b) => `Uneven: the shortest string is ${a}% of the length, the longest ${b}%.`,
+    tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved",
+    presets: { rectangle: "Rectangle", "L-shape": "L-shape", "staircase-boot": "Staircase", cross: "Cross" },
+    strand: { thin: "thin", full: "thick", string: "line" },
+  },
+};
+const HELP = {
+  pt: [
+    /*#__PURE__*/React.createElement("p", { key: 0, style: { margin: "0 0 8px", fontWeight: 600, color: "var(--accent)" } }, "Como usar"),
+    /*#__PURE__*/React.createElement("p", { key: 1, style: { margin: "0 0 6px" } }, "O n\u00famero no topo mostra quantos ", /*#__PURE__*/React.createElement("strong", null, "fios"), " o padr\u00e3o tem. O ponto colorido indica o ", /*#__PURE__*/React.createElement("strong", null, "equil\u00edbrio"), " \u2014 toque nele para ver porqu\u00ea."),
+    /*#__PURE__*/React.createElement("p", { key: 2, style: { margin: "0 0 6px" } }, "Para come\u00e7ar com um ret\u00e2ngulo, escolha as dimens\u00f5es em ", /*#__PURE__*/React.createElement("strong", null, "\"Tamanho\""), " e carregue em ", /*#__PURE__*/React.createElement("strong", null, "\"Preencher\""), "."),
+    /*#__PURE__*/React.createElement("p", { key: 3, style: { margin: "0 0 6px" } }, /*#__PURE__*/React.createElement("strong", null, "Arraste o dedo"), " na grelha para adicionar ou remover c\u00e9lulas \u2014 os fios atualizam em tempo real."),
+    /*#__PURE__*/React.createElement("p", { key: 4, style: { margin: "0 0 6px" } }, "As cores de cada fio est\u00e3o na aba ", /*#__PURE__*/React.createElement("strong", null, "Fios"), "; se gostar de uma forma, guarde-a em ", /*#__PURE__*/React.createElement("strong", null, "Guardadas"), "."),
+    /*#__PURE__*/React.createElement("p", { key: 5, style: { margin: 0 } }, "Os bot\u00f5es no canto do padr\u00e3o mudam o ", /*#__PURE__*/React.createElement("strong", null, "fundo"), ", o ", /*#__PURE__*/React.createElement("strong", null, "zoom"), ", os ", /*#__PURE__*/React.createElement("strong", null, "pregos"), " e a ", /*#__PURE__*/React.createElement("strong", null, "grossura do fio"), "."),
+  ],
+  en: [
+    /*#__PURE__*/React.createElement("p", { key: 0, style: { margin: "0 0 8px", fontWeight: 600, color: "var(--accent)" } }, "How to use"),
+    /*#__PURE__*/React.createElement("p", { key: 1, style: { margin: "0 0 6px" } }, "The number at the top shows how many ", /*#__PURE__*/React.createElement("strong", null, "strings"), " the pattern needs. The coloured dot shows the ", /*#__PURE__*/React.createElement("strong", null, "balance"), " \u2014 tap it to see why."),
+    /*#__PURE__*/React.createElement("p", { key: 2, style: { margin: "0 0 6px" } }, "To start with a rectangle, set the dimensions under ", /*#__PURE__*/React.createElement("strong", null, "\"Size\""), " and press ", /*#__PURE__*/React.createElement("strong", null, "\"Fill\""), "."),
+    /*#__PURE__*/React.createElement("p", { key: 3, style: { margin: "0 0 6px" } }, /*#__PURE__*/React.createElement("strong", null, "Drag your finger"), " across the grid to add or remove cells \u2014 the strings update live."),
+    /*#__PURE__*/React.createElement("p", { key: 4, style: { margin: "0 0 6px" } }, "Each string's colour lives in the ", /*#__PURE__*/React.createElement("strong", null, "Strings"), " tab; if you like a shape, keep it under ", /*#__PURE__*/React.createElement("strong", null, "Saved"), "."),
+    /*#__PURE__*/React.createElement("p", { key: 5, style: { margin: 0 } }, "The buttons in the corner of the pattern change the ", /*#__PURE__*/React.createElement("strong", null, "background"), ", ", /*#__PURE__*/React.createElement("strong", null, "zoom"), ", ", /*#__PURE__*/React.createElement("strong", null, "nails"), " and ", /*#__PURE__*/React.createElement("strong", null, "string thickness"), "."),
+  ],
+};
 function subtractInterval(a0, a1, b0, b1) {
   if (b0 >= a1 || b1 <= a0) return [[a0, a1]];
   const r = [];
@@ -403,7 +459,16 @@ function KnotMakerMobile() {
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const knotWrapRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('edit'); // null, 'edit', 'shapes', 'mode'
+  const [activeTab, setActiveTab] = useState('edit'); // null | 'edit' | 'fios' | 'shapes'
+  const [lang, setLang] = useState(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('lang');
+      if (q === 'en' || q === 'pt') return q;
+      return localStorage.getItem('knot.lang') === 'en' ? 'en' : 'pt';
+    } catch { return 'pt'; }
+  });
+  useEffect(() => { try { localStorage.setItem('knot.lang', lang); } catch {} }, [lang]);
+  const T = STR[lang];
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
     const q = () => setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth >= 500);
@@ -507,7 +572,7 @@ function KnotMakerMobile() {
     setVisibleCycles({});
   }, []);
   const saveCurrentShape = useCallback(() => {
-    const name = window.prompt("Nome da forma:");
+    const name = window.prompt(T.namePrompt);
     if (!name?.trim()) return;
     const trimmed = name.trim();
     const snap = {
@@ -550,7 +615,7 @@ function KnotMakerMobile() {
         }
         persistShapes(merged);
       } catch (err) {
-        window.alert(`N\u00e3o consegui importar: ${err.message}`);
+        window.alert(T.importErr(err.message));
       }
     };
     reader.readAsText(file);
@@ -1181,7 +1246,7 @@ function KnotMakerMobile() {
     const maxP = Math.max(...pcts);
     const spread = maxP - minP;
     const fair = spread <= 12;
-    const summary = fair ? `Fios equilibrados (cada um ~${(100 / cycles.length).toFixed(0)}% do comprimento).` : `Desigual: o fio mais curto tem ${minP.toFixed(0)}% do comprimento e o mais longo ${maxP.toFixed(0)}%.`;
+    const summary = fair ? T.balanced((100 / cycles.length).toFixed(0)) : T.unbalanced(minP.toFixed(0), maxP.toFixed(0));
     // Balance rating: green / orange / red
     let rating = 'red';
     if (cycles.length === 2) rating = 'green';else if (fair) rating = 'green';else if (spread <= 25) rating = 'orange';
@@ -1196,7 +1261,7 @@ function KnotMakerMobile() {
       rating,
       ratingColor
     };
-  }, [stringStats, cycles]);
+  }, [stringStats, cycles, T]);
   const clickGap = useCallback(g => {
     const ci = cycles.findIndex(c => c.gaps.has(g));
     if (ci < 0) return;
@@ -1286,7 +1351,7 @@ function KnotMakerMobile() {
   // Editor pointer handling
   const editorBaseCellSize = useMemo(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 400;
-    const availW = isLandscape ? Math.max(220, Math.min(w * 0.56 - 28, 640)) : Math.min(w - 24, 600);
+    const availW = isLandscape ? Math.max(220, Math.min(w * 0.5 - 28, 720)) : Math.min(w - 24, 600);
     return Math.max(28, Math.floor(availW / gridW));
   }, [gridW, isLandscape]);
   const [editorZoom, setEditorZoom] = useState(1);
@@ -1443,6 +1508,7 @@ function KnotMakerMobile() {
   const knotViewportEl = /*#__PURE__*/React.createElement("div", {
     ref: knotWrapRef,
     className: "knot-viewport",
+    onWheel: e => setZoom(z => Math.max(0.15, Math.min(5, z * (e.deltaY > 0 ? 0.92 : 1.09)))),
     style: {
       flex: 1,
       minHeight: 0,
@@ -1466,7 +1532,7 @@ function KnotMakerMobile() {
     }
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setBgIndex(i => (i + 1) % BG_OPTIONS.length),
-    title: "Mudar o fundo",
+    title: T.changeBg,
     style: {
       width: 36,
       height: 36,
@@ -1527,7 +1593,27 @@ function KnotMakerMobile() {
       alignItems: "center",
       justifyContent: "center"
     }
-  }, "+")), /*#__PURE__*/React.createElement("svg", {
+  }, "+"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowNails(v => !v),
+    title: T.nailsTitle,
+    style: {
+      width: 36, height: 36,
+      background: "rgba(18,22,28,0.92)",
+      border: "1px solid " + (showNails ? "var(--accent)" : "var(--hair)"),
+      color: showNails ? "var(--accent-soft)" : "var(--bone-dim)",
+      fontSize: 13, cursor: "pointer", fontFamily: "inherit", borderRadius: 4,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  }, showNails ? "\u25c9" : "\u25cb"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStrandMode(m => m === 'thin' ? 'full' : m === 'full' ? 'string' : 'thin'),
+    title: T.strandTitle,
+    style: {
+      height: 36, padding: "0 10px",
+      background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)",
+      color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8,
+      cursor: "pointer", fontFamily: "inherit", borderRadius: 4, textTransform: "uppercase"
+    }
+  }, T.strand[strandMode])), /*#__PURE__*/React.createElement("svg", {
     width: "100%",
     height: "100%",
     viewBox: `${vbX} ${vbY} ${vbW} ${vbH}`,
@@ -1683,7 +1769,7 @@ function KnotMakerMobile() {
       color: "var(--bone-dim)",
       fontSize: 11
     }
-  }, cycles.length === 1 ? "fio" : "fios"), selGap !== null && active && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, cycles.length === 1 ? T.fio : T.fios), selGap !== null && active && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       color: "var(--hair)"
     }
@@ -1693,10 +1779,25 @@ function KnotMakerMobile() {
       whiteSpace: "nowrap",
       fontSize: 11
     }
-  }, active.gaps.size, " pregos")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setActiveTab(activeTab === null ? 'edit' : null),
+  }, active.gaps.size, " " + T.pregos)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLang(l => l === 'pt' ? 'en' : 'pt'),
     style: {
       marginLeft: "auto",
+      background: "transparent",
+      color: "var(--bone-dim)",
+      border: "1px solid var(--hair)",
+      borderRadius: 8,
+      fontFamily: "inherit",
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: 0.6,
+      padding: "6px 10px",
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, lang === 'pt' ? "EN" : "PT"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveTab(activeTab === null ? 'edit' : null),
+    style: {
       background: activeTab === null ? "var(--accent-fill)" : "transparent",
       color: activeTab === null ? "var(--accent-on-fill)" : "var(--bone-dim)",
       border: "1px solid var(--hair)",
@@ -1709,7 +1810,7 @@ function KnotMakerMobile() {
       cursor: "pointer",
       whiteSpace: "nowrap"
     }
-  }, activeTab === null ? "VOLTAR" : "S\u00d3 O PADR\u00c3O"), balanceOpen && cycleBalance && /*#__PURE__*/React.createElement("span", {
+  }, activeTab === null ? T.voltar : T.soPadrao), balanceOpen && cycleBalance && /*#__PURE__*/React.createElement("span", {
     style: {
       width: "100%",
       color: "var(--bone-dim)",
@@ -1729,7 +1830,7 @@ function KnotMakerMobile() {
       letterSpacing: 0.5,
       marginBottom: 6
     }
-  }, "Toque num fio para mudar a cor"), /*#__PURE__*/React.createElement("div", {
+  }, T.tapHint), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexWrap: "wrap",
@@ -1832,7 +1933,7 @@ function KnotMakerMobile() {
         textTransform: "uppercase",
         borderRadius: 4
       }
-    }, "Outra cor\u2026")));
+    }, T.custom)));
   }))) : null;
   const cycleStripEl = cycles.length > 0 && cycles.length <= 30 ? /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1855,7 +1956,7 @@ function KnotMakerMobile() {
       cursor: "pointer",
       letterSpacing: 0.5
     }
-  }, /*#__PURE__*/React.createElement("span", null, "Fios (", cycles.length, ")"), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", null, T.stripTitle, " (", cycles.length, ")"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14
     }
@@ -1888,7 +1989,7 @@ function KnotMakerMobile() {
       fontSize: 10,
       letterSpacing: 1
     }
-  }, "TODOS"), cycles.map((c, i) => {
+  }, T.all), cycles.map((c, i) => {
     const vis = isCycleVisible(i);
     const col = getCycleColor(i);
     return /*#__PURE__*/React.createElement("button", {
@@ -1941,38 +2042,7 @@ function KnotMakerMobile() {
       lineHeight: 1.6,
       color: "var(--bone-dim)"
     }
-  }, /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 8px",
-      fontWeight: 600,
-      color: "var(--accent)"
-    }
-  }, "Como usar o editor"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px"
-    }
-  }, "O n\xFAmero no topo mostra quantos ", /*#__PURE__*/React.createElement("strong", null, "fios"), " o padr\xE3o tem. O ponto colorido indica o ", /*#__PURE__*/React.createElement("strong", null, "equil\xEDbrio"), ": verde = fios semelhantes, laranja = alguns dominantes, vermelho = um fio muito maior. Toque no ponto para ver porqu\u00ea."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px"
-    }
-  }, "Para come\xE7ar com um ret\xE2ngulo, coloque as dimens\xF5es (pregos \xD7 pregos) no bot\xE3o ", /*#__PURE__*/React.createElement("strong", null, "\"Tamanho\""), ", e depois carregue em ", /*#__PURE__*/React.createElement("strong", null, "\"Preencher\""), " para preencher."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px"
-    }
-  }, /*#__PURE__*/React.createElement("strong", null, "Arraste o dedo"), " na grelha para adicionar ou remover c\xE9lulas \u2014 os fios atualizam em tempo real."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px"
-    }
-  }, "Se gostar de uma forma, carregue em ", /*#__PURE__*/React.createElement("strong", null, "\"Formas\" \u2192 \"Guardar\""), " para guardar."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: "0 0 6px"
-    }
-  }, "Em baixo pode ver o padr\xE3o. Para ver em detalhe, v\xE1 a ", /*#__PURE__*/React.createElement("strong", null, "\"Ver\""), " e escolha ", /*#__PURE__*/React.createElement("strong", null, "grosso"), ", ", /*#__PURE__*/React.createElement("strong", null, "fino"), " ou ", /*#__PURE__*/React.createElement("strong", null, "linha"), " para ver como o padr\xE3o fica."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      margin: 0,
-      opacity: 0.7
-    }
-  }, "De momento, a interface est\xE1 pensada para facilitar a edi\xE7\xE3o no telem\xF3vel."))), /*#__PURE__*/React.createElement("div", {
+  }, HELP[lang])), /*#__PURE__*/React.createElement("div", {
     className: "grid-size-toolbar"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -1981,7 +2051,7 @@ function KnotMakerMobile() {
     "aria-expanded": gridSizePanelOpen,
     "aria-controls": "grid-size-panel",
     id: "grid-size-toggle"
-  }, /*#__PURE__*/React.createElement("span", null, "Tamanho", " ", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", null, T.tamanho, " ", /*#__PURE__*/React.createElement("span", {
     className: "grid-size-toggle__dims"
   }, gridW, "\xD7", gridH)), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -1991,7 +2061,7 @@ function KnotMakerMobile() {
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "grid-size-toggle__hint"
-  }, gridSizePanelOpen ? "esconder" : "mudar"), /*#__PURE__*/React.createElement("span", {
+  }, gridSizePanelOpen ? T.hide : T.change), /*#__PURE__*/React.createElement("span", {
     "aria-hidden": true,
     style: {
       fontSize: 10,
@@ -2021,7 +2091,7 @@ function KnotMakerMobile() {
       color: "var(--bone-dim)",
       letterSpacing: 1
     }
-  }, "L"), /*#__PURE__*/React.createElement("div", {
+  }, T.wLbl), /*#__PURE__*/React.createElement("div", {
     className: "stepper"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -2064,7 +2134,7 @@ function KnotMakerMobile() {
       color: "var(--bone-dim)",
       letterSpacing: 1
     }
-  }, "A"), /*#__PURE__*/React.createElement("div", {
+  }, T.hLbl), /*#__PURE__*/React.createElement("div", {
     className: "stepper"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -2119,7 +2189,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, "Preencher"), /*#__PURE__*/React.createElement("button", {
+  }, T.fill), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setCells(Array.from({
         length: gridH
@@ -2136,7 +2206,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, "Limpar")))), /*#__PURE__*/React.createElement("div", {
+  }, T.clear)))), /*#__PURE__*/React.createElement("div", {
     className: "editor-viewport-frame"
   }, /*#__PURE__*/React.createElement("div", {
     className: "editor-toolbar-rows"
@@ -2358,7 +2428,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, "Guardar"), /*#__PURE__*/React.createElement("button", {
+  }, T.save), /*#__PURE__*/React.createElement("button", {
     onClick: exportShapes,
     style: {
       padding: "10px 16px",
@@ -2371,7 +2441,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, "Exportar"), /*#__PURE__*/React.createElement("button", {
+  }, T.exportar), /*#__PURE__*/React.createElement("button", {
     onClick: () => importFileRef.current?.click(),
     style: {
       padding: "10px 16px",
@@ -2384,7 +2454,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, "Importar"), /*#__PURE__*/React.createElement("input", {
+  }, T.importar), /*#__PURE__*/React.createElement("input", {
     ref: importFileRef,
     type: "file",
     accept: "application/json",
@@ -2411,7 +2481,7 @@ function KnotMakerMobile() {
       setCycleColors({});
       setVisibleCycles({});
     }
-  }, PRESET_LABELS[name] || name))), savedShapes.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, T.presets[name] || name))), savedShapes.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
@@ -2426,129 +2496,23 @@ function KnotMakerMobile() {
     className: "knm-chip-x",
     onClick: e => {
       e.stopPropagation();
-      if (window.confirm(`Apagar "${s.name}"?`)) deleteShape(s.name);
+      if (window.confirm(T.deleteConfirm(s.name))) deleteShape(s.name);
     }
-  }, "x"))))), activeTab === 'mode' && /*#__PURE__*/React.createElement("div", {
+  }, "x"))))), activeTab === 'fios' && /*#__PURE__*/React.createElement("div", {
     className: "panel",
     style: {
       padding: 12,
       background: "var(--ink-2)",
       borderBottom: "1px solid var(--hair)"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, cycleStripEl, cycleBalance && /*#__PURE__*/React.createElement("div", {
     style: {
-      display: "flex",
-      gap: 10,
-      alignItems: "center",
-      flexWrap: "wrap"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
+      fontSize: 11.5,
       color: "var(--bone-dim)",
-      letterSpacing: 1,
-      textTransform: "uppercase"
+      padding: "8px 2px 2px",
+      lineHeight: 1.5
     }
-  }, "Fio"), ['thin', 'full', 'string'].map(mode => /*#__PURE__*/React.createElement("button", {
-    key: mode,
-    onClick: () => setStrandMode(mode),
-    style: {
-      padding: "10px 16px",
-      fontSize: 13,
-      letterSpacing: 1,
-      cursor: "pointer",
-      fontFamily: "inherit",
-      textTransform: "uppercase",
-      border: "1px solid",
-      background: strandMode === mode ? "var(--accent-fill)" : "transparent",
-      color: strandMode === mode ? "var(--accent-on-fill)" : "var(--bone-dim)",
-      borderColor: strandMode === mode ? "var(--accent)" : "var(--hair)",
-      fontWeight: strandMode === mode ? 600 : 400
-    }
-  }, STRAND_LABELS[mode] || mode))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 10,
-      alignItems: "center",
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: "var(--bone-dim)",
-      letterSpacing: 1,
-      textTransform: "uppercase"
-    }
-  }, "Zoom"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setZoom(z => Math.max(0.15, +(z / 1.3).toFixed(2))),
-    style: {
-      width: 36,
-      height: 36,
-      background: "var(--ink-2)",
-      border: "1px solid var(--hair)",
-      color: "var(--bone)",
-      fontSize: 18,
-      cursor: "pointer",
-      fontFamily: "inherit"
-    }
-  }, "-"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      color: "var(--bone)",
-      minWidth: 44,
-      textAlign: "center"
-    }
-  }, Math.round(zoom * 100), "%"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setZoom(z => Math.min(5, +(z * 1.3).toFixed(2))),
-    style: {
-      width: 36,
-      height: 36,
-      background: "var(--ink-2)",
-      border: "1px solid var(--hair)",
-      color: "var(--bone)",
-      fontSize: 18,
-      cursor: "pointer",
-      fontFamily: "inherit"
-    }
-  }, "+"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setZoom(1);
-      setPanX(0);
-      setPanY(0);
-    },
-    style: {
-      padding: "8px 14px",
-      background: "transparent",
-      border: "1px solid var(--hair)",
-      color: "var(--bone-dim)",
-      fontSize: 12,
-      letterSpacing: 1,
-      cursor: "pointer",
-      fontFamily: "inherit",
-      textTransform: "uppercase"
-    }
-  }, "Repor")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 10,
-      alignItems: "center",
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowNails(v => !v),
-    style: {
-      padding: "10px 16px",
-      fontSize: 13,
-      letterSpacing: 1,
-      cursor: "pointer",
-      fontFamily: "inherit",
-      textTransform: "uppercase",
-      border: "1px solid",
-      background: showNails ? "var(--accent-fill)" : "transparent",
-      color: showNails ? "var(--accent-on-fill)" : "var(--bone-dim)",
-      borderColor: showNails ? "var(--accent)" : "var(--hair)"
-    }
-  }, "Pregos")), stringStats.totalLen > 0 && /*#__PURE__*/React.createElement("div", {
+  }, cycleBalance.summary), stringStats.totalLen > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 16,
       borderTop: "1px solid var(--hair)",
@@ -2562,7 +2526,7 @@ function KnotMakerMobile() {
       color: "var(--accent-soft)",
       marginBottom: 8
     }
-  }, "Fio total: ", (stringStats.totalLen * 15 / 10).toFixed(0), "cm"), /*#__PURE__*/React.createElement("div", {
+  }, T.totalLen, (stringStats.totalLen * 15 / 10).toFixed(0), "cm"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -2617,7 +2581,7 @@ function KnotMakerMobile() {
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
     }
-  }, statsBarEl, tabPanelsEl, cycleStripEl), /*#__PURE__*/React.createElement("div", {
+  }, statsBarEl, tabPanelsEl, activeTab !== 'fios' && cycleStripEl), /*#__PURE__*/React.createElement("div", {
     className: "land-split-knot"
   }, knotViewportEl)) : activeTab === 'edit' ? /*#__PURE__*/React.createElement("div", {
     className: "edit-tab-scroll"
@@ -2643,12 +2607,12 @@ function KnotMakerMobile() {
   }, /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'edit' ? 'active' : ''}`,
     onClick: () => setActiveTab(activeTab === 'edit' ? null : 'edit')
-  }, "Desenhar"), /*#__PURE__*/React.createElement("button", {
+  }, T.tabDesenhar), /*#__PURE__*/React.createElement("button", {
+    className: `tab-btn ${activeTab === 'fios' ? 'active' : ''}`,
+    onClick: () => setActiveTab(activeTab === 'fios' ? null : 'fios')
+  }, T.tabFios), /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'shapes' ? 'active' : ''}`,
     onClick: () => setActiveTab(activeTab === 'shapes' ? null : 'shapes')
-  }, "Formas"), /*#__PURE__*/React.createElement("button", {
-    className: `tab-btn ${activeTab === 'mode' ? 'active' : ''}`,
-    onClick: () => setActiveTab(activeTab === 'mode' ? null : 'mode')
-  }, "Ver")));
+  }, T.tabGuardadas)));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(KnotMakerMobile, null));

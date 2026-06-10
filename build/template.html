@@ -63,6 +63,15 @@
   }
   .tab-btn.active { color: var(--accent-soft); border-top-color: var(--accent); }
   .tab-btn:active { color: var(--accent); }
+  /* pointer devices (Mac): hover affordances */
+  @media (hover: hover) {
+    .tab-btn:hover { color: var(--bone); }
+    .tab-btn.active:hover { color: var(--accent-soft); }
+    .knm-chip:hover { color: var(--accent-soft); border-color: var(--edge); }
+    .stepper button:hover { background: var(--panel-inner); }
+    .cycle-btn:hover { transform: translateY(-1px); }
+    .editor-zoom-step:hover, .editor-dpad-btn:hover { border-color: var(--edge); }
+  }
 
   .stats-bar {
     display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 12px;
@@ -82,7 +91,7 @@
     overflow: hidden;
   }
   .land-split-knot {
-    width: min(42vw, 300px); flex-shrink: 0; min-height: 0;
+    width: clamp(340px, 46vw, 620px); flex-shrink: 0; min-height: 0;
     border-left: 1px solid var(--hair); background: var(--ink);
     display: flex; flex-direction: column; position: relative;
   }
