@@ -349,7 +349,8 @@ const STR = {
     fill: "Preencher", clear: "Limpar",
     save: "Guardar", exportar: "Exportar", importar: "Importar",
     stripTitle: "Fios", all: "TODOS",
-    tapHint: "Toque num fio para mudar a cor", custom: "Outra cor\u2026",
+    tapHint: "Toque num fio: cor e visibilidade", custom: "Outra cor\u2026",
+    showFio: "Mostrar este fio", hideFio: "Esconder este fio",
     changeBg: "Mudar o fundo", strandTitle: "Grossura do fio", nailsTitle: "Mostrar pregos",
     namePrompt: "Nome da forma:",
     deleteConfirm: n => `Apagar "${n}"?`,
@@ -369,7 +370,8 @@ const STR = {
     fill: "Fill", clear: "Clear",
     save: "Save", exportar: "Export", importar: "Import",
     stripTitle: "Strings", all: "ALL",
-    tapHint: "Tap a string to change its colour", custom: "Custom\u2026",
+    tapHint: "Tap a string: colour & visibility", custom: "Custom\u2026",
+    showFio: "Show this string", hideFio: "Hide this string",
     changeBg: "Change background", strandTitle: "String thickness", nailsTitle: "Show nails",
     namePrompt: "Shape name:",
     deleteConfirm: n => `Delete "${n}"?`,
@@ -1873,8 +1875,7 @@ function KnotMakerMobile() {
   }, cycleBalance.summary));
   const colourPickerEl = cycles.length > 0 && cycles.length <= 30 ? /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: "8px 12px",
-      borderTop: "1px solid var(--hair)"
+      padding: "2px 12px 10px"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1889,8 +1890,33 @@ function KnotMakerMobile() {
       flexWrap: "wrap",
       gap: 6
     }
-  }, cycles.map((c, i) => {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (showAll) {
+        setShowAll(false);
+        setSelGap(null);
+        const hidden = {};
+        cycles.forEach((_, i) => {
+          hidden[i] = false;
+        });
+        setVisibleCycles(hidden);
+      } else {
+        setShowAll(true);
+        setSelGap(null);
+        setVisibleCycles({});
+      }
+    },
+    className: "cycle-btn",
+    style: {
+      background: showAll ? "var(--accent-fill)" : "transparent",
+      color: showAll ? "var(--accent-on-fill)" : "var(--bone-dim)",
+      borderColor: showAll ? "var(--accent)" : "var(--hair)",
+      fontSize: 10,
+      letterSpacing: 1
+    }
+  }, T.all), cycles.map((c, i) => {
     const col = getCycleColor(i);
+    const vis = isCycleVisible(i);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -1903,20 +1929,12 @@ function KnotMakerMobile() {
         i,
         kind: "primary"
       }),
+      className: "cycle-btn",
       style: {
-        width: 36,
-        height: 36,
-        borderRadius: 6,
-        border: "2px solid var(--hair)",
-        background: col,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 11,
-        fontWeight: 700,
-        color: "#000",
-        fontFamily: "inherit"
+        background: vis ? col : "transparent",
+        color: vis ? "#000" : "var(--bone-dim)",
+        borderColor: vis ? col : "var(--hair)",
+        opacity: vis ? 1 : 0.55
       }
     }, i + 1), /*#__PURE__*/React.createElement("input", {
       type: "color",
@@ -1951,7 +1969,23 @@ function KnotMakerMobile() {
         boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
         borderRadius: 8
       }
-    }, JOAO.map(s => /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => toggleCycle(i),
+      style: {
+        gridColumn: "span 7",
+        marginBottom: 2,
+        background: vis ? "transparent" : "var(--accent-fill)",
+        border: "1px solid var(--hair)",
+        color: vis ? "var(--bone-dim)" : "var(--accent-on-fill)",
+        fontSize: 10,
+        padding: "8px",
+        cursor: "pointer",
+        letterSpacing: 1,
+        fontFamily: "inherit",
+        textTransform: "uppercase",
+        borderRadius: 4
+      }
+    }, vis ? T.hideFio : T.showFio), JOAO.map(s => /*#__PURE__*/React.createElement("button", {
       key: s.hex,
       title: s.name,
       onClick: () => {
@@ -2013,50 +2047,7 @@ function KnotMakerMobile() {
     style: {
       fontSize: 14
     }
-  }, cycleStripOpen ? "▾" : "▸")), cycleStripOpen && /*#__PURE__*/React.createElement("div", {
-    className: "cycle-strip",
-    style: {
-      padding: "4px 12px 8px"
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      if (showAll) {
-        setShowAll(false);
-        setSelGap(null);
-        const hidden = {};
-        cycles.forEach((_, i) => {
-          hidden[i] = false;
-        });
-        setVisibleCycles(hidden);
-      } else {
-        setShowAll(true);
-        setSelGap(null);
-        setVisibleCycles({});
-      }
-    },
-    className: "cycle-btn",
-    style: {
-      background: showAll ? "var(--accent-fill)" : "transparent",
-      color: showAll ? "var(--accent-on-fill)" : "var(--bone-dim)",
-      borderColor: showAll ? "var(--accent)" : "var(--hair)",
-      fontSize: 10,
-      letterSpacing: 1
-    }
-  }, T.all), cycles.map((c, i) => {
-    const vis = isCycleVisible(i);
-    const col = getCycleColor(i);
-    return /*#__PURE__*/React.createElement("button", {
-      key: i,
-      className: "cycle-btn",
-      onClick: () => toggleCycle(i),
-      style: {
-        background: vis ? col : "transparent",
-        color: vis ? "#000" : "#6a6050",
-        borderColor: vis ? col : "#332e24",
-        opacity: vis ? 1 : 0.5
-      }
-    }, i + 1);
-  })), cycleStripOpen && colourPickerEl) : null;
+  }, cycleStripOpen ? "▾" : "▸")), cycleStripOpen && colourPickerEl) : null;
   const tabPanelsEl = /*#__PURE__*/React.createElement(React.Fragment, null, activeTab === 'edit' && /*#__PURE__*/React.createElement("div", {
     className: "panel panel-edit",
     style: {
@@ -2458,7 +2449,7 @@ function KnotMakerMobile() {
       background: "var(--ink-2)",
       borderBottom: "1px solid var(--hair)"
     }
-  }, cycleStripEl, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 10,
