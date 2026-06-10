@@ -1,4 +1,4 @@
-// Smoke tests for the Toy (play.html — "Quantos fios?").
+// Smoke tests for the Toy v2 (play.html — the quiet weaving game).
 // Drives the real page in system Chrome via playwright-core (no browser download).
 // Usage:  node smoke-toy.mjs   (from scripts/)  — exits 0 on pass, 1 on fail.
 //         PORT=#### to target an already-running server.
@@ -17,6 +17,7 @@ const BASE_URL = `http://localhost:${PORT}/`;
 const PAGE_URL = `${BASE_URL}play.html`;
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const VIEWPORTS = [
+  { label: 'phone', width: 390, height: 844 },
   { label: 'tablet', width: 1280, height: 800 },
   { label: 'mac', width: 1440, height: 900 },
 ];
@@ -90,96 +91,165 @@ async function runSuite(browser, vp) {
     consoleErrors.push(`${msg.text()}${url ? ` (${url})` : ''}`);
   });
   page.on('pageerror', (err) => consoleErrors.push(String(err)));
+  page.on('console', (msg) => {
+    if (msg.type() === 'warning') console.log(`warn  [page] ${msg.text()}`);
+  });
 
-  // 1. Page loads cleanly into the wager phase
-  await check(t('page loads with board + 9 wager buttons, no errors'), async () => {
+  const shot = (name) => page.screenshot({ path: path.join(ARTIFACTS, `toy-${name}-${vp.label}.png`), fullPage: true });
+
+  // 1. Loads into the draw view with a live string count
+  await check(t('page loads: editor grid + live string count, no errors'), async () => {
     await page.goto(PAGE_URL, { waitUntil: 'load' });
-    await page.waitForSelector('#board svg');
-    const nums = await page.locator('.num').count();
-    if (nums !== 9) throw new Error(`expected 9 wager buttons, found ${nums}`);
+    await page.waitForSelector('#editor .cell');
+    const n = await page.evaluate(() => window.__toy.draw.n);
+    if (!Number.isInteger(n) || n < 1) throw new Error(`draw.n = ${n}`);
+    const countText = await page.locator('#count-line').textContent();
+    if (!countText.includes(String(n))) throw new Error(`count line "${countText}" missing ${n}`);
     const title = await page.title();
     if (title.startsWith('ERRO')) throw new Error(`document.title = "${title}"`);
     if (consoleErrors.length) throw new Error(`console errors: ${consoleErrors.join(' | ')}`);
   });
 
-  const answer = await page.evaluate(() => window.__toy.round.n);
-  if (vp.label === 'tablet') {
-    await page.screenshot({ path: path.join(ARTIFACTS, `toy-wager-${vp.label}.png`), fullPage: true });
-  }
-
-  // 2. Wagering the right number starts the pull and ends in the dye shop
-  await check(t('correct wager -> pull plays -> "Right" + dye chips'), async () => {
-    await page.locator('.num', { hasText: new RegExp(`^${answer}$`) }).click();
-    await page.locator('.ask.dim', { hasText: /wagered/ }).waitFor({ state: 'visible' });
-    await page.evaluate(() => window.__toy.skip());
-    await page.locator('.chips').waitFor({ state: 'visible', timeout: 25000 });
-    const line = await page.locator('#panel .ask').first().textContent();
-    if (!/^Right/.test(line.trim())) throw new Error(`result line: "${line.trim()}"`);
-    const chips = await page.locator('.chip').count();
-    if (chips !== answer) throw new Error(`expected ${answer} chips, found ${chips}`);
+  // 2. Painting cells changes the shape (and the count reacts live)
+  await check(t('painting on the grid changes the shape + recounts'), async () => {
+    const before = await page.evaluate(() => ({
+      cells: JSON.stringify(window.__toy.draw.cells),
+      n: window.__toy.draw.n,
+    }));
+    const box = await page.locator('#editor').boundingBox();
+    // drag along the top-left region: toggles a run of cells
+    await page.mouse.move(box.x + box.width * 0.08, box.y + box.height * 0.08);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.08, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    const after = await page.evaluate(() => ({
+      cells: JSON.stringify(window.__toy.draw.cells),
+      n: window.__toy.draw.n,
+    }));
+    if (after.cells === before.cells) throw new Error('cells unchanged after drag');
+    const countText = await page.locator('#count-line').textContent();
+    if (!countText.includes(String(after.n))) throw new Error(`count line stale: "${countText}" vs n=${after.n}`);
+    // undo restores
+    await page.locator('#undo-btn').click();
+    await page.waitForTimeout(120);
+    const undone = await page.evaluate(() => JSON.stringify(window.__toy.draw.cells));
+    if (undone !== before.cells) throw new Error('undo did not restore the shape');
   });
 
-  // 3. Dye shop: chip tap and shuffle recolour the strings
+  if (vp.label === 'phone') await shot('draw');
+
+  // 3. Weave it -> the pull plays -> reveal with certificate + chips
+  let myN = 0;
+  await check(t('weave it -> pull -> reveal: count, cert, chips'), async () => {
+    await page.locator('#weave-btn').click();
+    await page.locator('.ask.dim', { hasText: /laying the string/ }).waitFor({ state: 'visible' });
+    await page.evaluate(() => window.__toy.skip());
+    await page.locator('.chips').waitFor({ state: 'visible', timeout: 25000 });
+    myN = await page.evaluate(() => window.__toy.round.n);
+    const line = await page.locator('#panel .ask').first().textContent();
+    if (!line.includes(`${myN} string`)) throw new Error(`reveal line: "${line}"`);
+    const cert = await page.locator('.cert').first().textContent();
+    if (!/first traced by you/.test(cert)) throw new Error(`cert line: "${cert}"`);
+    const chips = await page.locator('.chip').count();
+    if (chips !== myN) throw new Error(`expected ${myN} chips, found ${chips}`);
+  });
+
+  // 4. Dye shop: chip tap + shuffle recolour
   await check(t('chip tap + shuffle change string colours'), async () => {
     const colorsOf = () => page.evaluate(() => JSON.stringify(window.__toy.round.colors));
     const c0 = await colorsOf();
     await page.locator('.chip').first().click();
     const c1 = await colorsOf();
     if (c1 === c0) throw new Error('chip tap did not change colours');
-    await page.locator('.btn', { hasText: /^shuffle colours$/ }).click();
+    await page.locator('.btn', { hasText: /^shuffle$/ }).click();
     const c2 = await colorsOf();
     if (c2 === c1) throw new Error('shuffle did not change colours');
   });
 
-  await page.screenshot({ path: path.join(ARTIFACTS, `toy-dye-${vp.label}.png`), fullPage: true });
-  console.log(`info  screenshot -> ${path.relative(ROOT, path.join(ARTIFACTS, `toy-dye-${vp.label}.png`))}`);
+  if (vp.label === 'tablet') await shot('weave');
 
-  // 4. Keep -> gallery item + localStorage
-  await check(t('"keep" stores the design in the gallery'), async () => {
+  // 5. Name + keep -> appears on the wall + localStorage
+  await check(t('name + keep puts the weave on the wall'), async () => {
+    await page.locator('#name-input').fill('smoke test weave');
     await page.locator('.btn', { hasText: /^keep$/ }).click();
-    await page.locator('.btn', { hasText: /kept ✓/ }).waitFor({ state: 'visible' });
-    await page.locator('#gallery .kept svg').first().waitFor({ state: 'visible' });
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('toy.gallery') || '[]'));
-    if (stored.length !== 1) throw new Error(`expected 1 stored design, found ${stored.length}`);
-    if (!stored[0].startsWith('T1-')) throw new Error(`stored code "${stored[0]}" is not a T1 code`);
+    await page.locator('.btn', { hasText: /on the wall/ }).waitFor({ state: 'visible' });
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('toy.wall.v1') || '[]'));
+    if (stored.length !== 1) throw new Error(`expected 1 stored entry, found ${stored.length}`);
+    if (stored[0].name !== 'smoke test weave') throw new Error(`stored name "${stored[0].name}"`);
+    if (!stored[0].code.startsWith('T1-')) throw new Error(`stored code "${stored[0].code}"`);
   });
 
-  // 5. Share copies a decodable design-code URL
+  // 6. Share card renders a real PNG
+  await check(t('share card renders a PNG data URL'), async () => {
+    const len = await page.evaluate(() => window.__toy.cardDataURL().then(u => u.length));
+    if (len < 20000) throw new Error(`card data URL suspiciously small (${len})`);
+  });
+
+  // 7. Copy link -> valid decodable ?d= URL
   let sharedUrl = '';
-  await check(t('"share" copies a valid ?d=T1-… URL'), async () => {
-    await page.locator('.btn', { hasText: /^share$/ }).click();
+  await check(t('"copy link" copies a valid ?d=T1-… URL'), async () => {
+    await page.locator('.btn', { hasText: /^copy link$/ }).click();
     await page.locator('.btn', { hasText: /copied/ }).waitFor({ state: 'visible' });
     sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
     if (!sharedUrl.includes('?d=T1-')) throw new Error(`clipboard: "${sharedUrl}"`);
     const ok = await page.evaluate((u) => {
-      const code = u.split('?d=')[1];
-      const d = window.TearCode.decodeDesign(code);
+      const d = window.TearCode.decodeDesign(u.split('?d=')[1]);
       return d.gw >= 2 && d.gh >= 2;
     }, sharedUrl);
     if (!ok) throw new Error('copied code did not decode');
   });
 
-  // 6. "another board" returns to the wager with a fresh board
-  await check(t('"another board" starts a new round'), async () => {
-    await page.locator('.btn.next', { hasText: /another board/ }).click();
-    await page.locator('.nums').waitFor({ state: 'visible' });
-    const nums = await page.locator('.num').count();
-    if (nums !== 9) throw new Error(`expected 9 wager buttons, found ${nums}`);
+  // 8. The wall: João pinned, kept weave present, filters work
+  await check(t('wall shows João + kept weave, filter by string count'), async () => {
+    await page.locator('#tabs button', { hasText: /the wall/ }).click();
+    await page.locator('.wall-card.joao').waitFor({ state: 'visible' });
+    await page.locator('.wall-card', { hasText: 'smoke test weave' }).waitFor({ state: 'visible' });
+    const joaoPhoto = await page.locator('.joao-photo').evaluate(img => img.complete && img.naturalWidth > 0);
+    if (!joaoPhoto) throw new Error('João photo did not load');
+    const total = await page.locator('.wall-card').count();
+    await page.locator('.f-chip', { hasText: /^7 strings$/ }).click();
+    const filtered = await page.locator('.wall-card').count();
+    if (filtered >= total) throw new Error(`filter did not narrow the wall (${filtered} of ${total})`);
+    const badN = await page.locator('.wall-card .card-n', { hasText: /^(?!7 )/ }).count();
+    if (badN > 0) throw new Error(`${badN} non-7-string cards visible under the 7 filter`);
+    await page.locator('.f-chip', { hasText: /^all$/ }).click();
+    const back = await page.locator('.wall-card').count();
+    if (back !== total) throw new Error(`"all" filter shows ${back}, expected ${total}`);
   });
 
-  // 7. Opening a shared URL skips the wager and lands in the dye shop
-  await check(t('shared ?d= URL skips wager, plays, same cycle count'), async () => {
+  if (vp.label === 'phone' || vp.label === 'mac') await shot('wall');
+
+  // 9. Opening a wall piece -> finished weave, remix loads it into the editor
+  await check(t('wall card opens finished; remix loads shape into editor'), async () => {
+    // card textContent starts with the player SVG's <style> text, so anchor on .card-name
+    await page.locator('.wall-card', { has: page.locator('.card-name', { hasText: /^seven$/ }) }).click();
+    await page.locator('.chips').waitFor({ state: 'visible' });
+    const n = await page.evaluate(() => window.__toy.round.n);
+    if (n !== 7) throw new Error(`"seven" opened with ${n} strings`);
+    await page.locator('.btn.next', { hasText: /remix/ }).click();
+    await page.locator('#editor .cell').first().waitFor({ state: 'visible' });
+    // recount is rAF-deferred — poll instead of reading immediately
+    await page.waitForFunction(() => window.__toy.draw.n === 7, null, { timeout: 3000 })
+      .catch(async () => {
+        const drawN = await page.evaluate(() => window.__toy.draw.n);
+        throw new Error(`remixed shape recounts to ${drawN}, expected 7`);
+      });
+  });
+
+  // 10. Shared ?d= URL plays the design and lands in the dye shop
+  await check(t('shared ?d= URL plays straight into the weave'), async () => {
     await page.goto(sharedUrl, { waitUntil: 'load' });
     await page.waitForSelector('#board svg');
-    const nums = await page.locator('.num').count();
-    if (nums !== 0) throw new Error('wager buttons shown for a shared board');
-    const n = await page.evaluate(() => window.__toy.round.n);
-    if (n !== answer) throw new Error(`shared board has ${n} fios, expected ${answer}`);
+    const hidden = await page.locator('#view-draw').isHidden();
+    if (!hidden) throw new Error('draw view shown instead of the shared weave');
     await page.evaluate(() => window.__toy.skip());
     await page.locator('.chips').waitFor({ state: 'visible', timeout: 25000 });
+    const n = await page.evaluate(() => window.__toy.round.n);
+    if (n !== myN) throw new Error(`shared weave has ${n} strings, expected ${myN}`);
   });
 
-  // 8. Zero console errors over the whole interaction
+  // 11. Zero console errors over the whole interaction
   await check(t('no console/page errors during entire run'), async () => {
     const title = await page.title();
     if (title.startsWith('ERRO')) throw new Error(`document.title = "${title}"`);

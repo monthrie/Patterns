@@ -48,6 +48,7 @@ Single React component `KnotMakerMobile` plus pure engine functions. Coordinate 
 - `index.html` — the product (generated, committed)
 - `about.html` — the story page (static; live player embeds; links into the tool)
 - `player.html` — trace-player demo / animation studio (static)
+- `play.html` + `src/toy.js` — the Toy: standalone quiet weaving game (draw → weave → dye → wall → share); shared engine/player/code, never touches the app; smoke: `node scripts/smoke-toy.mjs`
 - `src/app.js` — application source of truth (the original JSX source was lost; this is readable transpiled output)
 - `src/engine.js`, `src/player.js` — shared engine + embeddable player (used by index.html overlay, about.html, player.html)
 - `build/` — assembler, template, vendored React, dev server (`node_modules/` gitignored)
