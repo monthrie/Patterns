@@ -77,8 +77,17 @@ Working record of everything established so far. **Facts, not prose** — the es
 - Shoes: "a thing you can walk in, made of nothing but circles."
 - The square paradox: the most symmetric board (n×n) is the most fragmented (n loops); the humble 17×10 is one perfect circle.
 
-## 7. Assets & to-dos for the website
+## 7. Website vision (Wilmon, 2026-06-10)
+
+- **Structure: a scroll story where the cycle count rises as you descend** — and the escalation IS João's biography (1 = purist era → 2 = the accident he loved → colour realization → 8 = the jacket → 15 = mastery of the territory he once refused).
+- **Each station pairs a live animation with the real object**: the actual engine tracing that exact pattern in-page (not video — real bounces), then a photograph of the physical piece João made of that very pattern. Digital twin ↔ cotton twin.
+- **The collaboration is a core narrative thread**: a craftsman who could only see four loops ahead inspired a friend to build him an instrument — a small handmade program made for one user — and with it he went past every tradition. Toolmaker and weaver, two crafts mirroring each other. (Do NOT use the phrase "vibe coding"; tell it as friendship + tools.)
+- The mathematics essay (`where-this-craft-sits-in-mathematics.md`) is a page on the site, behind a photo of the jacket.
+- **Technical backbone**: every site animation = a design code + a small embeddable trace-player built on the shared engine. Build The Pull once; it serves the Oficina app, the Toy, and all website embeds.
+
+## 8. Assets & to-dos for the website
 
 - Have: cushion photo. Need: jacket photos, shoes photos, macro of a join, photo of João at the board, photo of nail board mid-weave.
+- **Need for the twin pairs**: per piece, the design (cells/colors as a design code) AND a photo of the finished object — at minimum a 2-cycle piece, the 8-cycle jacket, a 15-cycle piece. Recreate each design in the app and save it so the site animation traces the true pattern.
 - Verify with João: how he plans color assignment; how he handles corners physically; his nail spacing(s); board sizes; whether he names pieces.
 - Product strategy (decided 2026-06-10): three products — (1) **A Oficina**: João's instrument (current index.html, PT-first, iterate forever); (2) **The Toy**: separate playful app, shared engine; (3) **Commissions**: later, design-code URLs baked in early.
