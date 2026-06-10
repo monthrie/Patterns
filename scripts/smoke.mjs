@@ -150,12 +150,13 @@ async function runSuite(browser, vp) {
     await page.locator('.knot-zoom-btns button', { hasText: /^linha$/i }).first().click(); // back to fino
   });
 
-  // 3b-ii-b. play overlay: open, player renders, close
-  await check(t('play button opens the laying animation overlay'), async () => {
-    await page.locator('.knot-zoom-btns button[title]', { hasText: /^\u25b6$/ }).first().click();
-    await page.locator('div[style*="fixed"] svg').first().waitFor({ state: 'visible', timeout: 4000 });
-    await page.locator('button[aria-label]', { hasText: /^\u2715$/ }).first().click();
-    await page.locator('div[style*="fixed"] svg').first().waitFor({ state: 'detached', timeout: 4000 });
+  // 3b-ii-b. in-place playback: play, player covers the weave pane, stop
+  await check(t('play button animates the pattern in place'), async () => {
+    await page.locator('.knot-zoom-btns button', { hasText: /^\u25b6$/ }).first().click();
+    await page.locator('.knot-viewport > div > svg').first().waitFor({ state: 'visible', timeout: 4000 });
+    await page.locator('.knot-zoom-btns button', { hasText: /^\u25a0$/ }).first().click();
+    await page.locator('.knot-viewport > div > svg').first().waitFor({ state: 'detached', timeout: 4000 });
+    await page.locator('.knot-zoom-btns button', { hasText: /^\u25b6$/ }).first().waitFor({ state: 'visible' });
   });
 
   // 3b-iii. language toggle EN -> PT

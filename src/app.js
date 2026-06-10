@@ -474,6 +474,7 @@ function KnotMakerMobile() {
   const [playerOpen, setPlayerOpen] = useState(false);
   const playerBoxRef = useRef(null);
   const playerApiRef = useRef(null);
+  useEffect(() => { setPlayerOpen(false); }, [cells, gridW, gridH]);
   useEffect(() => {
     if (!playerOpen || !playerBoxRef.current || typeof TearPlayer === 'undefined') return;
     const api = TearPlayer.create(playerBoxRef.current, {
@@ -1536,7 +1537,13 @@ function KnotMakerMobile() {
       touchAction: "none",
       position: "relative"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, playerOpen && /*#__PURE__*/React.createElement("div", {
+    ref: playerBoxRef,
+    style: {
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      zIndex: 5, background: bgColor
+    }
+  }), /*#__PURE__*/React.createElement("div", {
     className: "knot-zoom-btns",
     style: {
       position: "absolute",
@@ -1629,7 +1636,27 @@ function KnotMakerMobile() {
       color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8,
       cursor: "pointer", fontFamily: "inherit", borderRadius: 4, textTransform: "uppercase"
     }
-  }, T.strand[strandMode]), /*#__PURE__*/React.createElement("button", {
+  }, T.strand[strandMode]), playerOpen ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const a = playerApiRef.current; if (a) { a.restart(); a.play(); } },
+    title: T.playAgain,
+    style: {
+      width: 36, height: 36,
+      background: "rgba(18,22,28,0.92)", border: "1px solid var(--hair)",
+      color: "var(--bone-dim)", fontSize: 14, cursor: "pointer",
+      fontFamily: "inherit", borderRadius: 4,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  }, "\u21bb"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerOpen(false),
+    title: T.playClose,
+    style: {
+      width: 36, height: 36,
+      background: "rgba(18,22,28,0.92)", border: "1px solid var(--accent)",
+      color: "var(--accent-soft)", fontSize: 11, cursor: "pointer",
+      fontFamily: "inherit", borderRadius: 4,
+      display: "flex", alignItems: "center", justifyContent: "center"
+    }
+  }, "\u25a0")) : /*#__PURE__*/React.createElement("button", {
     onClick: () => setPlayerOpen(true),
     title: T.playTitle,
     style: {
@@ -2628,38 +2655,7 @@ function KnotMakerMobile() {
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
     }
-  }, statsBarEl, tabPanelsEl, knotViewportEl), playerOpen && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
-      background: "rgba(9,12,15,0.97)",
-      display: "flex", flexDirection: "column"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "10px 14px", borderBottom: "1px solid var(--hair)"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: { fontSize: 13, letterSpacing: 1, textTransform: "uppercase", color: "var(--accent-soft)" }
-  }, T.playTitle), /*#__PURE__*/React.createElement("button", {
-    onClick: () => { const a = playerApiRef.current; if (a) { a.restart(); a.play(); } },
-    style: {
-      marginLeft: "auto", padding: "8px 14px", background: "transparent",
-      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone-dim)",
-      fontSize: 12, letterSpacing: 0.6, cursor: "pointer", fontFamily: "inherit"
-    }
-  }, "\u21bb " + T.playAgain), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setPlayerOpen(false),
-    "aria-label": T.playClose,
-    style: {
-      width: 38, height: 38, background: "transparent",
-      border: "1px solid var(--hair)", borderRadius: 8, color: "var(--bone)",
-      fontSize: 16, cursor: "pointer", fontFamily: "inherit"
-    }
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
-    ref: playerBoxRef,
-    style: { flex: 1, minHeight: 0 }
-  })), /*#__PURE__*/React.createElement("div", {
+  }, statsBarEl, tabPanelsEl, knotViewportEl), /*#__PURE__*/React.createElement("div", {
     className: "tab-bar"
   }, /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'edit' ? 'active' : ''}`,
