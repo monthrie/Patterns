@@ -360,6 +360,7 @@ const STR = {
     unbalanced: (a, b) => `Desigual: o fio mais curto tem ${a}% do comprimento e o mais longo ${b}%.`,
     tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas",
     playTitle: "Ver a montagem", playClose: "Fechar", playAgain: "Outra vez",
+    loopTitle: "Repetir este fio",
     presets: { rectangle: "Ret\u00e2ngulo", "L-shape": "Forma L", "staircase-boot": "Escada", cross: "Cruz" },
     strand: { thin: "fino", full: "grosso", string: "linha" },
   },
@@ -381,6 +382,7 @@ const STR = {
     unbalanced: (a, b) => `Uneven: the shortest string is ${a}% of the length, the longest ${b}%.`,
     tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved",
     playTitle: "Watch the laying", playClose: "Close", playAgain: "Replay",
+    loopTitle: "Loop this string",
     presets: { rectangle: "Rectangle", "L-shape": "L-shape", "staircase-boot": "Staircase", cross: "Cross" },
     strand: { thin: "thin", full: "thick", string: "line" },
   },
@@ -479,9 +481,30 @@ function KnotMakerMobile() {
   useEffect(() => { setPlayerOpen(false); }, [cells, gridW, gridH]);
   const [playerPaused, setPlayerPaused] = useState(false);
   const [playerSpeed, setPlayerSpeed] = useState(1);
+  const [playerLoop, setPlayerLoop] = useState(false);
   const scrubRef = useRef(null);
+  const segRefs = useRef([]);
+  const segMetaRef = useRef(null);
   const scrubDraggingRef = useRef(false);
   const scrubWasPlayingRef = useRef(false);
+  const paintSegments = gt => {
+    const meta = segMetaRef.current;
+    if (!meta) return;
+    for (let i = 0; i < meta.lens.length; i++) {
+      const el2 = segRefs.current[i];
+      if (!el2) continue;
+      const f = meta.lens[i] ? Math.max(0, Math.min(1, (gt - meta.starts[i]) / meta.lens[i])) : 0;
+      el2.style.width = (f * 100) + "%";
+    }
+  };
+  const seekFromClientX = clientX => {
+    const a = playerApiRef.current;
+    const bar = scrubRef.current;
+    if (!a || !bar) return;
+    const r = bar.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    a.seekGlobal(frac * a.getState().totalAll);
+  };
   useEffect(() => {
     if (!playerOpen || !playerBoxRef.current || typeof TearPlayer === 'undefined') return;
     setPlayerPaused(false);
@@ -491,17 +514,15 @@ function KnotMakerMobile() {
       bg: bgColor,
       autoplay: true,
       onDone: () => setPlayerPaused(true),
-      onTick: st => {
-        if (scrubRef.current && !scrubDraggingRef.current) {
-          scrubRef.current.value = String(Math.round(st.globalT / st.totalAll * 1000));
-        }
-      },
+      onTick: st => paintSegments(st.globalT),
     });
     api.setSpeed(playerSpeed);
+    api.setLoop(playerLoop);
     playerApiRef.current = api;
     return () => { playerApiRef.current = null; api.destroy(); };
   }, [playerOpen]);
   useEffect(() => { playerApiRef.current?.setSpeed?.(playerSpeed); }, [playerSpeed]);
+  useEffect(() => { playerApiRef.current?.setLoop?.(playerLoop); }, [playerLoop]);
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
     const q = () => setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth >= 500);
@@ -1266,6 +1287,14 @@ function KnotMakerMobile() {
     };
   }, [cycles, getCycleColor, cycleSecondary]);
 
+  segMetaRef.current = (() => {
+    const lens = cycles.map((_, i) => stringStats.perCycle[i] ? stringStats.perCycle[i].len : 0);
+    const starts = [];
+    let acc = 0;
+    for (const L of lens) { starts.push(acc); acc += L; }
+    return { lens, starts };
+  })();
+
   /** Per-cycle share of total string length — answers “8 cycles but two hog the length?” */
   const cycleBalance = useMemo(() => {
     const {
@@ -1588,31 +1617,64 @@ function KnotMakerMobile() {
   }, playerPaused ? "\u25b6" : "| |"), /*#__PURE__*/React.createElement("button", {
     onClick: () => { const a = playerApiRef.current; if (a) a.jumpToCycle(a.getState().cycle + 1); },
     className: "trans-btn"
-  }, "\u25b6\u25b6"), /*#__PURE__*/React.createElement("input", {
+  }, "\u25b6\u25b6"), /*#__PURE__*/React.createElement("div", {
     ref: scrubRef,
-    className: "scrub",
-    type: "range", min: 0, max: 1000, step: 1, defaultValue: 0,
-    onPointerDown: () => {
-      const a = playerApiRef.current;
+    className: "scrub-bar",
+    onPointerDown: e => {
+      e.currentTarget.setPointerCapture(e.pointerId);
       scrubDraggingRef.current = true;
+      const a = playerApiRef.current;
       if (a && a.getState().playing) {
         scrubWasPlayingRef.current = true;
-        a.pause(); setPlayerPaused(true);
+        a.pause();
+        setPlayerPaused(true);
       }
+      seekFromClientX(e.clientX);
     },
-    onInput: e => {
-      const a = playerApiRef.current;
-      if (a) a.seekGlobal(+e.target.value / 1000 * a.getState().totalAll);
+    onPointerMove: e => {
+      if (scrubDraggingRef.current) seekFromClientX(e.clientX);
     },
     onPointerUp: () => {
       scrubDraggingRef.current = false;
       const a = playerApiRef.current;
       if (a && scrubWasPlayingRef.current) {
         scrubWasPlayingRef.current = false;
-        a.play(); setPlayerPaused(false);
+        a.play();
+        setPlayerPaused(false);
       }
+    },
+    style: {
+      flex: 1, minWidth: 140, height: 28,
+      display: "flex", alignItems: "center", gap: 2,
+      cursor: "pointer", touchAction: "none", padding: "0 2px"
     }
-  }), [0.5, 1, 2, 4].map(v => /*#__PURE__*/React.createElement("button", {
+  }, cycles.map((c, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      position: "relative", height: 10,
+      flexGrow: stringStats.perCycle[i] ? stringStats.perCycle[i].len : 1,
+      flexBasis: 0,
+      background: getCycleColor(i) + "30",
+      borderRadius: 3, overflow: "hidden",
+      pointerEvents: "none"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    ref: el2 => { segRefs.current[i] = el2; },
+    style: {
+      position: "absolute", left: 0, top: 0, bottom: 0, width: "0%",
+      background: getCycleColor(i), borderRadius: 3
+    }
+  })))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPlayerLoop(v => !v),
+    title: T.loopTitle,
+    "aria-pressed": playerLoop,
+    className: "trans-btn",
+    style: {
+      color: playerLoop ? "var(--accent-on-fill)" : "var(--bone-dim)",
+      background: playerLoop ? "var(--accent-fill)" : "transparent",
+      borderColor: playerLoop ? "var(--accent)" : "var(--hair)"
+    }
+  }, "\u27f3"), [0.5, 1, 2, 4].map(v => /*#__PURE__*/React.createElement("button", {
     key: v,
     onClick: () => setPlayerSpeed(v),
     className: "trans-btn",
@@ -1626,21 +1688,7 @@ function KnotMakerMobile() {
     onClick: () => setPlayerOpen(false),
     className: "trans-btn",
     style: { marginLeft: 4 }
-  }, "\u2715")), cycles.length > 1 && cycles.length <= 30 && /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: { fontSize: 10, color: "var(--bone-dim)", letterSpacing: 1, textTransform: "uppercase", marginRight: 2 }
-  }, T.stripTitle), cycles.map((c, i) => /*#__PURE__*/React.createElement("button", {
-    key: i,
-    onClick: () => { const a = playerApiRef.current; if (a) a.jumpToCycle(i); },
-    title: T.fio + " " + (i + 1),
-    style: {
-      width: 24, height: 24, borderRadius: 5, padding: 0,
-      border: "1px solid rgba(0,0,0,0.45)",
-      background: getCycleColor(i), cursor: "pointer",
-      fontSize: 10, fontWeight: 700, color: "#000", fontFamily: "inherit"
-    }
-  }, i + 1)))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), ), /*#__PURE__*/React.createElement("div", {
     className: "knot-zoom-btns",
     style: {
       position: "absolute",

@@ -76,8 +76,9 @@
    * are simply drawn on top, as in real life.
    */
   function buildPieces(ctx, ci, pts, cums) {
-    const { W, H, cells, gaps, cornerGapSet, toX, toY, cellSz, gapHalf, passMap } = ctx;
+    const { W, H, cells, gaps, cornerGapSet, toX, toY, cellSz, gapHalf, passMap, cycStarts } = ctx;
     const pieces = [];
+    const fillers = [];
     for (let seg = 0; seg < pts.length - 1; seg++) {
       const p1 = pts[seg], p2 = pts[seg + 1];
       const segArc0 = cums[seg];
@@ -109,8 +110,13 @@
           if (!partner) return;                          // nothing ever crosses here
           const myArc = segArc0 + Math.hypot(ix - p1.x, iy - p1.y);
           const partnerFirst = partner.ci < ci || (partner.ci === ci && partner.arc < myArc - 1e-9);
-          if (!partnerFirst) return;                     // we lay first; it covers us later
-          cuts.push({ sx: toX(ix), sy: toY(iy) });
+          // If the over-pass is already on the board, the gap is real from the
+          // start. If it arrives later, bridge the gap with a filler until the
+          // exact moment that cord is laid across us.
+          cuts.push({
+            sx: toX(ix), sy: toY(iy),
+            fillUntil: partnerFirst ? null : (cycStarts[partner.ci] || 0) + partner.arc,
+          });
         };
         if (axis === 'bs') {
           const kVal = p1.y - p1.x;
@@ -141,7 +147,16 @@
           lenPx: Math.hypot(gsx - cx, gsy - cy),
           edgeStart: isFirst && p1Edge, edgeEnd: false,
         });
-        cx = cut.sx + ux * gapHalf; cy = cut.sy + uy * gapHalf;
+        const gex = cut.sx + ux * gapHalf, gey = cut.sy + uy * gapHalf;
+        // overlap the neighbouring pieces by ~1px so the joint is seamless
+        if (cut.fillUntil !== null) fillers.push({
+          x1: gsx - ux * 1.1, y1: gsy - uy * 1.1,
+          x2: gex + ux * 1.1, y2: gey + uy * 1.1,
+          arcStart: projToArc(gsx, gsy), arcEnd: projToArc(gex, gey),
+          lenPx: Math.hypot(gex - gsx, gey - gsy) + 2.2,
+          hideAt: cut.fillUntil,
+        });
+        cx = gex; cy = gey;
         isFirst = false;
       }
       const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
@@ -152,7 +167,7 @@
         edgeStart: isFirst && p1Edge, edgeEnd: p2Edge,
       });
     }
-    return pieces;
+    return { pieces, fillers };
   }
 
   function buildCornerData(ctx) {
@@ -220,6 +235,9 @@
 
     const baseCycleData = cycles.map(c => ({ pts: c.points, cums: E.cumLens(c.points) }));
     ctx.passMap = buildPassMap(baseCycleData, W, H);
+    const cycStarts = [];
+    { let acc = 0; for (const cd of baseCycleData) { cycStarts.push(acc); acc += cd.cums[cd.cums.length - 1]; } }
+    ctx.cycStarts = cycStarts;
 
     // ---------- DOM ----------
     container.classList.add('tear-player');
@@ -259,7 +277,8 @@
       const total = cums[cums.length - 1];
       const color = colors[ci];
       const gCycle = el('g', {}, gWeave);
-      const pieces = buildPieces(ctx, ci, pts, cums);
+      const built = buildPieces(ctx, ci, pts, cums);
+      const pieces = built.pieces;
       const nodes = pieces.map(p => {
         const line = el('line', {
           x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2,
@@ -275,6 +294,16 @@
         if (p.edgeEnd) cap(p.x2, p.y2, p.arcEnd);
         return { piece: p, line, extras };
       });
+      const fillNodes = built.fillers.map(f => ({
+        piece: f,
+        hideAt: f.hideAt,
+        line: el('line', {
+          x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2,
+          stroke: color, 'stroke-width': sw, 'stroke-linecap': 'butt',
+          visibility: 'hidden',
+        }, gCycle),
+        extras: [],
+      }));
       const arcs = [];
       for (const a of cornerData) {
         const range = cornerArcRange(pts, cums, a.g1, a.g2);
@@ -287,7 +316,7 @@
         }, gCycle);
         arcs.push({ at: range[1], node });
       }
-      return { pts, cums, total, color, nodes, arcs };
+      return { pts, cums, total, color, nodes, fillNodes, arcs };
     });
 
     // needle + home marker — minimal
@@ -309,10 +338,10 @@
     const totalDur = Math.min(22, Math.max(6, totalAll * 0.022)) / speedFactor;
     const baseRate = totalAll / totalDur;
     let speedMul = 1;
+    let loopOn = false;
     const rateFor = ci => baseRate * speedMul * (cycleData.length <= 1 ? 1 : (0.7 + 0.75 * (ci / (cycleData.length - 1))));
     const cyclePause = cycleData.length > 4 ? 220 : 450;
-    const cycStarts = [];
-    { let acc = 0; for (const c of cycleData) { cycStarts.push(acc); acc += c.total; } }
+
 
     let isFull = false;
     function setFull(full) {
@@ -324,6 +353,7 @@
           g.line.setAttribute('stroke-width', w);
           for (const ex of g.extras) if (ex.node.tagName === 'circle') ex.node.setAttribute('r', w / 2);
         }
+        for (const f of c.fillNodes) f.line.setAttribute('stroke-width', w);
         for (const a of c.arcs) a.node.setAttribute('stroke-width', w);
       }
     }
@@ -343,17 +373,25 @@
       for (const ex of g.extras) ex.node.setAttribute('opacity', tt >= ex.at ? 1 : 0);
     }
 
-    function renderCycleAt(ci, tt) {
+    function renderCycleAt(ci, tt, globalNow) {
       const c = cycleData[ci];
       for (const g of c.nodes) setPieceProgress(g, tt);
+      for (const f of c.fillNodes) {
+        if (globalNow >= f.hideAt - 1e-9) {
+          f.line.setAttribute('visibility', 'hidden');
+        } else {
+          setPieceProgress(f, tt);
+        }
+      }
       for (const a of c.arcs) a.node.setAttribute('opacity', tt >= a.at ? 1 : 0);
     }
 
     function renderState() {
+      const globalNow = (cycStarts[curCycle] || 0) + t;
       for (let i = 0; i < cycleData.length; i++) {
-        if (i < curCycle) renderCycleAt(i, Infinity);
-        else if (i > curCycle) renderCycleAt(i, -1);
-        else renderCycleAt(i, t);
+        if (i < curCycle) renderCycleAt(i, Infinity, globalNow);
+        else if (i > curCycle) renderCycleAt(i, -1, globalNow);
+        else renderCycleAt(i, t, globalNow);
       }
       const c = cycleData[curCycle];
       if (!c) return;
@@ -384,7 +422,10 @@
           if (t >= c.total) {
             t = c.total;
             renderState();
-            if (curCycle < cycleData.length - 1) {
+            if (loopOn) {
+              t = 0;
+              pauseUntil = now + 420;
+            } else if (curCycle < cycleData.length - 1) {
               curCycle++;
               t = 0;
               pauseUntil = now + cyclePause;
@@ -430,6 +471,7 @@
         renderState();
       },
       setSpeed(f) { speedMul = Math.max(0.1, Math.min(16, f || 1)); },
+      setLoop(v) { loopOn = !!v; },
       getState() {
         return {
           playing, done,
@@ -458,7 +500,9 @@
       },
       jumpToCycle(ci) {
         ci = Math.max(0, Math.min(cycleData.length - 1, ci));
-        api.seekGlobal(cycStarts[ci]);
+        // land a few nails INTO the string so the jump visibly shows it begun
+        const lead = Math.min(3, (cycleData[ci] ? cycleData[ci].total : 0) * 0.06);
+        api.seekGlobal((cycStarts[ci] || 0) + lead);
       },
       setColors(cols) {
         cycleData.forEach((c, i) => {
@@ -469,6 +513,7 @@
             g.line.setAttribute('stroke', col);
             for (const ex of g.extras) if (ex.node.tagName === 'circle') ex.node.setAttribute('fill', col);
           }
+          for (const f of c.fillNodes) f.line.setAttribute('stroke', col);
           for (const a of c.arcs) a.node.setAttribute('stroke', col);
         });
       },

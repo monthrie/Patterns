@@ -154,18 +154,25 @@ async function runSuite(browser, vp) {
   await check(t('play opens in-place playback with working transport'), async () => {
     await page.locator('.knot-zoom-btns button', { hasText: /^\u25b6$/ }).first().click();
     await page.locator('.knot-viewport > div > svg').first().waitFor({ state: 'visible', timeout: 4000 });
-    const scrub = page.locator('.scrub').first();
-    await scrub.waitFor({ state: 'visible' });
+    const bar = page.locator('.scrub-bar').first();
+    await bar.waitFor({ state: 'visible' });
     // pause via main transport button (shows "| |" while playing)
     await page.locator('.trans-main').first().click();
     await page.locator('.trans-main', { hasText: /^\u25b6$/ }).first().waitFor({ state: 'visible' });
-    // scrub to ~60% and check it sticks
-    await scrub.evaluate(el => {
-      el.value = '600';
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    const v = await scrub.evaluate(el => +el.value);
-    if (v < 550) throw new Error('scrubber did not hold its position');
+    // segmented timeline: one coloured segment per string
+    const segs = await bar.locator('> div').count();
+    if (segs !== 2) throw new Error(`expected 2 timeline segments, found ${segs}`);
+    // click at ~60% -> first string fully laid (its fill at 100%)
+    const bb = await bar.boundingBox();
+    await page.mouse.click(bb.x + bb.width * 0.6, bb.y + bb.height / 2);
+    await page.waitForTimeout(120);
+    const w = await bar.locator('> div').first().locator('div').evaluate(el => el.style.width);
+    if (w !== '100%') throw new Error(`expected first segment full after 60% seek, got "${w}"`);
+    // loop toggle
+    await page.locator('.trans-btn[title]', { hasText: /^\u27f3$/ }).first().click();
+    const pressed = await page.locator('.trans-btn[aria-pressed="true"]').count();
+    if (!pressed) throw new Error('loop toggle did not engage');
+    await page.locator('.trans-btn[aria-pressed="true"]').first().click();
     // speed select
     await page.locator('.trans-btn', { hasText: /^2\u00d7$/ }).first().click();
     // close
