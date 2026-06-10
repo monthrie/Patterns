@@ -1,5 +1,5 @@
 /*
- * TearToy — "Quantos fios?" (the Toy).
+ * TearToy — "How many strings?" (the Toy).
  * The quiet guessing game: a board appears → wager how many strings it needs
  * (the answer is gcd for rectangles, an open problem for irregular shapes) →
  * watch the pull → dye the strings → keep or share. No points, no streaks.
@@ -38,7 +38,7 @@
     return n;
   }
 
-  const fios = n => (n === 1 ? 'fio' : 'fios');
+  const strings = n => (n === 1 ? 'string' : 'strings');
 
   function shuffled(arr) {
     const a = arr.slice();
@@ -113,7 +113,7 @@
       nums.push(h('button', { class: 'num', onclick: () => startPull(n) }, String(n)));
     }
     panelEl.replaceChildren(
-      h('div', { class: 'ask' }, 'Quantos fios vai levar esta tábua?'),
+      h('div', { class: 'ask' }, 'How many strings will this board take?'),
       h('div', { class: 'nums' }, ...nums),
     );
   }
@@ -130,7 +130,7 @@
     }, '▸▸ mais depressa');
     panelEl.replaceChildren(
       h('div', { class: 'ask dim' },
-        guess === null ? 'Uma tábua partilhada consigo. A pôr o fio…' : `Apostou ${n}. A pôr o fio…`),
+        guess === null ? 'A board shared with you. Laying the string…' : `You wagered ${n}. Laying the string…`),
       h('div', { class: 'row' }, speedBtn),
     );
     player.play();
@@ -141,10 +141,10 @@
     if (reveal && guess !== null) {
       ok = guess === round.n;
       line = ok
-        ? `Acertou — ${round.n} ${fios(round.n)}.`
-        : `Apostou ${guess}; eram ${round.n} ${fios(round.n)}.`;
+        ? `Right — ${round.n} ${strings(round.n)}.`
+        : `You wagered ${guess}; it took ${round.n} ${strings(round.n)}.`;
     } else {
-      line = `${round.n} ${fios(round.n)}.`;
+      line = `${round.n} ${strings(round.n)}.`;
     }
     if (ok) {
       boardEl.classList.remove('shimmer');
@@ -154,7 +154,7 @@
 
     const chips = round.colors.map((col, i) => {
       const b = h('button', {
-        class: 'chip', style: `background:${col}`, title: `fio ${i + 1}`,
+        class: 'chip', style: `background:${col}`, title: `string ${i + 1}`,
         onclick: () => {
           const cur = DYE.findIndex(c => c.hex === round.colors[i]);
           round.colors[i] = DYE[(cur + 1) % DYE.length].hex;
@@ -174,23 +174,23 @@
         chips.forEach((c, i) => { c.style.background = round.colors[i]; });
         player.setColors(round.colors);
       },
-    }, 'baralhar cores');
+    }, 'shuffle colours');
 
     const keepBtn = h('button', {
       class: 'btn',
       onclick: () => {
-        if (keep()) { keepBtn.textContent = 'guardada ✓'; keepBtn.disabled = true; }
+        if (keep()) { keepBtn.textContent = 'kept ✓'; keepBtn.disabled = true; }
       },
-    }, 'guardar');
+    }, 'keep');
 
-    const shareBtn = h('button', { class: 'btn', onclick: () => share(shareBtn) }, 'partilhar');
+    const shareBtn = h('button', { class: 'btn', onclick: () => share(shareBtn) }, 'share');
 
     panelEl.replaceChildren(
       h('div', { class: 'ask' }, line),
       h('div', { class: 'chips' }, ...chips),
       h('div', { class: 'row' },
         shuffleBtn, keepBtn, shareBtn,
-        h('button', { class: 'btn next', onclick: newRound }, 'outra tábua →'),
+        h('button', { class: 'btn next', onclick: newRound }, 'another board →'),
       ),
     );
   }
@@ -226,7 +226,7 @@
   function addGalleryItem(code) {
     let d;
     try { d = C.decodeDesign(code); } catch { return; }
-    const item = h('button', { class: 'kept', title: 'abrir esta tábua', onclick: () => openKept(code) });
+    const item = h('button', { class: 'kept', title: 'open this board', onclick: () => openKept(code) });
     item.style.aspectRatio = `${d.gw + 2} / ${d.gh + 2}`;
     galleryEl.prepend(item);
     const mini = P.create(item, {
@@ -265,7 +265,7 @@
 
   function share(btn) {
     const url = location.origin + location.pathname + '?d=' + designCode();
-    const okFeedback = () => { btn.textContent = 'ligação copiada ✓'; setTimeout(() => { btn.textContent = 'partilhar'; }, 2200); };
+    const okFeedback = () => { btn.textContent = 'link copied ✓'; setTimeout(() => { btn.textContent = 'share'; }, 2200); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(okFeedback, () => showShareField(url));
     } else {
@@ -276,7 +276,7 @@
   function showShareField(url) {
     let field = panelEl.querySelector('.share-field');
     if (!field) {
-      field = h('input', { class: 'share-field', readonly: '', 'aria-label': 'ligação para partilhar' });
+      field = h('input', { class: 'share-field', readonly: '', 'aria-label': 'share link' });
       panelEl.append(field);
     }
     field.value = url;

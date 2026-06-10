@@ -108,13 +108,13 @@ async function runSuite(browser, vp) {
   }
 
   // 2. Wagering the right number starts the pull and ends in the dye shop
-  await check(t('correct wager -> pull plays -> "Acertou" + dye chips'), async () => {
+  await check(t('correct wager -> pull plays -> "Right" + dye chips'), async () => {
     await page.locator('.num', { hasText: new RegExp(`^${answer}$`) }).click();
-    await page.locator('.ask.dim', { hasText: /Apostou/ }).waitFor({ state: 'visible' });
+    await page.locator('.ask.dim', { hasText: /wagered/ }).waitFor({ state: 'visible' });
     await page.evaluate(() => window.__toy.skip());
     await page.locator('.chips').waitFor({ state: 'visible', timeout: 25000 });
     const line = await page.locator('#panel .ask').first().textContent();
-    if (!/^Acertou/.test(line.trim())) throw new Error(`result line: "${line.trim()}"`);
+    if (!/^Right/.test(line.trim())) throw new Error(`result line: "${line.trim()}"`);
     const chips = await page.locator('.chip').count();
     if (chips !== answer) throw new Error(`expected ${answer} chips, found ${chips}`);
   });
@@ -126,7 +126,7 @@ async function runSuite(browser, vp) {
     await page.locator('.chip').first().click();
     const c1 = await colorsOf();
     if (c1 === c0) throw new Error('chip tap did not change colours');
-    await page.locator('.btn', { hasText: /^baralhar cores$/ }).click();
+    await page.locator('.btn', { hasText: /^shuffle colours$/ }).click();
     const c2 = await colorsOf();
     if (c2 === c1) throw new Error('shuffle did not change colours');
   });
@@ -135,9 +135,9 @@ async function runSuite(browser, vp) {
   console.log(`info  screenshot -> ${path.relative(ROOT, path.join(ARTIFACTS, `toy-dye-${vp.label}.png`))}`);
 
   // 4. Keep -> gallery item + localStorage
-  await check(t('"guardar" stores the design in the gallery'), async () => {
-    await page.locator('.btn', { hasText: /^guardar$/ }).click();
-    await page.locator('.btn', { hasText: /guardada/ }).waitFor({ state: 'visible' });
+  await check(t('"keep" stores the design in the gallery'), async () => {
+    await page.locator('.btn', { hasText: /^keep$/ }).click();
+    await page.locator('.btn', { hasText: /kept ✓/ }).waitFor({ state: 'visible' });
     await page.locator('#gallery .kept svg').first().waitFor({ state: 'visible' });
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('toy.gallery') || '[]'));
     if (stored.length !== 1) throw new Error(`expected 1 stored design, found ${stored.length}`);
@@ -146,9 +146,9 @@ async function runSuite(browser, vp) {
 
   // 5. Share copies a decodable design-code URL
   let sharedUrl = '';
-  await check(t('"partilhar" copies a valid ?d=T1-… URL'), async () => {
-    await page.locator('.btn', { hasText: /^partilhar$/ }).click();
-    await page.locator('.btn', { hasText: /copiada/ }).waitFor({ state: 'visible' });
+  await check(t('"share" copies a valid ?d=T1-… URL'), async () => {
+    await page.locator('.btn', { hasText: /^share$/ }).click();
+    await page.locator('.btn', { hasText: /copied/ }).waitFor({ state: 'visible' });
     sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
     if (!sharedUrl.includes('?d=T1-')) throw new Error(`clipboard: "${sharedUrl}"`);
     const ok = await page.evaluate((u) => {
@@ -159,9 +159,9 @@ async function runSuite(browser, vp) {
     if (!ok) throw new Error('copied code did not decode');
   });
 
-  // 6. "outra tábua" returns to the wager with a fresh board
-  await check(t('"outra tábua" starts a new round'), async () => {
-    await page.locator('.btn.next', { hasText: /outra tábua/ }).click();
+  // 6. "another board" returns to the wager with a fresh board
+  await check(t('"another board" starts a new round'), async () => {
+    await page.locator('.btn.next', { hasText: /another board/ }).click();
     await page.locator('.nums').waitFor({ state: 'visible' });
     const nums = await page.locator('.num').count();
     if (nums !== 9) throw new Error(`expected 9 wager buttons, found ${nums}`);
