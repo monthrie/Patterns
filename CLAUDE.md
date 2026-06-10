@@ -4,42 +4,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**String Billiards — Woven** is a single-file HTML5 canvas visualization that simulates 45-degree angle billiard trajectories on a grid with a weaving (over/under) pattern. Users place up to three colored strings on a nail grid and watch them bounce and weave.
+**Knot Maker — Mobile** (`index.html`) is a single-file web app that simulates a real craft: 45° billiard-path string weaving on nail boards. The user draws an arbitrary shape on a cell grid; the app traces diagonal paths that bounce off the boundary; **each closed path ("cycle") is one physical cotton string** the craftsman weaves on a real board, with crossings interlaced over/under in checkerboard parity. The app counts cycles, colors them (real Barbante Beatriz yarn palette — see `barbante-beatriz-colors.md`), measures string lengths, and renders the finished weave.
 
-## Running
+The primary user is João, an elderly Portuguese craftsman, on an Android tablet. He builds real textiles from these designs (see `docs/joao-woven-cushion.jpeg`). The app must remain **fully self-contained and offline-capable** — React is inlined, no CDN dependencies.
 
-No build system, dependencies, or package manager. Open `index.html` directly in a browser.
+## Build & Run
 
-## Architecture
+The app is generated — **never hand-edit `index.html`**:
 
-Everything lives in `index.html` (~650 lines): HTML structure, CSS styling, and JavaScript logic.
+```
+src/app.js              ← edit this (application code; plain JS + React.createElement via Babel-style output)
+build/template.html     ← head, CSS design system, body shell ( /* %%SCRIPTS%% */ marker )
+build/vendor-react.js, build/vendor-react-dom.js  ← React 18 UMD, inlined verbatim
 
-### JavaScript Organization (lines ~172-649)
+cd build && node assemble.js     # → writes ../index.html
+node build/serve.js              # static server on http://localhost:8901
+```
 
-**Core concepts:**
-- Three independent strings (A=orange, B=cyan, C=yellow) travel diagonally at 45° angles, bouncing off grid borders
-- Interior grid intersections follow a checkerboard loom rule (`(ix + iy) % 2`) determining which diagonal direction is "on top"
-- A string only shows a gap (goes "under") when another string actually crosses at that point in the opposite direction
+Note: `assemble.js` must keep the function-replacer form of `String.replace` — the code contains `$$` sequences that string replacement would corrupt.
 
-**Key functions by concern:**
+After any change, verify in a browser: app loads with zero console errors, drawing on the grid updates cycles live, all three tabs work. A `window.onerror` handler writes errors into `document.title` (prefix `ERRO:`) so headless runs can detect failures by checking the title.
 
-- *Geometry/Calculation:* `computePath(s)`, `isSlashOnTop(ix,iy)`, `segDirection()`, `getInteriorPoints()`, `launchDir()`, `buildCoverageMap()`
-- *Rendering:* `drawGrid()`, `drawAllWoven()` (three-pass: plain segments → segments with gaps → over-crossing redraws), `drawSegWithGaps()`, `drawLoomPattern()`, `fullRedraw()`
-- *Animation:* `startAnim()`, `stopAnim()` — requestAnimationFrame-based with speed control
-- *Interaction:* `setClickMode(m)`, canvas click/mousemove handlers, control change listeners
+## Architecture (src/app.js)
 
-**Rendering pipeline:** `drawAllWoven()` uses a three-pass system to layer crossings correctly — first plain segments (no crossings), then segments with gap cutouts for under-crossings, then over-crossing portions redrawn on top.
+Single React component `KnotMakerMobile` plus pure engine functions. Coordinate conventions: `gx/gy` grid, `px/py` pixel, `ix/iy` interior intersection indices.
 
-### Coordinate conventions
+**Engine (pure functions, treat as verified — change with extreme care):**
+- `buildEdges(cells, gw, gh)` — boundary edge segments of the cell shape
+- `buildGaps(cells, gw, gh)` — boundary midpoints = nail positions = path start points
+- `tracePath(startIdx, gaps, edges, ...)` — 45° billiard trace until the loop closes
+- `getAllCycles(cells, gw, gh)` — all cycles covering every gap
+- Weave parity: `(k + m + W) % 2` checkerboard decides over/under at each crossing; under-crossings are rendered as geometric gap cutouts in `renderStrandSVG`
 
-- `gx`/`gy` — grid coordinates
-- `px`/`py` — pixel coordinates
-- `ix`/`iy` — interior intersection indices
-- `x1`/`y1`, `x2`/`y2` — segment start/end points
+**UI:** three bottom tabs (Edit = cell-grid shape editor with marquee drag; Shapes = save/load/presets/import/export + per-cycle color pickers; Mode = strand thickness, zoom, nails overlay, string-length stats). Stats bar shows cycle count + balance dot. Knot viewport: side-by-side in landscape (≥500px wide), below the editor in portrait. Pinch zoom on both surfaces. Saved shapes in `localStorage` key `celtic.savedShapes`.
 
-### Constants (line ~173)
+**Design system:** CSS variables in `build/template.html` (`--ink`, `--bone`, `--accent` brass, `--hair`, …) — warm "workshop at night" palette. Fonts: Atkinson Hyperlegible (UI, chosen for older eyes) + JetBrains Mono (numbers). All inline styles in app code reference the same variables; retheme via tokens, not per-component edits.
 
-- `NAIL_R = 4` — nail radius
-- `PAD = 40` — canvas padding
-- `MAX_C = 700` — max canvas size
-- `GAP_PX = 9` — gap width for weave under-crossings
+## Repo layout
+
+- `index.html` — the product (generated, committed)
+- `src/app.js` — application source of truth (the original JSX source was lost; this is readable transpiled output)
+- `build/` — assembler, template, vendored React, dev server (`node_modules/` gitignored)
+- `docs/` — reference photos
+- `archive/` — superseded variants, rejected redesign, salvageable experiments (see `archive/README.md`; notably the string-tracing animation in `archive/reference/celtic-knot-L.html`)
+- `barbante-beatriz-colors.md` — physical yarn colors, hex-matched from real spools
+
+## Deployment
+
+GitHub Pages serves branch `gh-pages-mobile` at https://monthrie.github.io/Patterns/. Active development on branch `fable5`.

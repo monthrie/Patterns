@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+/*
+ * Assemble the self-contained production index.html:
+ *   build/template.html  (head, CSS, body shell — marker: /* %%SCRIPTS%% *​/)
+ * + build/vendor-react.js / build/vendor-react-dom.js  (React 18 UMD, inlined for offline use)
+ * + src/app.js  (application source — Babel-transpiled JS, the authoritative app code)
+ * → ../index.html
+ *
+ * Usage: node assemble.js   (from build/)
+ * Verify after any change: the app must load with no console errors at every tab.
+ */
+const fs = require('fs');
+const path = require('path');
+
+const here = p => path.join(__dirname, p);
+const template = fs.readFileSync(here('template.html'), 'utf8');
+const react = fs.readFileSync(here('vendor-react.js'), 'utf8');
+const reactDom = fs.readFileSync(here('vendor-react-dom.js'), 'utf8');
+const app = fs.readFileSync(here('../src/app.js'), 'utf8');
+
+// Replacer must be a function: the code contains `$$` sequences that string
+// replacements would interpret as escapes (corrupting React's $$typeof).
+const out = template.replace('/* %%SCRIPTS%% */', () => react + reactDom + app);
+fs.writeFileSync(path.join(__dirname, '..', 'index.html'), out);
+console.log('Wrote ../index.html (' + (out.length / 1024).toFixed(0) + ' KB)');

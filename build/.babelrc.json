@@ -1,0 +1,6 @@
+{
+  "presets": [
+    ["@babel/preset-env", { "targets": { "ios": "13.4", "safari": "13.1" }, "bugfixes": true }],
+    ["@babel/preset-react", { "runtime": "classic" }]
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "build",
+  "version": "1.0.0",
+  "description": "",
+  "main": "react-dom.production.min.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@babel/cli": "^7.29.7",
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-react": "^7.29.7"
+  }
+}

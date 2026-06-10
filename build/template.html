@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Knot Maker — Mobile</title>
+<meta name="theme-color" content="#171109">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Warm workshop-at-night palette — lamplight brass on dark timber */
+    --ink: #171109;
+    --ink-2: #211912;
+    --bone: #f0e5cd;
+    --bone-dim: #ab9b7f;
+    --bone-faint: #4d4232;
+    --hair: #382c1e;
+    --accent: #d9a440;
+    --accent-soft: #ecc87e;
+    --accent-fill: #c8973a;
+    --accent-on-fill: #241a06;
+    --accent-glow: rgba(217, 164, 64, 0.22);
+    --edge: #4d3b21;
+    --panel-inner: #1b140c;
+    --oxblood: #c8502e;
+    /* Height reserved for bottom tab bar — keeps flex scroll math honest */
+    --tab-bar-h: 56px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background:
+      repeating-linear-gradient(93deg, rgba(255,228,160,0.016) 0 2px, transparent 2px 7px),
+      linear-gradient(165deg, #1c150c 0%, var(--ink) 60%, #120d05 100%);
+    color: var(--bone);
+    font-family: 'Atkinson Hyperlegible', 'Segoe UI', Verdana, sans-serif;
+    height: 100%; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* tabular numbers for stats readability */
+  .stats-bar, .stepper, .grid-size-toggle__dims { font-variant-numeric: tabular-nums; }
+  #root { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  /* App shell uses vh fallback then dvh — older iPad Safari (<15.4) lacks dvh and would collapse to 0. */
+  .app-shell {
+    display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+    height: 100vh; height: 100dvh;
+    max-height: 100vh; max-height: 100dvh;
+  }
+
+  .tab-bar {
+    display: flex; border-top: 1px solid var(--hair);
+    background: linear-gradient(180deg, var(--ink-2), #1a130c);
+    flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tab-btn {
+    flex: 1; padding: 15px 0 14px; text-align: center; font-size: 13px;
+    letter-spacing: 1.6px; text-transform: uppercase; color: var(--bone-dim);
+    background: transparent; border: none; cursor: pointer;
+    font-family: inherit; font-weight: 700;
+    border-top: 3px solid transparent;
+    transition: color 150ms ease;
+  }
+  .tab-btn.active {
+    color: var(--accent-soft); border-top-color: var(--accent);
+    background: linear-gradient(180deg, var(--accent-glow), transparent 75%);
+    text-shadow: 0 0 14px rgba(217,164,64,0.35);
+  }
+  .tab-btn:active { color: var(--accent); }
+
+  .stats-bar {
+    display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 3px 12px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--ink-2); flex-shrink: 0;
+    font-size: 12px; letter-spacing: 0.5px; min-height: 0;
+  }
+  .stats-balance .warn { color: #b89f7a; }
+
+  .panel { flex-shrink: 0; overflow-y: auto; max-height: 52vh; max-height: 52dvh; }
+  .panel-edit { flex: 1 1 0%; min-height: 0; overflow: hidden; max-height: none; display: flex; flex-direction: column; }
+  .land-split {
+    display: flex; flex: 1; min-height: 0; flex-direction: row;
+  }
+  .land-split-main {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .land-split-knot {
+    width: min(42vw, 300px); flex-shrink: 0; min-height: 0;
+    border-left: 1px solid var(--hair); background: var(--ink);
+    display: flex; flex-direction: column; position: relative;
+  }
+  .land-split-knot .knot-zoom-btns { top: 6px; right: 6px; }
+  .land-split-knot svg { flex: 1; min-height: 120px; }
+
+  .cycle-strip {
+    display: flex; gap: 6px; overflow-x: auto; padding: 4px 0;
+    -webkit-overflow-scrolling: touch; flex-shrink: 0;
+  }
+  .cycle-btn {
+    min-width: 42px; height: 42px; border-radius: 10px; border: 2px solid;
+    font-size: 14px; font-weight: bold; font-family: inherit;
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.4);
+    transition: transform 90ms ease;
+  }
+  .cycle-btn:active { transform: scale(0.92); }
+
+  .stepper { display: flex; align-items: center; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--hair); }
+  .stepper button {
+    width: 44px; height: 44px; font-size: 20px; background: var(--ink-2);
+    border: none; color: var(--accent-soft); cursor: pointer; font-weight: 700;
+    font-family: inherit; display: flex; align-items: center; justify-content: center;
+  }
+  .stepper button:active { background: var(--panel-inner); }
+  .stepper span {
+    min-width: 40px; text-align: center; font-size: 16px; font-weight: 700; color: var(--bone);
+    padding: 0 4px;
+  }
+  .stepper input {
+    width: 50px; height: 44px; text-align: center; font-size: 16px; font-weight: 700; color: var(--bone);
+    background: var(--panel-inner); border: none;
+    border-left: 1px solid var(--hair); border-right: 1px solid var(--hair);
+    font-family: inherit;
+    -moz-appearance: textfield; padding: 0;
+  }
+  .stepper input::-webkit-outer-spin-button,
+  .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .knm-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--hair); border-radius: 999px;
+    padding: 10px 16px; font-size: 13.5px; font-weight: 700;
+    background: var(--ink-2);
+    color: var(--bone-dim); cursor: pointer; letter-spacing: 0.4px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+  }
+  .knm-chip:active { background: var(--panel-inner); color: var(--accent-soft); }
+  .knm-chip-x {
+    color: var(--oxblood); font-size: 15px; line-height: 1;
+    background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
+  }
+
+  /* Cell editor: ultra-compact toolbar — grid gets the space */
+  .editor-viewport-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px max(4px, env(safe-area-inset-right, 0px)) 6px max(4px, env(safe-area-inset-left, 0px));
+    margin-top: 4px;
+    background: var(--panel-inner);
+    border: 1px solid var(--edge);
+    box-shadow: 0 0 0 1px var(--accent-glow);
+    border-radius: 8px;
+    box-sizing: border-box;
+    max-width: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+  .editor-viewport-frame__caption {
+    display: none;
+  }
+  .editor-pan-zoom-bar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .editor-pan-zoom-bar::-webkit-scrollbar { display: none; }
+  .editor-zoom-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .editor-zoom-step {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    line-height: 1;
+    border-radius: 5px;
+    border: 1px solid var(--hair);
+    background: var(--ink-2);
+    color: var(--bone);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .editor-zoom-step:active { background: #2a2218; }
+  .editor-zoom-pct-btn {
+    min-width: 44px;
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--bone-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .editor-zoom-pct-btn:active,
+  .editor-zoom-pct-btn:hover { color: var(--accent-soft); border-color: var(--edge); background: rgba(255,255,255,0.04); }
+  .editor-dpad {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .editor-scroll-wrap {
+    flex: 1 1 0%;
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    background: #0e0a06;
+      scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #6a5638 #241c12;
+  }
+  .editor-scroll-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
+  .editor-scroll-wrap::-webkit-scrollbar-track { background: #241c12; border-radius: 4px; }
+  .editor-scroll-wrap::-webkit-scrollbar-thumb {
+    background: #6a5638;
+      border-radius: 4px;
+      border: 2px solid #241c12;
+    min-height: 28px;
+  }
+  .editor-dpad-btn {
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--accent-soft);
+    background: var(--ink-2);
+    border: 1px solid var(--edge);
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .editor-dpad-btn:active { background: #221a10; transform: translateY(1px); box-shadow: none; }
+  .editor-dpad-btn__arrow { font-size: 12px; line-height: 1; font-weight: 800; }
+  .editor-toolbar-rows {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  /* stats + cell editor stack scrolls internally; page scrolls to knot — must stay within viewport height */
+  .edit-tab-scroll {
+    flex: 1 1 0%;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  /*
+   * Without a max-height, a huge grid grows this column to full content height, the inner
+   * .editor-scroll-wrap becomes as tall as the grid (no inner scroll), and the outer page
+   * never gets a real scroll range. Cap to one viewport above the tab bar so pan/zoom stays inside the frame.
+   */
+  .edit-portrait-main {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: min(100%, calc(100vh - var(--tab-bar-h) - env(safe-area-inset-bottom, 0px)));
+    max-height: min(100%, calc(100dvh - var(--tab-bar-h) - env(safe-area-inset-bottom, 0px)));
+    overflow: hidden;
+  }
+  .knot-below-editor {
+    flex: 0 0 auto;
+    height: min(42vh, 360px); height: min(42dvh, 360px);
+    min-height: 200px;
+    border-top: 1px solid var(--hair);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ink);
+  }
+  .grid-size-toolbar {
+    flex-shrink: 0;
+    margin-bottom: 8px;
+  }
+  .grid-size-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+    background: var(--ink);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .grid-size-toggle:active { background: #191309; }
+  .grid-size-toggle__dims {
+    color: var(--accent-soft);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .grid-size-toggle__hint { font-size: 10px; color: var(--bone-faint); text-transform: none; letter-spacing: 0; }
+  .grid-size-panel-body {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+/* %%SCRIPTS%% */</script>
+</body>
+</html>
