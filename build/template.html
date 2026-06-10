@@ -63,6 +63,27 @@
   }
   .tab-btn.active { color: var(--accent-soft); border-top-color: var(--accent); }
   .tab-btn:active { color: var(--accent); }
+  /* playback transport */
+  .trans-btn {
+    min-width: 34px; height: 34px; padding: 0 8px;
+    background: transparent; border: 1px solid var(--hair); border-radius: 7px;
+    color: var(--bone-dim); font-family: inherit; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.5px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .trans-btn:active { color: var(--accent-soft); }
+  .trans-main { min-width: 46px; color: var(--accent-soft); border-color: var(--edge); font-size: 13px; }
+  .scrub {
+    -webkit-appearance: none; appearance: none;
+    flex: 1; min-width: 120px; height: 28px; background: transparent;
+  }
+  .scrub::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--hair); }
+  .scrub::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent-soft); border: 1px solid var(--ink); margin-top: -7px;
+  }
+  .scrub::-moz-range-track { height: 4px; border-radius: 2px; background: var(--hair); }
+  .scrub::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft); border: 1px solid var(--ink); }
   /* pointer devices (Mac): hover affordances */
   @media (hover: hover) {
     .tab-btn:hover { color: var(--bone); }

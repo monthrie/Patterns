@@ -308,8 +308,11 @@
     // pace the whole board: first string slow, later strings accelerate
     const totalDur = Math.min(22, Math.max(6, totalAll * 0.022)) / speedFactor;
     const baseRate = totalAll / totalDur;
-    const rateFor = ci => baseRate * (cycleData.length <= 1 ? 1 : (0.7 + 0.75 * (ci / (cycleData.length - 1))));
+    let speedMul = 1;
+    const rateFor = ci => baseRate * speedMul * (cycleData.length <= 1 ? 1 : (0.7 + 0.75 * (ci / (cycleData.length - 1))));
     const cyclePause = cycleData.length > 4 ? 220 : 450;
+    const cycStarts = [];
+    { let acc = 0; for (const c of cycleData) { cycStarts.push(acc); acc += c.total; } }
 
     let isFull = false;
     function setFull(full) {
@@ -398,6 +401,7 @@
         }
       }
       renderState();
+      if (typeof opts.onTick === 'function') opts.onTick(api.getState());
       raf = requestAnimationFrame(tick);
     }
 
@@ -424,6 +428,49 @@
         done = true; playing = false;
         if (opts.fullOnDone !== false) setFull(true);
         renderState();
+      },
+      setSpeed(f) { speedMul = Math.max(0.1, Math.min(16, f || 1)); },
+      getState() {
+        return {
+          playing, done,
+          cycle: curCycle,
+          cycles: cycleData.length,
+          t, totalAll,
+          globalT: (cycStarts[curCycle] || 0) + t,
+        };
+      },
+      seekGlobal(gt) {
+        gt = Math.max(0, Math.min(totalAll, gt));
+        let ci = 0;
+        while (ci < cycleData.length - 1 && gt >= cycStarts[ci + 1]) ci++;
+        curCycle = ci;
+        t = gt - cycStarts[ci];
+        done = gt >= totalAll - 1e-6;
+        if (done) {
+          playing = false;
+          if (opts.fullOnDone !== false) setFull(true);
+        } else {
+          setFull(false);
+        }
+        pauseUntil = 0;
+        renderState();
+        if (typeof opts.onTick === 'function') opts.onTick(api.getState());
+      },
+      jumpToCycle(ci) {
+        ci = Math.max(0, Math.min(cycleData.length - 1, ci));
+        api.seekGlobal(cycStarts[ci]);
+      },
+      setColors(cols) {
+        cycleData.forEach((c, i) => {
+          const col = cols[i];
+          if (!col || col === c.color) return;
+          c.color = col;
+          for (const g of c.nodes) {
+            g.line.setAttribute('stroke', col);
+            for (const ex of g.extras) if (ex.node.tagName === 'circle') ex.node.setAttribute('fill', col);
+          }
+          for (const a of c.arcs) a.node.setAttribute('stroke', col);
+        });
       },
       destroy() {
         api.pause();

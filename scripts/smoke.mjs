@@ -150,11 +150,26 @@ async function runSuite(browser, vp) {
     await page.locator('.knot-zoom-btns button', { hasText: /^linha$/i }).first().click(); // back to fino
   });
 
-  // 3b-ii-b. in-place playback: play, player covers the weave pane, stop
-  await check(t('play button animates the pattern in place'), async () => {
+  // 3b-ii-b. in-place playback with transport: play, pause, scrub, speed, close
+  await check(t('play opens in-place playback with working transport'), async () => {
     await page.locator('.knot-zoom-btns button', { hasText: /^\u25b6$/ }).first().click();
     await page.locator('.knot-viewport > div > svg').first().waitFor({ state: 'visible', timeout: 4000 });
-    await page.locator('.knot-zoom-btns button', { hasText: /^\u25a0$/ }).first().click();
+    const scrub = page.locator('.scrub').first();
+    await scrub.waitFor({ state: 'visible' });
+    // pause via main transport button (shows "| |" while playing)
+    await page.locator('.trans-main').first().click();
+    await page.locator('.trans-main', { hasText: /^\u25b6$/ }).first().waitFor({ state: 'visible' });
+    // scrub to ~60% and check it sticks
+    await scrub.evaluate(el => {
+      el.value = '600';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const v = await scrub.evaluate(el => +el.value);
+    if (v < 550) throw new Error('scrubber did not hold its position');
+    // speed select
+    await page.locator('.trans-btn', { hasText: /^2\u00d7$/ }).first().click();
+    // close
+    await page.locator('.trans-btn', { hasText: /^\u2715$/ }).first().click();
     await page.locator('.knot-viewport > div > svg').first().waitFor({ state: 'detached', timeout: 4000 });
     await page.locator('.knot-zoom-btns button', { hasText: /^\u25b6$/ }).first().waitFor({ state: 'visible' });
   });
