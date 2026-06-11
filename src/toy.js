@@ -694,15 +694,21 @@
       const W = 9 + ((rnd() * 10) | 0);   // 9..18
       const H = 6 + ((rnd() * 9) | 0);    // 6..14
       const g = gcd2(W, H);
-      if (g < 3 || g > 8) continue;       // ≥3 strings — 2-string days are giveaways
-      // some days one cord wears several cycles: fewer colours than strings
-      const k = (g <= 3 || rnd() < 0.5) ? g : 2 + ((rnd() * (Math.min(g, 5) - 1)) | 0);
+      if (g < 4 || g > 8) continue;       // few strings = stripes you can count on one hand
+      // mostly grouped: one cord wearing several cycles is the riddle —
+      // colour boundaries stop counting the strings for you
+      const grouped = rnd() < 0.75;
+      const k = grouped ? 2 + ((rnd() * Math.min(g - 2, 4)) | 0) : g;
       const pal = shuffledWith(rnd, DYE).slice(0, k).map(c => c.hex);
       const colors = pal.slice();
       while (colors.length < g) colors.push(pal[(rnd() * k) | 0]);
-      return { W, H, colors: shuffledWith(rnd, colors) };
+      const seq = shuffledWith(rnd, colors);
+      // a periodic sequence would let a smaller loom weave the same cloth —
+      // the day's answer must be primitive so the string count is knowable
+      if (minimalPeriodLen(seq) !== g) continue;
+      return { W, H, colors: seq };
     }
-    return { W: 12, H: 9, colors: [DYE[5].hex, DYE[12].hex, DYE[1].hex] };
+    return { W: 12, H: 8, colors: [DYE[5].hex, DYE[12].hex, DYE[5].hex, DYE[1].hex] };
   }
 
   // Seeded starting loom that never begins on the answer's string count
@@ -743,20 +749,35 @@
     try { localStorage.setItem(SWATCH_KEY, JSON.stringify(all)); } catch { /* private mode */ }
   }
 
-  // Any loom that weaves this corner counts: the dimensions are nobody's
-  // business as long as the string count and the colour order are right.
+  function minimalPeriodLen(seq) {
+    for (let d = 1; d < seq.length; d++) {
+      if (seq.length % d) continue;
+      let ok = true;
+      for (let i = 0; i < seq.length; i++) if (seq[i] !== seq[i % d]) { ok = false; break; }
+      if (ok) return d;
+    }
+    return seq.length;
+  }
+
+  // Any loom that weaves this corner counts. The cloth's stripes cycle with
+  // the target's period, so a guess wins iff its slots are the target
+  // sequence repeated whole — 6 slots of A,B,A,A,B,A rebuild a 3-string
+  // A,B,A cloth and that IS a win. The strings mark reports the guess's
+  // true string count (its minimal period), not its slot count.
   function judgeGo(W, H, colors) {
-    const t = daily.target;
+    const t = daily.target, g = t.colors.length;
+    const ext = colors.map((_, i) => t.colors[i % g]);
     const cols = colors.map(() => 'x');
     const remaining = {};
-    t.colors.forEach((c, i) => {
+    ext.forEach((c, i) => {
       if (colors[i] === c) cols[i] = 'g';
       else remaining[c] = (remaining[c] || 0) + 1;
     });
     colors.forEach((c, i) => {
       if (cols[i] !== 'g' && remaining[c] > 0) { cols[i] = 'y'; remaining[c]--; }
     });
-    return { strings: colors.length === t.colors.length, cols };
+    const p = minimalPeriodLen(colors);
+    return { strings: p === g, p, cols };
   }
   const goWon = j => j.strings && j.cols.every(c => c === 'g');
 
@@ -824,7 +845,7 @@
     return h('div', { class: 'go-row' },
       h('span', { class: 'go-dim' }, `${go.W}×${go.H}`),
       h('span', { class: 'mark ' + (go.judge.strings ? 'ok' : 'no') },
-        `${go.colors.length} ${plural(go.colors.length)}${go.judge.strings ? '✓' : '✗'}`),
+        `${go.judge.p} ${plural(go.judge.p)}${go.judge.strings ? '✓' : '✗'}`),
       h('span', { class: 'cdots' }, ...go.colors.map((hex, i) => h('span', {
         class: 'cdot ' + go.judge.cols[i], style: `background:${hex}`,
         title: { g: 'right string', y: 'in the cloth, wrong string', x: 'not in this cloth' }[go.judge.cols[i]],
