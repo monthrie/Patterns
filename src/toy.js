@@ -690,11 +690,11 @@
 
   function genDaily(dayStr) {
     const rnd = mulberry32(hashStr('swatch:' + dayStr));
-    for (let t = 0; t < 200; t++) {
-      const W = 7 + ((rnd() * 12) | 0);   // 7..18
-      const H = 5 + ((rnd() * 10) | 0);   // 5..14
+    for (let t = 0; t < 400; t++) {
+      const W = 9 + ((rnd() * 10) | 0);   // 9..18
+      const H = 6 + ((rnd() * 9) | 0);    // 6..14
       const g = gcd2(W, H);
-      if (g < 2 || g > 8) continue;
+      if (g < 3 || g > 8) continue;       // ≥3 strings — 2-string days are giveaways
       // some days one cord wears several cycles: fewer colours than strings
       const k = (g <= 3 || rnd() < 0.5) ? g : 2 + ((rnd() * (Math.min(g, 5) - 1)) | 0);
       const pal = shuffledWith(rnd, DYE).slice(0, k).map(c => c.hex);
@@ -703,6 +703,16 @@
       return { W, H, colors: shuffledWith(rnd, colors) };
     }
     return { W: 12, H: 9, colors: [DYE[5].hex, DYE[12].hex, DYE[1].hex] };
+  }
+
+  // Seeded starting loom that is never today's answer (an empty stepper
+  // doesn't exist, so the start must at least be wrong).
+  function startDims(t, dayStr) {
+    const rnd = mulberry32(hashStr('start:' + dayStr));
+    let gw, gh;
+    do { gw = 6 + ((rnd() * 13) | 0); } while (gw === t.W);
+    do { gh = 5 + ((rnd() * 10) | 0); } while (gh === t.H);
+    return { gw, gh };
   }
 
   const daily = {
@@ -723,6 +733,7 @@
   function saveSwatchState() {
     const all = loadSwatchState();
     all[daily.day] = {
+      sig: hashStr(JSON.stringify(daily.target)),
       goes: daily.goes.map(g => ({ W: g.W, H: g.H, colors: g.colors })),
       solved: daily.solved, over: daily.over,
     };
@@ -907,6 +918,7 @@
     daily.day = todayStr();
     daily.num = swatchNumber(daily.day);
     daily.target = genDaily(daily.day);
+    Object.assign(daily, startDims(daily.target, daily.day));
     $('daily-num').textContent = '#' + daily.num;
     buildSwatch();
     buildRack();
@@ -916,7 +928,7 @@
     $('dh-plus').addEventListener('click', () => stepDim('gh', 1));
     commitBtn.addEventListener('click', commitGo);
     const st = loadSwatchState()[daily.day];
-    if (st && Array.isArray(st.goes)) {
+    if (st && Array.isArray(st.goes) && st.sig === hashStr(JSON.stringify(daily.target))) {
       daily.goes = st.goes.map(g => Object.assign({}, g, { judge: judgeGo(g.W, g.H, g.colors) }));
       daily.solved = !!st.solved;
       daily.over = !!st.over;
