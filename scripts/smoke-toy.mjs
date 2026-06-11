@@ -268,13 +268,21 @@ async function runSuite(browser, vp) {
     throw new Error(`could not step ${which} to ${want}`);
   };
 
-  await check(t('swatch: wrong loom weaves the guess and gets ✗ feedback'), async () => {
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+
+  await check(t('swatch: wrong string count gets 🧵✗ feedback'), async () => {
     await page.goto(DAY_URL, { waitUntil: 'load' });
     await page.waitForSelector('#swatch svg');
     target = await page.evaluate(() => window.__toy.swatch.target);
     if (vp.label === 'phone') await shot('swatch');
-    await setDim('gw', target.W === 20 ? 19 : target.W + 1); // deliberately wrong width
-    await setDim('gh', target.H);
+    const gT = target.colors.length;
+    // a loom with a different string count
+    let wW = 0, wH = 0;
+    outer1: for (let w = 7; w <= 20; w++) for (let hh = 5; hh <= 16; hh++) {
+      if (gcd(w, hh) !== gT) { wW = w; wH = hh; break outer1; }
+    }
+    await setDim('gw', wW);
+    await setDim('gh', wH);
     const slotCount = await page.locator('.slot').count();
     for (let i = 0; i < slotCount; i++) {
       await page.locator(`.slot[data-i="${i}"]`).click();
@@ -283,23 +291,33 @@ async function runSuite(browser, vp) {
     await page.locator('#commit-btn').click();
     await page.locator('.go-row').first().waitFor({ state: 'visible', timeout: 25000 });
     const row = await page.locator('.go-row').first().textContent();
-    if (!row.includes('w✗')) throw new Error(`expected w✗ in feedback row: "${row}"`);
-    if (!row.includes('h✓')) throw new Error(`expected h✓ in feedback row: "${row}"`);
+    if (!row.includes('✗')) throw new Error(`expected a strings ✗ in feedback row: "${row}"`);
   });
 
-  await check(t('swatch: exact loom solves with score + share text'), async () => {
-    await setDim('gw', target.W);
-    await setDim('gh', target.H);
+  await check(t('swatch: ANY loom with right strings + order wins'), async () => {
+    const gT = target.colors.length;
+    // deliberately solve on a different board than João's — same cloth
+    let aW = target.W, aH = target.H;
+    outer2: for (let w = 7; w <= 20; w++) for (let hh = 5; hh <= 16; hh++) {
+      if (gcd(w, hh) === gT && !(w === target.W && hh === target.H)) { aW = w; aH = hh; break outer2; }
+    }
+    await setDim('gw', aW);
+    await setDim('gh', aH);
     for (let i = 0; i < target.colors.length; i++) {
       await page.locator(`.slot[data-i="${i}"]`).click();
       await page.locator(`.yarn[data-hex="${target.colors[i]}"]`).click();
     }
     await page.locator('#commit-btn').click();
     await page.locator('#daily-result .ask', { hasText: /2\/6/ }).waitFor({ state: 'visible', timeout: 25000 });
+    if (aW !== target.W || aH !== target.H) {
+      const line = await page.locator('#daily-result .meta-line').textContent();
+      if (!line.includes('same cloth')) throw new Error(`expected "same cloth" note for alternate loom: "${line}"`);
+    }
     await page.locator('.btn.next', { hasText: /^share result$/ }).click();
     await page.locator('.btn', { hasText: /copied/ }).waitFor({ state: 'visible' });
     const text = await page.evaluate(() => navigator.clipboard.readText());
     if (!text.includes('the swatch #')) throw new Error(`share text: "${text}"`);
+    if (!text.includes('🧵')) throw new Error('share text missing the strings mark');
     if (!text.includes('🟩')) throw new Error('share text missing the colour grid');
     if (vp.label === 'tablet') await shot('swatch-solved');
   });

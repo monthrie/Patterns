@@ -705,13 +705,16 @@
     return { W: 12, H: 9, colors: [DYE[5].hex, DYE[12].hex, DYE[1].hex] };
   }
 
-  // Seeded starting loom that is never today's answer (an empty stepper
-  // doesn't exist, so the start must at least be wrong).
+  // Seeded starting loom that never begins on the answer's string count
+  // (an empty stepper doesn't exist, so the start must at least be wrong).
   function startDims(t, dayStr) {
     const rnd = mulberry32(hashStr('start:' + dayStr));
+    const g = t.colors.length;
     let gw, gh;
-    do { gw = 6 + ((rnd() * 13) | 0); } while (gw === t.W);
-    do { gh = 5 + ((rnd() * 10) | 0); } while (gh === t.H);
+    do {
+      gw = 7 + ((rnd() * 14) | 0);   // 7..20
+      gh = 5 + ((rnd() * 12) | 0);   // 5..16
+    } while (gcd2(gw, gh) === g);
     return { gw, gh };
   }
 
@@ -740,6 +743,8 @@
     try { localStorage.setItem(SWATCH_KEY, JSON.stringify(all)); } catch { /* private mode */ }
   }
 
+  // Any loom that weaves this corner counts: the dimensions are nobody's
+  // business as long as the string count and the colour order are right.
   function judgeGo(W, H, colors) {
     const t = daily.target;
     const cols = colors.map(() => 'x');
@@ -751,9 +756,9 @@
     colors.forEach((c, i) => {
       if (cols[i] !== 'g' && remaining[c] > 0) { cols[i] = 'y'; remaining[c]--; }
     });
-    return { w: W === t.W, h: H === t.H, cols };
+    return { strings: colors.length === t.colors.length, cols };
   }
-  const goWon = j => j.w && j.h && j.cols.length === daily.target.colors.length && j.cols.every(c => c === 'g');
+  const goWon = j => j.strings && j.cols.every(c => c === 'g');
 
   function buildSwatch() {
     swatchEl.replaceChildren();
@@ -805,7 +810,8 @@
 
   function stepDim(key, d) {
     if (daily.over || daily.busy) return;
-    const lim = key === 'gw' ? [4, 20] : [4, 16];
+    // the board must at least contain the swatch window (6 × 4.5 cells)
+    const lim = key === 'gw' ? [7, 20] : [5, 16];
     daily[key] = Math.max(lim[0], Math.min(lim[1], daily[key] + d));
     renderLoom();
   }
@@ -817,8 +823,8 @@
   function rowFor(go) {
     return h('div', { class: 'go-row' },
       h('span', { class: 'go-dim' }, `${go.W}×${go.H}`),
-      h('span', { class: 'mark ' + (go.judge.w ? 'ok' : 'no') }, go.judge.w ? 'w✓' : 'w✗'),
-      h('span', { class: 'mark ' + (go.judge.h ? 'ok' : 'no') }, go.judge.h ? 'h✓' : 'h✗'),
+      h('span', { class: 'mark ' + (go.judge.strings ? 'ok' : 'no') },
+        `${go.colors.length} ${plural(go.colors.length)}${go.judge.strings ? '✓' : '✗'}`),
       h('span', { class: 'cdots' }, ...go.colors.map((hex, i) => h('span', {
         class: 'cdot ' + go.judge.cols[i], style: `background:${hex}`,
         title: { g: 'right string', y: 'in the cloth, wrong string', x: 'not in this cloth' }[go.judge.cols[i]],
@@ -866,15 +872,19 @@
     daily.solved = won;
     loomEl.hidden = true;
     const t = daily.target;
-    const r = makeRound(E.rectCells(t.W, t.H), {
+    // the ceremony weaves YOUR loom — any board that makes this cloth is right
+    const last = daily.goes[daily.goes.length - 1];
+    const loomW = won && last ? last.W : t.W;
+    const loomH = won && last ? last.H : t.H;
+    const r = makeRound(E.rectCells(loomW, loomH), {
       colors: t.colors.slice(), mine: won, name: `the swatch #${daily.num}`,
     });
     if (guessPlayer) { guessPlayer.destroy(); guessPlayer = null; }
     stageEl.replaceChildren();
     stageEl.hidden = false;
     stageEl.classList.remove('shimmer');
-    stageEl.style.aspectRatio = `${t.W + 2} / ${t.H + 2}`;
-    stageEl.style.maxWidth = `min(640px, calc(46vh * ${((t.W + 2) / (t.H + 2)).toFixed(4)}))`;
+    stageEl.style.aspectRatio = `${loomW + 2} / ${loomH + 2}`;
+    stageEl.style.maxWidth = `min(640px, calc(46vh * ${((loomW + 2) / (loomH + 2)).toFixed(4)}))`;
     const rp = P.create(stageEl, {
       cells: r.cells, colors: r.colors, bg: BG,
       autoplay: !instant, speedFactor: 1.2,
@@ -885,8 +895,9 @@
     if (instant) rp.finish();
     const score = won ? `${daily.goes.length}/${GOES_MAX}` : `X/${GOES_MAX}`;
     const line = won
-      ? `you rebuilt João's loom in ${daily.goes.length} ${daily.goes.length === 1 ? 'weave' : 'weaves'}.`
-      : `the loom was ${t.W}×${t.H}. tomorrow there is another cloth.`;
+      ? `you rebuilt João's cloth in ${daily.goes.length} ${daily.goes.length === 1 ? 'weave' : 'weaves'}`
+        + (loomW !== t.W || loomH !== t.H ? ` — on a ${loomW}×${loomH} loom; João used ${t.W}×${t.H}. same cloth.` : '.')
+      : `João wove it on ${t.W}×${t.H} with ${t.colors.length} ${plural(t.colors.length)}. tomorrow there is another cloth.`;
     const shareBtn = h('button', { class: 'btn next', onclick: () => copyResult(shareBtn, score) }, 'share result');
     const cardBtn = h('button', { class: 'btn', onclick: () => shareCard(cardBtn, r, rp.svg) }, 'share card');
     const keepBtn = h('button', {
@@ -894,7 +905,7 @@
       onclick: () => { keepDesign(r); keepBtn.textContent = 'on the wall ✓'; keepBtn.disabled = true; },
     }, 'keep');
     resultEl.replaceChildren(
-      h('div', { class: 'ask' }, `${t.W}×${t.H} · ${t.colors.length} ${plural(t.colors.length)} · ${score}`),
+      h('div', { class: 'ask' }, `${t.colors.length} ${plural(t.colors.length)} · ${score}`),
       h('div', { class: 'meta-line' }, line),
       h('div', { class: 'row' }, shareBtn, cardBtn, keepBtn),
     );
@@ -903,7 +914,7 @@
 
   function copyResult(btn, score) {
     const lines = daily.goes.map(go =>
-      (go.judge.w ? '📐✓' : '📐✗') + (go.judge.h ? '📏✓' : '📏✗') + ' ' +
+      (go.judge.strings ? '🧵✓' : '🧵✗') + ' ' +
       go.judge.cols.map(c => (c === 'g' ? '🟩' : c === 'y' ? '🟨' : '⬛')).join(''));
     const text = `the swatch #${daily.num} — ${score}\n${lines.join('\n')}\n${location.origin + location.pathname}`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
