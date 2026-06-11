@@ -38,7 +38,7 @@
   ];
 
   const $ = id => document.getElementById(id);
-  const views = { draw: $('view-draw'), weave: $('view-weave'), wall: $('view-wall') };
+  const views = { daily: $('view-daily'), draw: $('view-draw'), weave: $('view-weave'), wall: $('view-wall') };
   const boardEl = $('board');
   const panelEl = $('panel');
   const wallEl = $('wall');
@@ -460,14 +460,14 @@
     const keepBtn = h('button', {
       class: 'btn',
       onclick: () => {
-        keepDesign();
+        keepDesign(round);
         keepBtn.textContent = 'on the wall ✓';
         keepBtn.disabled = true;
       },
     }, 'keep');
 
-    const linkBtn = h('button', { class: 'btn', onclick: () => shareLink(linkBtn) }, 'copy link');
-    const cardBtn = h('button', { class: 'btn', onclick: () => shareCard(cardBtn) }, 'share card');
+    const linkBtn = h('button', { class: 'btn', onclick: () => shareLink(linkBtn, round) }, 'copy link');
+    const cardBtn = h('button', { class: 'btn', onclick: () => shareCard(cardBtn, round, player.svg) }, 'share card');
     const remixBtn = h('button', {
       class: 'btn next',
       onclick: () => {
@@ -485,10 +485,10 @@
   }
 
   // ---------- the wall ----------
-  function designCode() {
+  function designCode(r) {
     const colors = {};
-    round.colors.forEach((c, i) => { colors[i] = c; });
-    return C.encodeDesign({ gw: round.gw, gh: round.gh, cells: round.cells, colors });
+    r.colors.forEach((c, i) => { colors[i] = c; });
+    return C.encodeDesign({ gw: r.gw, gh: r.gh, cells: r.cells, colors });
   }
 
   function loadWall() {
@@ -496,11 +496,11 @@
     catch { return []; }
   }
 
-  function keepDesign() {
+  function keepDesign(r) {
     const entry = {
-      code: designCode(),
-      name: (round.name || '').trim() || 'untitled',
-      n: round.n, date: round.date, mine: true,
+      code: designCode(r),
+      name: (r.name || '').trim() || 'untitled',
+      n: r.n, date: r.date, mine: true,
     };
     const list = loadWall();
     if (!list.some(e => e.code === entry.code)) {
@@ -569,12 +569,12 @@
   }
 
   // ---------- share ----------
-  function shareUrl() {
-    return location.origin + location.pathname + '?d=' + designCode();
+  function shareUrl(r) {
+    return location.origin + location.pathname + '?d=' + designCode(r);
   }
 
-  function shareLink(btn) {
-    const url = shareUrl();
+  function shareLink(btn, r) {
+    const url = shareUrl(r);
     const ok = () => { btn.textContent = 'link copied ✓'; setTimeout(() => { btn.textContent = 'copy link'; }, 2200); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(ok, () => showShareField(url));
@@ -594,7 +594,7 @@
     field.select();
   }
 
-  async function renderCard() {
+  async function renderCard(r, svgEl) {
     const W = 1080, HH = 1350, pad = 84;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = HH;
@@ -602,7 +602,7 @@
     ctx.fillStyle = '#090c0f';
     ctx.fillRect(0, 0, W, HH);
 
-    const svg = player.svg;
+    const svg = svgEl;
     const vb = svg.getAttribute('viewBox').split(' ').map(Number);
     const scale = Math.min((W - pad * 2) / vb[2], 880 / vb[3]);
     const w = vb[2] * scale, hh2 = vb[3] * scale;
@@ -616,25 +616,25 @@
     });
     ctx.drawImage(img, (W - w) / 2, pad + (880 - hh2) / 2, w, hh2);
 
-    const metres = (round.total * SPACING_CM / 100).toFixed(1);
+    const metres = (r.total * SPACING_CM / 100).toFixed(1);
     ctx.fillStyle = '#c1cad3';
     ctx.font = '600 52px "JetBrains Mono", monospace';
-    ctx.fillText((round.name || '').trim() || 'untitled', pad, 1120);
+    ctx.fillText((r.name || '').trim() || 'untitled', pad, 1120);
     ctx.fillStyle = '#6d7884';
     ctx.font = '400 30px "JetBrains Mono", monospace';
-    ctx.fillText(`${round.n} ${plural(round.n)} · ${metres} m of cord`, pad, 1176);
-    if (round.mine) ctx.fillText(`first traced ${round.date}`, pad, 1222);
+    ctx.fillText(`${r.n} ${plural(r.n)} · ${metres} m of cord`, pad, 1176);
+    if (r.mine) ctx.fillText(`first traced ${r.date}`, pad, 1222);
     ctx.fillStyle = '#a3b8c4';
     ctx.font = '400 24px "JetBrains Mono", monospace';
-    ctx.fillText(shareUrl().replace(/^https?:\/\//, ''), pad, 1290);
+    ctx.fillText(shareUrl(r).replace(/^https?:\/\//, ''), pad, 1290);
     return canvas;
   }
 
-  function shareCard(btn) {
+  function shareCard(btn, r, svgEl) {
     const orig = btn.textContent;
     btn.textContent = '…';
-    renderCard().then(canvas => new Promise(res => canvas.toBlob(res, 'image/png'))).then(blob => {
-      const fname = (((round.name || '').trim() || 'weave').replace(/[^\w-]+/g, '-')) + '.png';
+    renderCard(r, svgEl).then(canvas => new Promise(res => canvas.toBlob(res, 'image/png'))).then(blob => {
+      const fname = (((r.name || '').trim() || 'weave').replace(/[^\w-]+/g, '-')) + '.png';
       const file = new File([blob], fname, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: 'tear' }).catch(() => {});
@@ -650,6 +650,282 @@
     }).catch(() => { btn.textContent = orig; });
   }
 
+  // ---------- the daily swatch ----------
+  // A corner of a finished cloth; rebuild the loom that weaves it.
+  // Guess = rectangle W×H + a colour per string (laying order). Six weaves.
+  const LAUNCH = '2026-06-11';
+  const GOES_MAX = 6;
+  const SWATCH_KEY = 'toy.swatch.v1';
+
+  function hashStr(s) {
+    let hsh = 2166136261;
+    for (let i = 0; i < s.length; i++) { hsh ^= s.charCodeAt(i); hsh = Math.imul(hsh, 16777619); }
+    return hsh >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const gcd2 = (a, b) => (b ? gcd2(b, a % b) : a);
+  function shuffledWith(rnd, arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = (rnd() * (i + 1)) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function todayStr() {
+    const m = /[?&]day=(\d{4}-\d{2}-\d{2})/.exec(location.search);
+    return m ? m[1] : new Date().toLocaleDateString('en-CA');
+  }
+  function swatchNumber(dayStr) {
+    return Math.max(1, Math.round((Date.parse(dayStr) - Date.parse(LAUNCH)) / 86400000) + 1);
+  }
+
+  function genDaily(dayStr) {
+    const rnd = mulberry32(hashStr('swatch:' + dayStr));
+    for (let t = 0; t < 200; t++) {
+      const W = 7 + ((rnd() * 12) | 0);   // 7..18
+      const H = 5 + ((rnd() * 10) | 0);   // 5..14
+      const g = gcd2(W, H);
+      if (g < 2 || g > 8) continue;
+      // some days one cord wears several cycles: fewer colours than strings
+      const k = (g <= 3 || rnd() < 0.5) ? g : 2 + ((rnd() * (Math.min(g, 5) - 1)) | 0);
+      const pal = shuffledWith(rnd, DYE).slice(0, k).map(c => c.hex);
+      const colors = pal.slice();
+      while (colors.length < g) colors.push(pal[(rnd() * k) | 0]);
+      return { W, H, colors: shuffledWith(rnd, colors) };
+    }
+    return { W: 12, H: 9, colors: [DYE[5].hex, DYE[12].hex, DYE[1].hex] };
+  }
+
+  const daily = {
+    day: null, num: 0, target: null,
+    gw: 10, gh: 8, slots: [], selSlot: 0,
+    goes: [], solved: false, over: false, busy: false,
+  };
+  const swatchEl = $('swatch'), slotsEl = $('slots'), rackEl = $('rack'),
+    commitBtn = $('commit-btn'), stageEl = $('daily-stage'),
+    rowsEl = $('daily-rows'), resultEl = $('daily-result'),
+    loomEl = $('loom'), dotsEl = $('goes-dots');
+  let guessPlayer = null;
+
+  function loadSwatchState() {
+    try { return JSON.parse(localStorage.getItem(SWATCH_KEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveSwatchState() {
+    const all = loadSwatchState();
+    all[daily.day] = {
+      goes: daily.goes.map(g => ({ W: g.W, H: g.H, colors: g.colors })),
+      solved: daily.solved, over: daily.over,
+    };
+    try { localStorage.setItem(SWATCH_KEY, JSON.stringify(all)); } catch { /* private mode */ }
+  }
+
+  function judgeGo(W, H, colors) {
+    const t = daily.target;
+    const cols = colors.map(() => 'x');
+    const remaining = {};
+    t.colors.forEach((c, i) => {
+      if (colors[i] === c) cols[i] = 'g';
+      else remaining[c] = (remaining[c] || 0) + 1;
+    });
+    colors.forEach((c, i) => {
+      if (cols[i] !== 'g' && remaining[c] > 0) { cols[i] = 'y'; remaining[c]--; }
+    });
+    return { w: W === t.W, h: H === t.H, cols };
+  }
+  const goWon = j => j.w && j.h && j.cols.length === daily.target.colors.length && j.cols.every(c => c === 'g');
+
+  function buildSwatch() {
+    swatchEl.replaceChildren();
+    const t = daily.target;
+    const p = P.create(swatchEl, {
+      cells: E.rectCells(t.W, t.H), colors: t.colors, autoplay: false, bg: BG,
+    });
+    p.finish();
+    // stand too close to see the whole board: crop to the top-left corner
+    // (player geometry: 44px cells, 44px pad — show the pad + ~6×4.5 cells)
+    p.svg.setAttribute('viewBox', '0 0 308 242');
+  }
+
+  function syncSlots() {
+    const g = gcd2(daily.gw, daily.gh);
+    while (daily.slots.length < g) daily.slots.push(null);
+    daily.slots.length = g;
+    if (daily.selSlot >= g) daily.selSlot = 0;
+  }
+
+  function renderLoom() {
+    syncSlots();
+    $('dw-val').textContent = daily.gw;
+    $('dh-val').textContent = daily.gh;
+    const g = daily.slots.length;
+    $('g-readout').textContent = `→ ${g} ${plural(g)}`;
+    slotsEl.replaceChildren(...daily.slots.map((hex, i) =>
+      h('button', {
+        class: 'slot' + (i === daily.selSlot ? ' sel' : ''), 'data-i': String(i),
+        style: hex ? `background:${hex}` : '', title: `string ${i + 1}`,
+        onclick: () => { daily.selSlot = i; renderLoom(); },
+      }, hex ? '' : String(i + 1))));
+    commitBtn.disabled = daily.busy || daily.over || daily.slots.some(s => !s);
+  }
+
+  function buildRack() {
+    rackEl.replaceChildren(...DYE.map(c =>
+      h('button', {
+        class: 'yarn', 'data-hex': c.hex, style: `background:${c.hex}`, title: c.name,
+        onclick: () => {
+          if (daily.over || !daily.slots.length) return;
+          daily.slots[daily.selSlot] = c.hex;
+          const next = daily.slots.findIndex(s => !s);
+          daily.selSlot = next >= 0 ? next : Math.min(daily.selSlot + 1, daily.slots.length - 1);
+          renderLoom();
+        },
+      })));
+  }
+
+  function stepDim(key, d) {
+    if (daily.over || daily.busy) return;
+    const lim = key === 'gw' ? [4, 20] : [4, 16];
+    daily[key] = Math.max(lim[0], Math.min(lim[1], daily[key] + d));
+    renderLoom();
+  }
+
+  function renderDots() {
+    dotsEl.textContent = '●'.repeat(daily.goes.length) + '○'.repeat(Math.max(0, GOES_MAX - daily.goes.length));
+  }
+
+  function rowFor(go) {
+    return h('div', { class: 'go-row' },
+      h('span', { class: 'go-dim' }, `${go.W}×${go.H}`),
+      h('span', { class: 'mark ' + (go.judge.w ? 'ok' : 'no') }, go.judge.w ? 'w✓' : 'w✗'),
+      h('span', { class: 'mark ' + (go.judge.h ? 'ok' : 'no') }, go.judge.h ? 'h✓' : 'h✗'),
+      h('span', { class: 'cdots' }, ...go.colors.map((hex, i) => h('span', {
+        class: 'cdot ' + go.judge.cols[i], style: `background:${hex}`,
+        title: { g: 'right string', y: 'in the cloth, wrong string', x: 'not in this cloth' }[go.judge.cols[i]],
+      }))));
+  }
+
+  function renderRows() {
+    rowsEl.replaceChildren(...daily.goes.map(rowFor));
+    if (daily.goes.length && !daily.over) {
+      rowsEl.append(h('div', { class: 'legend' },
+        'ring = right string · dashed = in the cloth, wrong string · faded = not in this cloth'));
+    }
+    renderDots();
+  }
+
+  function commitGo() {
+    if (daily.busy || daily.over || daily.slots.some(s => !s)) return;
+    const go = { W: daily.gw, H: daily.gh, colors: daily.slots.slice() };
+    go.judge = judgeGo(go.W, go.H, go.colors);
+    daily.goes.push(go);
+    daily.busy = true;
+    renderLoom();
+    renderDots();
+    saveSwatchState();
+    if (guessPlayer) guessPlayer.destroy();
+    stageEl.hidden = false;
+    stageEl.style.aspectRatio = `${go.W + 2} / ${go.H + 2}`;
+    stageEl.style.maxWidth = `min(560px, calc(40vh * ${((go.W + 2) / (go.H + 2)).toFixed(4)}))`;
+    guessPlayer = P.create(stageEl, {
+      cells: E.rectCells(go.W, go.H), colors: go.colors, bg: BG,
+      autoplay: true, speedFactor: 3.2,
+      onDone: () => {
+        daily.busy = false;
+        renderRows();
+        if (goWon(go.judge)) dailyFinish(true);
+        else if (daily.goes.length >= GOES_MAX) dailyFinish(false);
+        else renderLoom();
+        saveSwatchState();
+      },
+    });
+  }
+
+  function dailyFinish(won, instant) {
+    daily.over = true;
+    daily.solved = won;
+    loomEl.hidden = true;
+    const t = daily.target;
+    const r = makeRound(E.rectCells(t.W, t.H), {
+      colors: t.colors.slice(), mine: won, name: `the swatch #${daily.num}`,
+    });
+    if (guessPlayer) { guessPlayer.destroy(); guessPlayer = null; }
+    stageEl.replaceChildren();
+    stageEl.hidden = false;
+    stageEl.classList.remove('shimmer');
+    stageEl.style.aspectRatio = `${t.W + 2} / ${t.H + 2}`;
+    stageEl.style.maxWidth = `min(640px, calc(46vh * ${((t.W + 2) / (t.H + 2)).toFixed(4)}))`;
+    const rp = P.create(stageEl, {
+      cells: r.cells, colors: r.colors, bg: BG,
+      autoplay: !instant, speedFactor: 1.2,
+      onDone: () => {
+        if (won) { void stageEl.offsetWidth; stageEl.classList.add('shimmer'); }
+      },
+    });
+    if (instant) rp.finish();
+    const score = won ? `${daily.goes.length}/${GOES_MAX}` : `X/${GOES_MAX}`;
+    const line = won
+      ? `you rebuilt João's loom in ${daily.goes.length} ${daily.goes.length === 1 ? 'weave' : 'weaves'}.`
+      : `the loom was ${t.W}×${t.H}. tomorrow there is another cloth.`;
+    const shareBtn = h('button', { class: 'btn next', onclick: () => copyResult(shareBtn, score) }, 'share result');
+    const cardBtn = h('button', { class: 'btn', onclick: () => shareCard(cardBtn, r, rp.svg) }, 'share card');
+    const keepBtn = h('button', {
+      class: 'btn',
+      onclick: () => { keepDesign(r); keepBtn.textContent = 'on the wall ✓'; keepBtn.disabled = true; },
+    }, 'keep');
+    resultEl.replaceChildren(
+      h('div', { class: 'ask' }, `${t.W}×${t.H} · ${t.colors.length} ${plural(t.colors.length)} · ${score}`),
+      h('div', { class: 'meta-line' }, line),
+      h('div', { class: 'row' }, shareBtn, cardBtn, keepBtn),
+    );
+    renderRows();
+  }
+
+  function copyResult(btn, score) {
+    const lines = daily.goes.map(go =>
+      (go.judge.w ? '📐✓' : '📐✗') + (go.judge.h ? '📏✓' : '📏✗') + ' ' +
+      go.judge.cols.map(c => (c === 'g' ? '🟩' : c === 'y' ? '🟨' : '⬛')).join(''));
+    const text = `the swatch #${daily.num} — ${score}\n${lines.join('\n')}\n${location.origin + location.pathname}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'copied ✓';
+        setTimeout(() => { btn.textContent = 'share result'; }, 2200);
+      }, () => {});
+    }
+  }
+
+  function initDaily() {
+    daily.day = todayStr();
+    daily.num = swatchNumber(daily.day);
+    daily.target = genDaily(daily.day);
+    $('daily-num').textContent = '#' + daily.num;
+    buildSwatch();
+    buildRack();
+    $('dw-minus').addEventListener('click', () => stepDim('gw', -1));
+    $('dw-plus').addEventListener('click', () => stepDim('gw', 1));
+    $('dh-minus').addEventListener('click', () => stepDim('gh', -1));
+    $('dh-plus').addEventListener('click', () => stepDim('gh', 1));
+    commitBtn.addEventListener('click', commitGo);
+    const st = loadSwatchState()[daily.day];
+    if (st && Array.isArray(st.goes)) {
+      daily.goes = st.goes.map(g => Object.assign({}, g, { judge: judgeGo(g.W, g.H, g.colors) }));
+      daily.solved = !!st.solved;
+      daily.over = !!st.over;
+    }
+    renderRows();
+    renderLoom();
+    if (daily.over) dailyFinish(daily.solved, true);
+  }
+
   // ---------- boot ----------
   function boot() {
     draw.cells = seedShape(draw.gw, draw.gh);
@@ -657,6 +933,7 @@
     recount();
     renderHunts();
     buildWall();
+    initDaily();
     weaveBtn.addEventListener('click', () => {
       const cropped = cropCells(draw.cells);
       if (!cropped) return;
@@ -672,7 +949,7 @@
         console.warn('tear: could not open shared design —', err);
       }
     }
-    setView('draw');
+    setView('daily');
   }
 
   // test hook (smoke-toy.mjs)
@@ -681,7 +958,8 @@
     get round() { return round; },
     get player() { return player; },
     skip() { if (player) player.setSpeed(16); },
-    cardDataURL() { return renderCard().then(c => c.toDataURL('image/png')); },
+    cardDataURL() { return renderCard(round, player.svg).then(c => c.toDataURL('image/png')); },
+    get swatch() { return daily; },
   };
 
   boot();

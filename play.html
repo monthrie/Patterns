@@ -38,7 +38,7 @@
   #tabs button.active { color: var(--accent); border-color: var(--hair); background: var(--ink-2); }
 
   main { flex: 1; }
-  section[hidden] { display: none !important; } /* must beat the #view-* ID display rules */
+  [hidden] { display: none !important; } /* must beat ID display rules (#view-*, #loom, …) */
 
   /* ---- draw ---- */
   #view-draw { display: flex; flex-direction: column; align-items: center; }
@@ -85,7 +85,60 @@
     30% { filter: brightness(1.45) saturate(1.15); }
     100% { filter: brightness(1); }
   }
-  #board.shimmer svg { animation: shimmer 1.5s ease; }
+  .shimmer svg { animation: shimmer 1.5s ease; }
+
+  /* ---- the daily swatch ---- */
+  #view-daily { display: flex; flex-direction: column; align-items: center; }
+  #daily-head { width: min(100%, 560px); display: flex; align-items: baseline; gap: 10px; margin-top: 18px; }
+  #daily-head .g-label { margin-bottom: 0; }
+  #daily-head b { color: var(--accent); }
+  #goes-dots { margin-left: auto; color: var(--dim); letter-spacing: 3px; font-size: 12px; }
+  .daily-blurb { width: min(100%, 560px); font-size: 12px; color: var(--dim); line-height: 1.7; margin: 8px 0 14px; }
+  .daily-blurb em { color: var(--accent); font-style: normal; }
+  #swatch {
+    width: min(100%, 460px); aspect-ratio: 308/242; position: relative;
+    border: 1px solid var(--hair); border-radius: 10px; overflow: hidden;
+  }
+  #swatch::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 76%, var(--ink) 100%),
+      linear-gradient(180deg, transparent 72%, var(--ink) 100%);
+  }
+  #loom { width: min(100%, 560px); margin-top: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .loom-row { display: flex; gap: 18px; align-items: center; font-size: 13px; color: var(--dim); flex-wrap: wrap; justify-content: center; }
+  .dim-stepper { display: flex; gap: 8px; align-items: center; }
+  .dim-stepper b { color: var(--accent); font-size: 16px; min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+  .btn.mini { min-height: 32px; padding: 4px 12px; }
+  #g-readout { color: var(--bone); font-size: 12px; }
+  #slots, #rack { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .slot {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px dashed var(--dim); background: var(--ink-2);
+    color: var(--dim); font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .slot.sel { border: 2px solid var(--accent); }
+  .yarn { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--hair); cursor: pointer; }
+  .yarn:hover { border-color: var(--accent); }
+  #commit-btn {
+    min-height: 44px; padding: 9px 28px; border-radius: 9px;
+    border: 1px solid var(--accent); background: var(--ink-2); color: var(--accent);
+    font-family: inherit; font-size: 13.5px; letter-spacing: 0.5px; cursor: pointer;
+  }
+  #commit-btn:disabled { border-color: var(--hair); color: var(--dim); opacity: 0.6; cursor: default; }
+  #daily-stage { width: 100%; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin-top: 14px; }
+  #daily-rows { margin-top: 12px; width: min(100%, 560px); }
+  .go-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 8px; font-size: 12px; }
+  .go-dim { color: var(--dim); min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+  .mark.ok { color: var(--accent); }
+  .mark.no { color: #b25a64; }
+  .cdots { display: flex; gap: 5px; }
+  .cdot { width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 2px solid transparent; }
+  .cdot.g { border-color: var(--accent); }
+  .cdot.y { border-color: var(--dim); border-style: dashed; }
+  .cdot.x { opacity: 0.25; }
+  .legend { text-align: center; font-size: 10.5px; color: var(--dim); margin-top: 10px; }
+  #daily-result { margin-top: 14px; text-align: center; }
   #panel { margin-top: 16px; text-align: center; min-height: 130px; width: 100%; }
   .ask { font-size: 17px; letter-spacing: 0.3px; margin-bottom: 8px; }
   .ask.dim { color: var(--dim); font-size: 13px; margin-bottom: 14px; }
@@ -165,11 +218,35 @@
     <h1>tear</h1>
     <span class="meta">a quiet weaving game</span>
     <nav id="tabs">
-      <button data-view="draw" class="active">draw</button>
+      <button data-view="daily" class="active">today</button>
+      <button data-view="draw">draw</button>
       <button data-view="wall">the wall</button>
     </nav>
   </header>
   <main>
+    <section id="view-daily" hidden>
+      <div id="daily-head">
+        <span class="g-label">the swatch <b id="daily-num"></b></span>
+        <span id="goes-dots"></span>
+      </div>
+      <p class="daily-blurb">A corner of a cloth from João's loom. Rebuild the loom that
+      weaves it: size the board, thread the colours, weave to check. Six weaves.
+      The colours are plain to see — <em>which string wears them</em> is the riddle.</p>
+      <div id="swatch"></div>
+      <div id="loom">
+        <div class="loom-row">
+          <span class="dim-stepper">w <button class="btn mini" id="dw-minus">−</button><b id="dw-val">10</b><button class="btn mini" id="dw-plus">+</button></span>
+          <span class="dim-stepper">h <button class="btn mini" id="dh-minus">−</button><b id="dh-val">8</b><button class="btn mini" id="dh-plus">+</button></span>
+          <span id="g-readout"></span>
+        </div>
+        <div id="slots"></div>
+        <div id="rack"></div>
+        <button id="commit-btn">weave my guess →</button>
+      </div>
+      <div id="daily-stage" hidden></div>
+      <div id="daily-rows"></div>
+      <div id="daily-result"></div>
+    </section>
     <section id="view-draw">
       <div id="count-line"><b id="count-num">0</b></div>
       <div id="editor"></div>

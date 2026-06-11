@@ -97,9 +97,15 @@ async function runSuite(browser, vp) {
 
   const shot = (name) => page.screenshot({ path: path.join(ARTIFACTS, `toy-${name}-${vp.label}.png`), fullPage: true });
 
-  // 1. Loads into the draw view with a live string count
-  await check(t('page loads: editor grid + live string count, no errors'), async () => {
+  // 1. Loads into the daily swatch; draw view reachable with live count
+  await check(t('page loads: daily swatch front door, draw editor works'), async () => {
     await page.goto(PAGE_URL, { waitUntil: 'load' });
+    await page.waitForSelector('#swatch svg');
+    const target = await page.evaluate(() => window.__toy.swatch.target);
+    if (!target || !target.W) throw new Error('no daily target generated');
+    const drawHidden = await page.locator('#view-draw').isHidden();
+    if (!drawHidden) throw new Error('draw view visible at boot — daily should be the front door');
+    await page.locator('#tabs button', { hasText: /^draw$/ }).click();
     await page.waitForSelector('#editor .cell');
     const n = await page.evaluate(() => window.__toy.draw.n);
     if (!Number.isInteger(n) || n < 1) throw new Error(`draw.n = ${n}`);
@@ -249,7 +255,65 @@ async function runSuite(browser, vp) {
     if (n !== myN) throw new Error(`shared weave has ${n} strings, expected ${myN}`);
   });
 
-  // 11. Zero console errors over the whole interaction
+  // 11-13. The daily swatch, on a fixed day for determinism
+  const DAY_URL = `${PAGE_URL}?day=2026-06-20`;
+  let target = null;
+  const setDim = async (which, want) => {
+    const id = which === 'gw' ? 'dw' : 'dh';
+    for (let i = 0; i < 40; i++) {
+      const cur = await page.evaluate((w) => window.__toy.swatch[w], which);
+      if (cur === want) return;
+      await page.locator(`#${id}-${cur < want ? 'plus' : 'minus'}`).click();
+    }
+    throw new Error(`could not step ${which} to ${want}`);
+  };
+
+  await check(t('swatch: wrong loom weaves the guess and gets ✗ feedback'), async () => {
+    await page.goto(DAY_URL, { waitUntil: 'load' });
+    await page.waitForSelector('#swatch svg');
+    target = await page.evaluate(() => window.__toy.swatch.target);
+    if (vp.label === 'phone') await shot('swatch');
+    await setDim('gw', target.W === 20 ? 19 : target.W + 1); // deliberately wrong width
+    await setDim('gh', target.H);
+    const slotCount = await page.locator('.slot').count();
+    for (let i = 0; i < slotCount; i++) {
+      await page.locator(`.slot[data-i="${i}"]`).click();
+      await page.locator('.yarn').first().click();
+    }
+    await page.locator('#commit-btn').click();
+    await page.locator('.go-row').first().waitFor({ state: 'visible', timeout: 25000 });
+    const row = await page.locator('.go-row').first().textContent();
+    if (!row.includes('w✗')) throw new Error(`expected w✗ in feedback row: "${row}"`);
+    if (!row.includes('h✓')) throw new Error(`expected h✓ in feedback row: "${row}"`);
+  });
+
+  await check(t('swatch: exact loom solves with score + share text'), async () => {
+    await setDim('gw', target.W);
+    await setDim('gh', target.H);
+    for (let i = 0; i < target.colors.length; i++) {
+      await page.locator(`.slot[data-i="${i}"]`).click();
+      await page.locator(`.yarn[data-hex="${target.colors[i]}"]`).click();
+    }
+    await page.locator('#commit-btn').click();
+    await page.locator('#daily-result .ask', { hasText: /2\/6/ }).waitFor({ state: 'visible', timeout: 25000 });
+    await page.locator('.btn.next', { hasText: /^share result$/ }).click();
+    await page.locator('.btn', { hasText: /copied/ }).waitFor({ state: 'visible' });
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    if (!text.includes('the swatch #')) throw new Error(`share text: "${text}"`);
+    if (!text.includes('🟩')) throw new Error('share text missing the colour grid');
+    if (vp.label === 'tablet') await shot('swatch-solved');
+  });
+
+  await check(t('swatch: solved state restores after reload'), async () => {
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('#daily-result .ask');
+    const ok = await page.evaluate(() => window.__toy.swatch.over && window.__toy.swatch.solved);
+    if (!ok) throw new Error('daily state did not restore as solved');
+    const loomHidden = await page.locator('#loom').isHidden();
+    if (!loomHidden) throw new Error('loom still shown after the day is solved');
+  });
+
+  // 14. Zero console errors over the whole interaction
   await check(t('no console/page errors during entire run'), async () => {
     const title = await page.title();
     if (title.startsWith('ERRO')) throw new Error(`document.title = "${title}"`);
