@@ -347,6 +347,16 @@
     overflow: hidden;
     background: var(--ink);
   }
+  /* Tablet portrait: the weave grows to fill the column instead of leaving a dead band
+     below the grid. Phone (<700px) is untouched — it keeps the fixed 360px preview. */
+  @media (min-width: 700px) {
+    .knot-below-editor {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 420px;
+      max-height: 860px;
+    }
+  }
   .grid-size-toolbar {
     flex-shrink: 0;
     margin-bottom: 8px;

@@ -348,6 +348,11 @@ const STR = {
     tamanho: "Tamanho", hide: "esconder", change: "mudar", wLbl: "L", hLbl: "A",
     fill: "Preencher", clear: "Limpar",
     save: "Guardar", exportar: "Exportar", importar: "Importar",
+    shareQr: "Enviar por QR", qrTitle: "Apontar a outra câmara aqui",
+    qrHint: n => `${n} forma${n === 1 ? '' : 's'} neste código. Abra a câmara do outro aparelho e aponte para aqui — toque no aviso para abrir.`,
+    qrTooBig: "Formas a mais para um só código. Use Exportar e o ficheiro.",
+    qrImported: n => `${n} forma${n === 1 ? '' : 's'} recebida${n === 1 ? '' : 's'}!`,
+    close: "Fechar",
     stripTitle: "Fios", all: "TODOS",
     tapHint: "Toque num fio: cor e visibilidade", custom: "Outra cor\u2026",
     showFio: "Mostrar este fio", hideFio: "Esconder este fio",
@@ -372,6 +377,11 @@ const STR = {
     tamanho: "Size", hide: "hide", change: "change", wLbl: "W", hLbl: "H",
     fill: "Fill", clear: "Clear",
     save: "Save", exportar: "Export", importar: "Import",
+    shareQr: "Send by QR", qrTitle: "Point the other camera here",
+    qrHint: n => `${n} shape${n === 1 ? '' : 's'} in this code. Open the other device's camera and point it here — tap the prompt to open.`,
+    qrTooBig: "Too many shapes for one code. Use Export and the file instead.",
+    qrImported: n => `${n} shape${n === 1 ? '' : 's'} received!`,
+    close: "Close",
     stripTitle: "Strings", all: "ALL",
     tapHint: "Tap a string: colour & visibility", custom: "Custom\u2026",
     showFio: "Show this string", hideFio: "Hide this string",
@@ -417,6 +427,73 @@ function subtractInterval(a0, a1, b0, b1) {
   return r;
 }
 
+// ========== Shape transfer (QR) ==========
+// Pack saved shapes into a compact binary, then URL-safe base64, small enough for one QR.
+// Each cell is one bit (not a JSON "true"), so an 18×10 shape is ~23 bytes + its name.
+function packShapes(shapes) {
+  const bytes = [1, shapes.length & 0xff]; // [version, count]
+  for (const s of shapes) {
+    const nameUtf8 = unescape(encodeURIComponent(String(s.name || '').slice(0, 80)));
+    bytes.push(nameUtf8.length & 0xff);
+    for (let i = 0; i < nameUtf8.length; i++) bytes.push(nameUtf8.charCodeAt(i) & 0xff);
+    bytes.push(s.gw & 0xff, s.gh & 0xff);
+    let cur = 0, nb = 0;
+    for (let y = 0; y < s.gh; y++)
+      for (let x = 0; x < s.gw; x++) {
+        cur = (cur << 1) | (s.cells[y] && s.cells[y][x] ? 1 : 0);
+        if (++nb === 8) { bytes.push(cur); cur = 0; nb = 0; }
+      }
+    if (nb > 0) bytes.push(cur << (8 - nb));
+  }
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function unpackShapes(b64) {
+  const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = [];
+  for (let i = 0; i < bin.length; i++) bytes.push(bin.charCodeAt(i) & 0xff);
+  let p = 0;
+  if (bytes[p++] !== 1) throw new Error('bad version');
+  const count = bytes[p++];
+  const shapes = [];
+  for (let i = 0; i < count; i++) {
+    const nl = bytes[p++];
+    let nameRaw = '';
+    for (let j = 0; j < nl; j++) nameRaw += String.fromCharCode(bytes[p++]);
+    const name = decodeURIComponent(escape(nameRaw));
+    const gw = bytes[p++], gh = bytes[p++];
+    const nbytes = Math.ceil((gw * gh) / 8);
+    const bits = [];
+    for (let k = 0; k < nbytes; k++) {
+      const byte = bytes[p++] || 0;
+      for (let b = 7; b >= 0; b--) bits.push((byte >> b) & 1);
+    }
+    const cells = [];
+    for (let y = 0; y < gh; y++) {
+      const row = [];
+      for (let x = 0; x < gw; x++) row.push(!!bits[y * gw + x]);
+      cells.push(row);
+    }
+    shapes.push({ name, gw, gh, cells });
+  }
+  return shapes;
+}
+// Build a QR module matrix for `text`, trying lowest error-correction that still fits
+// (more capacity), falling back richer. Returns {n, isDark} or null if it overflows a QR.
+function buildQrMatrix(text) {
+  for (const ec of ['L', 'M']) {
+    try {
+      const qr = qrcode(0, ec);
+      qr.addData(text);
+      qr.make();
+      const n = qr.getModuleCount();
+      return { n, isDark: (r, c) => qr.isDark(r, c) };
+    } catch (e) { /* overflow at this EC — try next */ }
+  }
+  return null;
+}
+
 // ========== MAIN COMPONENT ==========
 function KnotMakerMobile() {
   const [cells, setCells] = useState(() => Array.from({
@@ -441,6 +518,42 @@ function KnotMakerMobile() {
       localStorage.setItem('celtic.savedShapes', JSON.stringify(next));
     } catch {}
   }, []);
+  // Merge incoming shapes by name (incoming wins on a name clash) and persist.
+  const mergeShapes = useCallback(incoming => {
+    setSavedShapes(prev => {
+      const merged = [...prev];
+      for (const s of incoming) {
+        const i = merged.findIndex(m => m.name === s.name);
+        if (i >= 0) merged[i] = s; else merged.push(s);
+      }
+      try { localStorage.setItem('celtic.savedShapes', JSON.stringify(merged)); } catch {}
+      return merged;
+    });
+  }, []);
+  // QR shape-transfer state
+  const [qrOpen, setQrOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  // On load, import shapes carried in the URL hash (#shapes=…) — the tablet opens this
+  // after its native camera reads the phone's QR. Clears the hash so a refresh won't re-import.
+  useEffect(() => {
+    const m = (window.location.hash || '').match(/[#&]shapes=([A-Za-z0-9\-_]+)/);
+    if (!m) return;
+    try {
+      const incoming = unpackShapes(m[1]);
+      if (incoming.length) {
+        mergeShapes(incoming);
+        const t = STR[lang] || STR.en;
+        setToast(t.qrImported(incoming.length));
+      }
+    } catch (e) { /* malformed payload — ignore */ }
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
+    // eslint-disable-next-line
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(id);
+  }, [toast]);
   const [gridSizePanelOpen, setGridSizePanelOpen] = useState(() => {
     try {
       const v = localStorage.getItem("celtic.gridSizePanelOpen");
@@ -538,8 +651,15 @@ function KnotMakerMobile() {
   useEffect(() => { playerApiRef.current?.setSpeed?.(playerSpeed); }, [playerSpeed]);
   useEffect(() => { playerApiRef.current?.setLoop?.(playerLoop); }, [playerLoop]);
   const [isLandscape, setIsLandscape] = useState(false);
+  // Tablet portrait: roomy stacked layout where the weave preview should fill its area
+  // rather than float in a square. Phone (<700px) and landscape are unaffected.
+  const [isTabletPortrait, setIsTabletPortrait] = useState(false);
   useEffect(() => {
-    const q = () => setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth >= 500);
+    const q = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      setIsLandscape(w > h && w >= 500);
+      setIsTabletPortrait(w >= 700 && w <= h);
+    };
     q();
     window.addEventListener('resize', q);
     window.addEventListener('orientationchange', q);
@@ -726,11 +846,19 @@ function KnotMakerMobile() {
   const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.92;
   const ox = (svgW - W * cellSz) / 2,
     oy = (svgH - H * cellSz) / 2;
-  // ViewBox: zoom < 1 shows more area (zoom out), zoom > 1 shows less (zoom in)
-  const vbW = svgW / zoom,
-    vbH = svgH / zoom;
-  const vbX = (svgW - vbW) / 2 - panX / zoom;
-  const vbY = (svgH - vbH) / 2 - panY / zoom;
+  // ViewBox: zoom < 1 shows more area (zoom out), zoom > 1 shows less (zoom in).
+  // On tablet portrait we frame the weave's own bounding box (not the full 600 square)
+  // so a wide cloth fills the roomy preview instead of floating small. The 600 coordinate
+  // system is untouched, so phone rendering is byte-identical.
+  const framePad = cellSz * 0.62;
+  const frameX = isTabletPortrait ? ox - framePad : 0;
+  const frameY = isTabletPortrait ? oy - framePad : 0;
+  const frameW = isTabletPortrait ? W * cellSz + 2 * framePad : svgW;
+  const frameH = isTabletPortrait ? H * cellSz + 2 * framePad : svgH;
+  const vbW = frameW / zoom,
+    vbH = frameH / zoom;
+  const vbX = frameX + (frameW - vbW) / 2 - panX / zoom;
+  const vbY = frameY + (frameH - vbH) / 2 - panY / zoom;
   const toX = useCallback(x => ox + x * cellSz, [ox, cellSz]);
   const toY = useCallback(y => oy + y * cellSz, [oy, cellSz]);
   const gapDots = useMemo(() => gaps.map((g, i) => ({
@@ -1430,7 +1558,9 @@ function KnotMakerMobile() {
   // Editor pointer handling
   const editorBaseCellSize = useMemo(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 400;
-    const availW = isLandscape ? Math.max(220, Math.min(w * 0.5 - 28, 720)) : Math.min(w - 24, 600);
+    // Portrait tablet (>=700px) lets the grid use the extra width — phone (<700) keeps the 600 cap.
+    const portraitCap = w >= 700 ? Math.min(w - 24, 900) : Math.min(w - 24, 600);
+    const availW = isLandscape ? Math.max(220, Math.min(w * 0.5 - 28, 720)) : portraitCap;
     return Math.max(28, Math.floor(availW / gridW));
   }, [gridW, isLandscape]);
   const [editorZoom, setEditorZoom] = useState(1);
@@ -2684,7 +2814,20 @@ function KnotMakerMobile() {
       fontFamily: "inherit",
       textTransform: "uppercase"
     }
-  }, T.importar), /*#__PURE__*/React.createElement("input", {
+  }, T.importar), savedShapes.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQrOpen(true),
+    style: {
+      padding: "10px 16px",
+      background: "transparent",
+      border: "1px solid var(--hair)",
+      color: "var(--bone-dim)",
+      fontSize: 12,
+      letterSpacing: 1,
+      cursor: "pointer",
+      fontFamily: "inherit",
+      textTransform: "uppercase"
+    }
+  }, T.shareQr), /*#__PURE__*/React.createElement("input", {
     ref: importFileRef,
     type: "file",
     accept: "application/json",
@@ -2800,6 +2943,80 @@ function KnotMakerMobile() {
     }, pct, "%"));
   })))));
 
+  // QR overlay: encode the saved shapes into a URL the other device's camera can open.
+  let qrModalEl = null;
+  if (qrOpen) {
+    const base = window.location.origin + window.location.pathname;
+    let inner;
+    try {
+      const payload = packShapes(savedShapes);
+      const matrix = buildQrMatrix(base + '#shapes=' + payload);
+      if (!matrix) throw new Error('overflow');
+      const { n, isDark } = matrix;
+      const quiet = 4, dim = n + quiet * 2, px = 300, scale = px / dim;
+      const rects = [];
+      for (let r = 0; r < n; r++)
+        for (let c = 0; c < n; c++)
+          if (isDark(r, c))
+            rects.push(/*#__PURE__*/React.createElement("rect", {
+              key: r + '_' + c,
+              x: ((c + quiet) * scale).toFixed(2),
+              y: ((r + quiet) * scale).toFixed(2),
+              width: Math.ceil(scale) + 0.5,
+              height: Math.ceil(scale) + 0.5,
+              fill: "#0b0d10"
+            }));
+      inner = [
+        /*#__PURE__*/React.createElement("svg", {
+          key: "svg", width: px, height: px, viewBox: `0 0 ${px} ${px}`,
+          style: { background: "#ffffff", borderRadius: 10, display: "block", margin: "0 auto" }
+        }, rects),
+        /*#__PURE__*/React.createElement("p", {
+          key: "hint",
+          style: { color: "var(--bone-dim)", fontSize: 13, lineHeight: 1.5, margin: "14px 0 0", textAlign: "center" }
+        }, T.qrHint(savedShapes.length)),
+      ];
+    } catch (e) {
+      inner = /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--bone-dim)", fontSize: 14, lineHeight: 1.5, textAlign: "center", margin: "20px 0" }
+      }, T.qrTooBig);
+    }
+    qrModalEl = /*#__PURE__*/React.createElement("div", {
+      onClick: () => setQrOpen(false),
+      style: {
+        position: "fixed", inset: 0, zIndex: 60,
+        background: "rgba(8,10,14,0.86)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: e => e.stopPropagation(),
+      style: {
+        background: "var(--ink-2)", border: "1px solid var(--hair)", borderRadius: 14,
+        padding: 20, width: "min(360px, 100%)", maxHeight: "100%", overflowY: "auto",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.6)"
+      }
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: { margin: "0 0 14px", color: "var(--bone)", fontSize: 15, fontWeight: 700, textAlign: "center", letterSpacing: 0.4 }
+    }, T.qrTitle), inner, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setQrOpen(false),
+      style: {
+        marginTop: 16, width: "100%", padding: "11px 0",
+        background: "var(--accent-fill)", color: "var(--accent-on-fill)",
+        border: "1px solid var(--edge)", borderRadius: 8, fontFamily: "inherit",
+        fontSize: 13, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", cursor: "pointer"
+      }
+    }, T.close)));
+  }
+  const toastEl = toast ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed", left: "50%", bottom: "calc(64px + env(safe-area-inset-bottom, 0px))",
+      transform: "translateX(-50%)", zIndex: 70,
+      background: "var(--accent-fill)", color: "var(--accent-on-fill)",
+      padding: "11px 20px", borderRadius: 999, fontSize: 13.5, fontWeight: 700,
+      letterSpacing: 0.4, boxShadow: "0 6px 20px rgba(0,0,0,0.5)", maxWidth: "90vw", textAlign: "center"
+    }
+  }, toast) : null;
+
   // ========== RENDER ==========
   return /*#__PURE__*/React.createElement("div", {
     className: "app-shell"
@@ -2843,6 +3060,6 @@ function KnotMakerMobile() {
   }, T.tabFios), /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'shapes' ? 'active' : ''}`,
     onClick: () => setActiveTab(activeTab === 'shapes' ? null : 'shapes')
-  }, T.tabGuardadas)));
+  }, T.tabGuardadas)), qrModalEl, toastEl);
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(KnotMakerMobile, null));
