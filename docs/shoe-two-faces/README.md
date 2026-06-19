@@ -16,14 +16,15 @@ on is the verified one used by the main app; the seam/3D part is the open proble
 - **Image:** `shoe-front-back.png` (source: `shoe-front-back.svg`).
 - **Script that made it:** `render-12.mjs` (verbatim copy of `scripts/render-12.mjs` in the repo root).
 - **Run it:** from the repo root, `node scripts/render-12.mjs`, then turn the SVG into a PNG with `qlmanage -t -s 2200 -o /tmp /tmp/shoe12.svg` (macOS).
-- **What this exact run does:** sets **every convex corner to "go through"** and renders the over/under weave on both faces.
-- **What it produces:** the model traces **13 closed cords** for this configuration (the script prints `all corners THROUGH -> 13 cords, all closed: true`). The 12-cord result (the project target) comes from a *different* corner setting, described below.
+- **What this exact run does:** sets three corners ((19,0), (0,3), (19,11)) to **"go through"** and the other two to **"come back same side"**, then renders the over/under weave on both faces.
+- **What it produces:** the model traces **12 closed cords** (the script prints `12-cord config (through at 19,0 / 0,3 / 19,11) -> 12 cords, all closed: true`). This is the project's target count. Setting *all five* corners to "go through" instead yields 13; see the table below.
 
-> Honest note on the count: the central question of the project is how a flat panel that
-> is **8 cords** flat becomes a **12-cord** boot when assembled. This particular run is the
-> "all corners go through" extreme, which the model counts as **13**, not 12. It is included
-> because it is the picture that was confirmed as visually correct. The corner action is the
-> lever between counts; see "The corner action" below for the 12 setting.
+> Note on the count: the central question of the project is how a flat panel that is
+> **8 cords** flat becomes a **12-cord** boot when assembled. This run is one of the corner
+> settings the model counts as **12** (go through at three corners). The corner action is the
+> lever: the same flat L gives 8, 9, 10, 11, 12, or 13 cords purely by which corners go
+> through. Which 12-cord pattern matches the **physical** shoe is still being pinned down
+> with the maker.
 
 ---
 
@@ -86,15 +87,15 @@ forces the **net face change across the corner** to the chosen action, regardles
 the two flanking edges would do on their own. The mechanism: a per-corner correction equal
 to `normalNet XOR chosenAction`, applied when the cord completes the corner wrap.
 
-This run sets `cfg = { every corner: 'through' }`. The maker's observation is that the
-**same flat L** yields different assembled cord counts purely by changing this corner
-action, which the model confirms:
+This run sets three corners to `'through'` and two to `'same'` (the `cfg` object near the
+bottom of the script). The maker's observation is that the **same flat L** yields different
+assembled cord counts purely by changing this corner action, which the model confirms:
 
 | corner setting | cords (this verified bookkeeping) |
 |---|---|
 | default rule (through at the 2 ankle corners only) | **8** |
-| **go through at all 5 corners (this run)** | **13** |
-| go through at the right 3 corners, e.g. (19,0), (0,3), (19,11) | **12** |
+| **go through at three corners (19,0), (0,3), (19,11) (this run)** | **12** |
+| go through at all 5 corners | **13** |
 
 The full reachable set by corner action is {8, 9, 10, 11, 12, 13}. The exact corner pattern
 that matches the **physical** 12-cord shoe is still being pinned down with the maker; the
@@ -109,7 +110,8 @@ interactive tool (`face.html`) is for exactly that (flip the pins, watch the cou
   dives **under** another at an interior crossing, using the checkerboard parity
   `(k + m + W) % 2`. That is what makes it read as woven basket cloth rather than flat lines.
 - Boundary edges: the open cuff is the dashed red edge; tied edges are grey.
-- The red dots at the corners are the corner pins (here all set to "go through"). The dashed
+- The corner pins are **red where the cord goes through** (the three corners (19,0), (0,3),
+  (19,11)) and **grey where it comes back on the same side** (the other two). The dashed
   grey ring marks the **concave** notch corner at (11,3), which in this model is never
   actually visited by a cord (a known open question).
 
@@ -120,7 +122,7 @@ interactive tool (`face.html`) is for exactly that (flip the pins, watch the cou
 ```sh
 # from the repo root
 node scripts/render-12.mjs
-#   prints: all corners THROUGH -> 13 cords, all closed: true
+#   prints: 12-cord config (through at 19,0 / 0,3 / 19,11) -> 12 cords, all closed: true
 #   writes: /tmp/shoe12.svg
 qlmanage -t -s 2200 -o /tmp /tmp/shoe12.svg   # macOS: SVG -> /tmp/shoe12.svg.png
 ```

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // render-12.mjs — the shoe drawn like the original tool: thick, INTERWOVEN (over/under),
-// front + back, with the maker's 12-cycle corner action: GO THROUGH at every corner
-// (come back at none). Prints the cord count the model produces.
+// front + back, with the maker's corner action. THIS RUN = the 12-CORD configuration:
+// GO THROUGH at three corners (19,0),(0,3),(19,11), come back SAME at the other two.
+// Prints the cord count the model produces.
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -124,7 +125,8 @@ function render(shape, cords, openSet, behaviorByVk) {
     }
   });
   for (const o of [ox0, ox1]) {
-    for (const c of shape.corners) P.push(`<circle cx="${fx(o, c.vx)}" cy="${fy(c.vy)}" r="8" fill="#e0556b" stroke="#fff" stroke-width="1.6"/>`);
+    for (const c of shape.corners) { const beh = behaviorByVk[`${c.vx},${c.vy}`] || 'same';
+      P.push(`<circle cx="${fx(o, c.vx)}" cy="${fy(c.vy)}" r="8" fill="${beh === 'through' ? '#e0556b' : '#7e9aaa'}" stroke="#fff" stroke-width="1.6"/>`); }
     for (const ph of shape.phantoms) P.push(`<circle cx="${fx(o, ph.vx)}" cy="${fy(ph.vy)}" r="9" fill="none" stroke="#7c8a96" stroke-width="1.8" stroke-dasharray="3 3"/>`);
   }
   P.push('</svg>');
@@ -133,8 +135,9 @@ function render(shape, cords, openSet, behaviorByVk) {
 
 const shape = build(Lpanel(19, 11, 11, 3));
 const openSet = new Set([shape.edges.filter(e => e.type === 'h').sort((a, b) => a.y - b.y)[0].id]);
-const cfg = { '11,0': 'through', '19,0': 'through', '0,3': 'through', '0,11': 'through', '19,11': 'through' };  // go through at EVERY corner
+// the 12-cord configuration: go THROUGH at three corners, come back SAME at the other two
+const cfg = { '11,0': 'same', '19,0': 'through', '0,3': 'through', '0,11': 'same', '19,11': 'through' };
 const cords = traceAll(shape, openSet, cfg);
-console.log(`all corners THROUGH -> ${cords.length} cords, all closed: ${cords.every(c => c.closed)}`);
+console.log(`12-cord config (through at 19,0 / 0,3 / 19,11) -> ${cords.length} cords, all closed: ${cords.every(c => c.closed)}`);
 writeFileSync('/tmp/shoe12.svg', render(shape, cords, openSet, cfg));
 console.log('wrote /tmp/shoe12.svg');
