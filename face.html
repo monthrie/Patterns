@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Two faces — one cord</title>
+<style>
+  :root {
+    --bg: #0c0f13; --panel: #11161c; --hair: #1a232c; --ink: #cfe3ea; --dim: #7c8a96;
+    --open: #e0556b; --tied: #3a4a55; --accent: #7e9aaa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  body { display: flex; flex-direction: column; }
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid var(--hair); font-size: 13px; }
+  .grp { display: flex; align-items: center; gap: 6px; }
+  .grp .lbl { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  button { font-family: inherit; font-size: 13px; color: var(--ink); background: #161d25;
+    border: 1px solid var(--hair); border-radius: 6px; padding: 6px 11px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: #1d2731; border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .4; cursor: default; }
+  .num { min-width: 30px; text-align: center; color: #fff; }
+  select, input[type=range] { font-family: inherit; }
+  select { background: #161d25; color: var(--ink); border: 1px solid var(--hair); border-radius: 6px; padding: 5px 8px; }
+  #stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px; }
+  svg { display: block; width: 100%; height: 100%; }
+  #status { padding: 8px 16px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--dim);
+    display: flex; gap: 20px; flex-wrap: wrap; }
+  #status b { color: var(--ink); font-weight: 500; }
+  .rule { color: var(--dim); }
+  .rule .o { color: var(--open); } .rule .t { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <div class="grp">
+      <span class="lbl">shape</span>
+      <button id="shapeL" class="on">L boot panel</button>
+      <button id="shapeR">rectangle</button>
+    </div>
+    <div class="grp" id="rectDims" style="display:none">
+      <span class="lbl">W</span><button data-d="W-">–</button><span class="num" id="wv">8</span><button data-d="W+">+</button>
+      <span class="lbl">H</span><button data-d="H-">–</button><span class="num" id="hv">12</span><button data-d="H+">+</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">open</span>
+      <select id="openSel"></select>
+    </div>
+    <div class="grp">
+      <span class="lbl">view</span>
+      <button id="modeAll" class="on">whole shoe</button>
+      <button id="modeOne">single cord</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">cord</span>
+      <button id="prev">◀</button><span class="num" id="cordn">1</span><button id="next">▶</button>
+    </div>
+    <div class="grp">
+      <button id="play">▶ play</button>
+      <button id="replay">↻ replay</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">speed</span>
+      <input id="speed" type="range" min="0.4" max="4" step="0.2" value="1" style="width:90px" />
+    </div>
+  </div>
+
+  <div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+  <div id="status">
+    <span>strings: <b id="ccount">–</b></span>
+    <span>this cord: <b id="cinfo">–</b></span>
+    <span>step: <b id="step">–</b></span>
+    <span class="rule">rule: <span class="t">tied edge → cross to the other side</span> · <span class="o">open edge → stay on this side</span></span>
+    <span class="rule">corner pin (click to flip): <span style="color:var(--accent)">●</span> come back same side · <span style="color:var(--open)">●</span> go through</span>
+    <span class="rule"><span style="color:var(--dim)">◌</span> phantom nail (inside corner): counted, but nothing can land on it</span>
+  </div>
+
+<script src="src/engine.js"></script>
+<script src="src/face-trace.js"></script>
+<script>
+(function () {
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const PALETTE = ['#e0556b','#3aa6b8','#f2c14e','#5ad18a','#f2914e','#4a7af2','#9a6ae0','#e06ab0','#8ab840','#2e9a5e','#c41878','#e8a020'];
+  const $ = id => document.getElementById(id);
+  const board = $('board');
+
+  // ---- model state ----
+  let shapeKind = 'L', rectW = 8, rectH = 12, openName = 'cuff';
+  let shape = null, cords = [], cordIdx = 0;
+
+  // ---- layout state ----
+  let CS = 24, padX = 28, padTop = 34, panelGap = 56, W = 0, H = 0, frontX0 = 0, backX0 = 0;
+
+  // ---- animation state ----
+  let timeline = null, raf = 0, head = 0, total = 0, playing = false, pauseUntil = 0, lastT = 0, curPanel = null, speedMul = 1;
+  let mode = 'all', curCord = -1;     // 'all' = lay the whole shoe cord by cord, weaving + accumulating; 'one' = one cord
+
+  const buildCells = () => shapeKind === 'L' ? FaceTrace.Lpanel(19, 11, 11, 3) : FaceTrace.rect(rectW, rectH);
+  const openOptions = () => shapeKind === 'L'
+    ? [['cuff', 'cuff (ankle, top of tower)'], ['sole', 'sole (bottom)'], ['right', 'right side'], ['left', 'left side']]
+    : [['top', 'top'], ['bottom', 'bottom'], ['left', 'left'], ['right', 'right']];
+
+  // ===== corner = ONE nail: come-back-same-side vs go-through (the maker's lever) =====
+  // Default behaviour = whatever the plain rule already does, so the default exactly
+  // reproduces the verified result; flipping a corner forces the net face change across
+  // that one corner to the chosen action.
+  let cornerList = [], cornerByKey = new Map(), phantomList = [];
+  const savedBehavior = new Map();                 // "vx,vy" -> 'same' | 'through'
+  const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+
+  function computeCorners(shp) {
+    const inside = (x, y) => x >= 0 && y >= 0 && x < shp.gw && y < shp.gh && shp.cells[y][x];
+    cornerList = []; cornerByKey = new Map(); phantomList = [];
+    for (let vy = 0; vy <= shp.gh; vy++) for (let vx = 0; vx <= shp.gw; vx++) {
+      const p = inside(vx - 1, vy - 1) + inside(vx, vy - 1) + inside(vx - 1, vy) + inside(vx, vy);
+      if (p === 3) { phantomList.push({ vx, vy }); continue; }   // concave inside corner = phantom nail (counted, untouched)
+      if (p !== 1) continue;                                      // convex corner
+      const cand = [[vx - 0.5, vy], [vx + 0.5, vy], [vx, vy - 0.5], [vx, vy + 0.5]];
+      const gi = cand.map(([x, y]) => shp.gaps.findIndex(g => Math.abs(g.x - x) < 1e-6 && Math.abs(g.y - y) < 1e-6)).filter(i => i >= 0);
+      if (gi.length !== 2) continue;
+      let tied = 0; for (const i of gi) { const g = shp.gaps[i]; for (const e of shp.eAt(g.x, g.y)) if (!shp.openSet.has(e.id)) tied++; }
+      const vk = `${vx},${vy}`, normalNet = tied % 2;
+      const behavior = savedBehavior.get(vk) ?? (normalNet === 1 ? 'through' : 'same');
+      const ent = { vx, vy, vk, gi, normalNet, behavior };
+      cornerList.push(ent); cornerByKey.set(pairKey(gi[0], gi[1]), ent);
+    }
+  }
+
+  function traceCordCorner(shp, g0, f0) {
+    const { gaps, edges, eAt, openSet } = shp;
+    const sc = gaps[g0]; let { dx, dy } = TearEngine.getInitialDir(sc);
+    let x = sc.x, y = sc.y, face = f0;
+    const startKey = `${x}|${y}|${dx}|${dy}|${face}`;
+    const pieces = [{ face, pts: [{ x, y }] }], states = [`${g0}:${face}`], events = [{ x, y, face, kind: 'start' }];
+    let closed = false, prevGi = g0;
+    for (let it = 0; it < edges.length * 400 + gaps.length * 8 + 4000; it++) {
+      let minT = Infinity, hitH = false, hitV = false;
+      for (const e of edges) { let t;
+        if (e.type === 'h') { if (Math.abs(dy) < 1e-9) continue; t = (e.y - y) / dy; if (t < 1e-9) continue; const hx = x + dx * t; if (hx < e.x0 - 1e-9 || hx > e.x1 + 1e-9) continue; }
+        else { if (Math.abs(dx) < 1e-9) continue; t = (e.x - x) / dx; if (t < 1e-9) continue; const hy = y + dy * t; if (hy < e.y0 - 1e-9 || hy > e.y1 + 1e-9) continue; }
+        if (t < minT - 1e-9) { minT = t; hitH = e.type === 'h'; hitV = e.type === 'v'; } else if (Math.abs(t - minT) < 1e-7) { if (e.type === 'h') hitH = true; if (e.type === 'v') hitV = true; } }
+      if (minT === Infinity || minT > 1e6) break;
+      x = Math.round((x + dx * minT) * 1e6) / 1e6; y = Math.round((y + dy * minT) * 1e6) / 1e6;
+      pieces[pieces.length - 1].pts.push({ x, y });
+      let tied = 0; for (const e of eAt(x, y)) if (!openSet.has(e.id)) tied++;
+      if (hitH && hitV) { dx = -dx; dy = -dy; } else if (hitH) { dy = -dy; } else { dx = -dx; }
+      const gi = TearEngine.pointToGapIdx(x, y, gaps);
+      if (gi >= 0) {
+        let net = tied % 2;                                        // normal cross at this gap
+        const ck = cornerByKey.get(pairKey(prevGi, gi));           // does prev+this complete a corner wrap?
+        if (ck) net ^= (ck.normalNet ^ (ck.behavior === 'through' ? 1 : 0)) & 1;   // force the corner's net action
+        const faceArr = face;
+        events.push({ x, y, face: faceArr, kind: net ? 'cross' : 'turn', to: faceArr ^ 1 });
+        states.push(`${gi}:${faceArr}`);
+        if (net) { face ^= 1; pieces.push({ face, pts: [{ x, y }] }); states.push(`${gi}:${face}`); }
+        prevGi = gi;
+      }
+      if (`${x}|${y}|${dx}|${dy}|${face}` === startKey) { closed = true; break; }
+    }
+    return { pieces, states, events, closed, faces: new Set(states.map(s => +s.split(':')[1])) };
+  }
+
+  function traceAllCorner(cells, openSet) {
+    const shp = FaceTrace.build(cells); shp.openSet = openSet;
+    const seen = new Set(), cords = [];
+    for (let f = 0; f < 2; f++) for (let g = 0; g < shp.gaps.length; g++) {
+      if (seen.has(`${g}:${f}`)) continue;
+      const c = traceCordCorner(shp, g, f); c.states.forEach(s => seen.add(s)); cords.push(c);
+    }
+    return { shape: shp, cords };
+  }
+
+  function toggleCorner(vk) {
+    const ent = cornerList.find(c => c.vk === vk); if (!ent) return;
+    savedBehavior.set(vk, ent.behavior === 'same' ? 'through' : 'same');
+    cordIdx = 0; rebuild();
+  }
+
+  function rebuild() {
+    const cells = buildCells();
+    shape = FaceTrace.build(cells);
+    const openSet = FaceTrace.namedEdges(shape, [openName]);
+    shape.openSet = openSet;
+    computeCorners(shape);
+    cords = traceAllCorner(cells, openSet).cords;
+    if (cordIdx >= cords.length) cordIdx = 0;
+    $('ccount').textContent = cords.length + (cords.every(c => c.closed) ? '' : '  (NOT ALL CLOSED!)');
+    layout();
+    drawStatic();
+    buildScene();
+  }
+
+  function layout() {
+    W = shape.gw; H = shape.gh;
+    const stage = $('stage').getBoundingClientRect();
+    const availW = Math.max(320, stage.width - 16);
+    const availH = Math.max(220, stage.height - 16);
+    const csW = (availW - 2 * padX - panelGap) / (2 * W);
+    const csH = (availH - padTop - padX) / H;
+    CS = Math.max(8, Math.floor(Math.min(csW, csH)));
+    frontX0 = padX;
+    backX0 = frontX0 + W * CS + panelGap;
+    const w = backX0 + W * CS + padX;
+    const h = padTop + H * CS + padX;
+    board.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    board.setAttribute('width', w); board.setAttribute('height', h);
+  }
+
+  const pxF = x => frontX0 + x * CS;
+  const pxB = x => backX0 + x * CS;              // back face same orientation: look straight through front to back
+  const py = y => padTop + y * CS;
+  const px = (x, face) => (face === 0 ? pxF(x) : pxB(x));
+
+  function el(tag, attrs, parent) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  function drawStatic() {
+    board.innerHTML = '';
+    el('rect', { x: 0, y: 0, width: '100%', height: '100%', fill: 'var(--bg)' }, board);
+    for (const [origin, label, face] of [[frontX0, 'FRONT', 0], [backX0, 'BACK', 1]]) {
+      const g = el('g', {}, board);
+      // cells
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (shape.cells[y][x]) {
+        el('rect', { x: px(x, face), y: py(y), width: CS, height: CS, fill: 'var(--panel)', stroke: 'var(--hair)', 'stroke-width': 0.5 }, g);
+      }
+      // edges: open = red dashed, tied = grey
+      for (const e of shape.edges) {
+        const open = shape.openSet.has(e.id);
+        const a = { stroke: open ? 'var(--open)' : 'var(--tied)', 'stroke-width': 3.5, 'stroke-linecap': 'round' };
+        if (open) a['stroke-dasharray'] = '7 5';
+        if (e.type === 'h') el('line', { x1: px(e.x0, face), y1: py(e.y), x2: px(e.x1, face), y2: py(e.y), ...a }, g);
+        else el('line', { x1: px(e.x, face), y1: py(e.y0), x2: px(e.x, face), y2: py(e.y1), ...a }, g);
+      }
+      // nails = the pins the cord wraps around = the boundary bounce points (gap midpoints)
+      const nr = Math.max(2.4, CS * 0.14);
+      for (const gp of shape.gaps) el('circle', { cx: px(gp.x, face), cy: py(gp.y), r: nr, fill: '#eef2f5', stroke: 'var(--bg)', 'stroke-width': 1 }, g);
+      // corner = ONE pin (click to flip: come back same side <-> go through)
+      for (const cn of cornerList) {
+        const through = cn.behavior === 'through';
+        const pin = el('circle', { cx: px(cn.vx, face), cy: py(cn.vy), r: Math.max(4.5, CS * 0.27),
+          fill: through ? 'var(--open)' : 'var(--accent)', stroke: '#fff', 'stroke-width': 1.6, style: 'cursor:pointer', 'data-vk': cn.vk }, g);
+        pin.addEventListener('click', () => toggleCorner(cn.vk));
+      }
+      // phantom nail: the concave inside corner. It is COUNTED but nothing lands on it — a
+      // 45-deg cord hitting it is a singularity, and the geometry guarantees none ever reach it.
+      for (const ph of phantomList) {
+        el('circle', { cx: px(ph.vx, face), cy: py(ph.vy), r: Math.max(5, CS * 0.3), fill: 'none', stroke: 'var(--dim)', 'stroke-width': 1.6, 'stroke-dasharray': '3 3' }, g);
+        el('circle', { cx: px(ph.vx, face), cy: py(ph.vy), r: 1.6, fill: 'var(--dim)' }, g);
+      }
+      el('text', { x: px(W / 2, face), y: padTop - 12, fill: 'var(--dim)', 'font-family': 'inherit', 'font-size': 13, 'text-anchor': 'middle', 'letter-spacing': 2 }, g).textContent = label;
+    }
+    // layers the cord lives in
+    gGhost = el('g', {}, board);
+    gLive = el('g', {}, board);
+    gMark = el('g', {}, board);
+  }
+  let gGhost, gLive, gMark;
+
+  let needle, sw;
+  const gdir = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1; return { x: dx / L, y: dy / L }; };
+
+  function buildScene() { if (mode === 'all') buildAll(); else selectCord(cordIdx); }
+
+  // over/under weave: cut a strand where it dives UNDER at a crossing (checkerboard parity).
+  // grid coords in, grid sub-segments out (verbatim logic from scripts/cords.mjs).
+  function weaveSegments(pts, g, flip) {
+    const out = [];
+    for (let s = 0; s < pts.length - 1; s++) {
+      const p1 = pts[s], p2 = pts[s + 1];
+      const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+      if (sdx === 0 || sdy === 0) { out.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y }); continue; }
+      const ux = p2.x - p1.x, uy = p2.y - p1.y, len = Math.hypot(ux, uy), nx = ux / len, ny = uy / len;
+      const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      const cuts = [];
+      if (sdx === sdy) { const kVal = p1.y - p1.x, ki = Math.round(kVal - 0.5);
+        for (let mi = -1; mi <= W + H; mi++) { const mVal = mi + 0.5, ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01 && (((ki + mi + W) % 2) === (flip ? 0 : 1))) cuts.push({ ix, iy }); } }
+      else { const mVal = p1.y + p1.x, mi = Math.round(mVal - 0.5);
+        for (let ki = -W; ki <= H; ki++) { const kVal2 = ki + 0.5, ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
+          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < H - 0.01 && (((ki + mi + W) % 2) === (flip ? 1 : 0))) cuts.push({ ix, iy }); } }
+      cuts.sort((a, b) => ((a.ix - p1.x) * nx + (a.iy - p1.y) * ny) - ((b.ix - p1.x) * nx + (b.iy - p1.y) * ny));
+      let cx = p1.x, cy = p1.y;
+      for (const c of cuts) { const gsx = c.ix - nx * g, gsy = c.iy - ny * g;
+        if ((gsx - cx) * nx + (gsy - cy) * ny > 0.02) out.push({ x1: cx, y1: cy, x2: gsx, y2: gsy }); cx = c.ix + nx * g; cy = c.iy + ny * g; }
+      if ((p2.x - cx) * nx + (p2.y - cy) * ny > 0.02) out.push({ x1: cx, y1: cy, x2: p2.x, y2: p2.y });
+    }
+    return out;
+  }
+
+  // lay the whole shoe: every cord, in order, woven, accumulating on both boards
+  function buildAll() {
+    cancelAnimationFrame(raf); playing = false;
+    gGhost.innerHTML = ''; gLive.innerHTML = ''; gMark.innerHTML = '';
+    sw = Math.max(3, CS * 0.5);
+    const gh2 = 0.34;                 // half-gap of the under-crossing cut, in grid units
+    timeline = []; total = 0;
+    for (let ci = 0; ci < cords.length; ci++) {
+      const color = PALETTE[ci % PALETTE.length];
+      for (const piece of cords[ci].pieces) {
+        if (piece.pts.length < 2) continue;
+        for (const s of weaveSegments(piece.pts, gh2, piece.face === 1)) {
+          const d = `M ${px(s.x1, piece.face).toFixed(2)} ${py(s.y1).toFixed(2)} L ${px(s.x2, piece.face).toFixed(2)} ${py(s.y2).toFixed(2)}`;
+          el('path', { d, fill: 'none', stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round', opacity: 0.09 }, gGhost);
+          const live = el('path', { d, fill: 'none', stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round' }, gLive);
+          const L = live.getTotalLength(); live.style.strokeDasharray = `0 ${L + 2}`;
+          timeline.push({ live, len: L, arc0: total, panel: piece.face, cordOf: ci }); total += L;
+        }
+      }
+    }
+    const first = cords[0].pieces[0].pts[0], f0 = cords[0].pieces[0].face;
+    needle = el('circle', { cx: px(first.x, f0), cy: py(first.y), r: sw * 0.6, fill: '#fff', opacity: 0 }, gMark);
+    head = 0; curPanel = null; curCord = -1;
+    $('cordn').textContent = '—';
+    $('cinfo').textContent = `laying all ${cords.length} strings`;
+    play();
+  }
+
+  function selectCord(i) {
+    cancelAnimationFrame(raf); playing = false;
+    cordIdx = (i + cords.length) % cords.length;
+    const c = cords[cordIdx];
+    const color = PALETTE[cordIdx % PALETTE.length];
+    $('cordn').textContent = cordIdx + 1;
+    $('cinfo').textContent = `${c.events.filter(e => e.kind === 'cross').length} crosses · ${c.faces.size === 2 ? 'both faces' : 'one face'} · ${c.closed ? 'closed' : 'OPEN!'}`;
+    gGhost.innerHTML = ''; gLive.innerHTML = ''; gMark.innerHTML = '';
+    sw = Math.max(3, CS * 0.32);
+
+    // flatten the cord into ordered chords (each chord is a straight 45-deg run on one face)
+    const segs = [];
+    for (const piece of c.pieces) for (let k = 1; k < piece.pts.length; k++)
+      segs.push({ a: piece.pts[k - 1], b: piece.pts[k], face: piece.face });
+    timeline = []; total = 0;
+    if (!segs.length) { head = 0; play(); return; }
+    const M = segs.length;
+    const R = 0.30, BULGE = 0.26;                 // grid units: wrap-trim radius + how far the cord pokes past the pin
+    const seglen = s => Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y);
+    const trim = k => Math.min(R, 0.42 * seglen(segs[k]));
+    const P = (gx, gy, face) => `${px(gx, face).toFixed(2)} ${py(gy).toFixed(2)}`;
+
+    function pushPrim(d, panel) {
+      el('path', { d, fill: 'none', stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.12 }, gGhost);
+      const live = el('path', { d, fill: 'none', stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gLive);
+      const L = live.getTotalLength();
+      live.style.strokeDasharray = `0 ${L + 2}`;
+      timeline.push({ live, len: L, arc0: total, panel }); total += L;
+    }
+
+    // emit, in cord order: the wrap at each nail (the cord bending round the pin), then the chord that leaves it.
+    for (let j = 0; j < M; j++) {
+      const jm = (j - 1 + M) % M;
+      const inSeg = segs[jm], outSeg = segs[j];
+      const Pt = outSeg.a;                          // the nail (pin) the cord bends around
+      const inDir = gdir(inSeg.a, inSeg.b), outDir = gdir(outSeg.a, outSeg.b);
+      let ox = inDir.x - outDir.x, oy = inDir.y - outDir.y; const oL = Math.hypot(ox, oy) || 1; ox /= oL; oy /= oL;   // outward, past the pin
+      const tA = trim(jm), tB = trim(j);
+      const A = { x: Pt.x - inDir.x * tA, y: Pt.y - inDir.y * tA };
+      const B = { x: Pt.x + outDir.x * tB, y: Pt.y + outDir.y * tB };
+      const apex = { x: Pt.x + ox * BULGE, y: Pt.y + oy * BULGE };
+      if (inSeg.face === outSeg.face) {             // a turn (open edge): full wrap on one board
+        const f = inSeg.face;
+        pushPrim(`M ${P(A.x,A.y,f)} Q ${P(Pt.x,Pt.y,f)} ${P(apex.x,apex.y,f)} Q ${P(Pt.x,Pt.y,f)} ${P(B.x,B.y,f)}`, f);
+      } else {                                      // a cross (tied edge): half the wrap on each board = diving to the other face
+        pushPrim(`M ${P(A.x,A.y,inSeg.face)} Q ${P(Pt.x,Pt.y,inSeg.face)} ${P(apex.x,apex.y,inSeg.face)}`, inSeg.face);
+        pushPrim(`M ${P(apex.x,apex.y,outSeg.face)} Q ${P(Pt.x,Pt.y,outSeg.face)} ${P(B.x,B.y,outSeg.face)}`, outSeg.face);
+      }
+      const t = trim(j);
+      const c0 = { x: outSeg.a.x + outDir.x * t, y: outSeg.a.y + outDir.y * t };
+      const c1 = { x: outSeg.b.x - outDir.x * t, y: outSeg.b.y - outDir.y * t };
+      pushPrim(`M ${P(c0.x,c0.y,outSeg.face)} L ${P(c1.x,c1.y,outSeg.face)}`, outSeg.face);
+    }
+
+    const s0 = segs[0].a, f0 = segs[0].face;
+    el('circle', { cx: px(s0.x, f0), cy: py(s0.y), r: sw * 0.62, fill: 'none', stroke: '#fff', 'stroke-width': 2 }, gMark);
+    needle = el('circle', { cx: px(s0.x, f0), cy: py(s0.y), r: sw * 0.6, fill: '#fff', opacity: 0 }, gMark);
+
+    head = 0; curPanel = null;
+    $('step').textContent = `0 / ${c.events.length - 1}`;
+    play();
+  }
+
+  function setReveal() {
+    let ai = 0;
+    for (let i = 0; i < timeline.length; i++) {
+      const tl = timeline[i];
+      if (head <= tl.arc0) tl.live.style.strokeDasharray = `0 ${tl.len + 2}`;
+      else if (head >= tl.arc0 + tl.len) tl.live.style.strokeDasharray = `${tl.len + 2} 0`;
+      else tl.live.style.strokeDasharray = `${(head - tl.arc0).toFixed(2)} ${tl.len + 2}`;
+      if (head >= tl.arc0) ai = i;
+    }
+    const tl = timeline[ai];
+    const localArc = Math.max(0, Math.min(head - tl.arc0, tl.len));
+    const pt = tl.live.getPointAtLength(localArc);
+    needle.setAttribute('cx', pt.x); needle.setAttribute('cy', pt.y);
+    needle.setAttribute('opacity', head < total ? 1 : 0);
+    if (mode === 'all') {
+      if (tl && tl.cordOf !== curCord) { curCord = tl.cordOf; pauseUntil = performance.now() + 220; }   // brief pause as each new string starts
+      $('step').textContent = head >= total ? `${cords.length} / ${cords.length} strings laid` : `laying string ${(tl ? tl.cordOf : 0) + 1} / ${cords.length}`;
+    } else {
+      if (tl.panel !== curPanel) { curPanel = tl.panel; pauseUntil = performance.now() + 130; }   // dwell as the cord dives to the other board
+      const ev = cords[cordIdx].events.length - 1;
+      $('step').textContent = `${Math.min(ev, Math.round((total ? head / total : 0) * ev))} / ${ev}`;
+    }
+  }
+
+  function frame(t) {
+    if (!playing) return;
+    const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+    if (t >= pauseUntil) {
+      const speed = CS * 4.2 * speedMul;     // pixels / second
+      head += speed * dt;
+    }
+    if (head >= total) { head = total; setReveal(); playing = false; needle.setAttribute('opacity', 0); return; }
+    setReveal();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function play() {
+    cancelAnimationFrame(raf);
+    if (head >= total) head = 0;
+    playing = true; lastT = performance.now(); pauseUntil = 0; curPanel = null;
+    raf = requestAnimationFrame(frame);
+    $('play').textContent = '❚❚ pause';
+  }
+  function pause() { playing = false; cancelAnimationFrame(raf); $('play').textContent = '▶ play'; }
+
+  // ---- wiring ----
+  function refreshOpenSel() {
+    const sel = $('openSel'); sel.innerHTML = '';
+    for (const [val, txt] of openOptions()) { const o = document.createElement('option'); o.value = val; o.textContent = txt; sel.appendChild(o); }
+    if (![...sel.options].some(o => o.value === openName)) openName = sel.options[0].value;
+    sel.value = openName;
+  }
+
+  $('shapeL').onclick = () => { shapeKind = 'L'; openName = 'cuff'; savedBehavior.clear(); $('shapeL').classList.add('on'); $('shapeR').classList.remove('on'); $('rectDims').style.display = 'none'; refreshOpenSel(); rebuild(); };
+  $('shapeR').onclick = () => { shapeKind = 'R'; openName = 'top'; savedBehavior.clear(); $('shapeR').classList.add('on'); $('shapeL').classList.remove('on'); $('rectDims').style.display = ''; refreshOpenSel(); rebuild(); };
+  document.querySelectorAll('#rectDims button').forEach(b => b.onclick = () => {
+    const d = b.dataset.d;
+    if (d === 'W-') rectW = Math.max(2, rectW - 1); if (d === 'W+') rectW = Math.min(30, rectW + 1);
+    if (d === 'H-') rectH = Math.max(2, rectH - 1); if (d === 'H+') rectH = Math.min(30, rectH + 1);
+    $('wv').textContent = rectW; $('hv').textContent = rectH; cordIdx = 0; savedBehavior.clear(); rebuild();
+  });
+  $('openSel').onchange = e => { openName = e.target.value; cordIdx = 0; savedBehavior.clear(); rebuild(); };
+  function setMode(m) { mode = m; $('modeAll').classList.toggle('on', m === 'all'); $('modeOne').classList.toggle('on', m === 'one'); }
+  $('modeAll').onclick = () => { setMode('all'); buildScene(); };
+  $('modeOne').onclick = () => { setMode('one'); buildScene(); };
+  $('prev').onclick = () => { setMode('one'); selectCord(cordIdx - 1); };
+  $('next').onclick = () => { setMode('one'); selectCord(cordIdx + 1); };
+  $('replay').onclick = () => { head = 0; play(); };
+  $('play').onclick = () => { if (playing) pause(); else play(); };
+  $('speed').oninput = e => { speedMul = +e.target.value; };
+
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { const frac = total ? head / total : 0; layout(); drawStatic(); buildScene(); head = frac * total; }, 120); });
+
+  refreshOpenSel();
+  rebuild();
+})();
+</script>
+</body>
+</html>
