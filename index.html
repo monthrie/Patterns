@@ -116,6 +116,66 @@
   }
   .land-split.land-tab-fios .land-split-main,
   .land-split.land-tab-shapes .land-split-main { width: clamp(360px, 34vw, 480px); }
+  .mirror-panel-head {
+    flex-shrink: 0;
+    padding-top: 10px;
+    margin-top: 8px;
+    border-top: 1px solid var(--hair);
+  }
+  .mirror-panel-head--compact .mirror-options { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .mirror-btn--compact {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    padding: 8px 10px;
+    gap: 8px;
+    font-size: 11px;
+  }
+  .mirror-btn--compact .mirror-btn__icon { width: 40px; height: 28px; }
+  .panel-edit-mirror .editor-viewport-frame { min-height: 160px; flex: 0 0 auto; max-height: none; overflow: visible; }
+  .panel-edit-mirror .editor-scroll-wrap { max-height: min(36dvh, 240px); }
+  .panel-edit-mirror {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  .mirror-options { display: flex; flex-direction: column; gap: 8px; }
+  .mirror-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 10px; border: 2px solid var(--hair);
+    background: var(--ink-2); color: var(--bone-dim); cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0.4px;
+    text-align: left; transition: border-color 150ms ease, color 150ms ease;
+  }
+  .mirror-btn.active { border-color: var(--accent); color: var(--accent-soft); background: var(--panel-inner); }
+  .mirror-btn:active { transform: scale(0.98); }
+  .mirror-two-panel-bar {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    z-index: 12; width: min(720px, calc(100% - 20px));
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: rgba(18,22,28,0.95); border: 1px solid var(--hair);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-size: 11px; color: var(--bone-dim);
+  }
+  .mirror-two-panel-bar select {
+    background: var(--ink-2); color: var(--bone); border: 1px solid var(--hair);
+    border-radius: 7px; padding: 6px 10px; font: inherit; cursor: pointer;
+  }
+  .mirror-two-panel-bar .mirror-two-panel-status {
+    font-variant-numeric: tabular-nums; margin-left: auto; color: var(--bone);
+    white-space: nowrap;
+  }
+  .mirror-btn__icon {
+    flex-shrink: 0; width: 52px; height: 36px;
+    border: 1px solid var(--edge); border-radius: 4px; background: var(--panel-inner);
+    position: relative; overflow: hidden;
+  }
+  .mirror-btn__icon span {
+    position: absolute; background: var(--accent-fill);
+    border: 1px solid var(--accent);
+  }
   .land-split.land-tab-none .land-split-main { width: clamp(280px, 24vw, 360px); }
   .land-split-knot {
     flex: 1; min-width: 0; min-height: 0;
@@ -397,6 +457,8 @@
 </head>
 <body>
 <div id="root"></div>
+<script src="two-panel-loops.js"></script>
+<script src="two-panel-player.js"></script>
 <script>
 /* === React 18 production UMD (inlined) === */
 /**
@@ -1103,7 +1165,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const br = vy < H && vx < W && cells[vy][vx] ? 1 : 0;
       if (tl + tr + bl + br !== 1) continue;
       let g1, g2, sweep;
-      if (br) { g1 = { x: vx + 0.5, y: vy }; g2 = { x: vx, y: vy + 0.5 }; sweep = 0; }
+      if (br) { g1 = { x: vx + 0.5, y: vy }; g2 = { x: vx, y: vy + 0.5 }; sweep = vy === 0 ? 1 : 0; }
       else if (bl) { g1 = { x: vx - 0.5, y: vy }; g2 = { x: vx, y: vy + 0.5 }; sweep = 1; }
       else if (tr) { g1 = { x: vx + 0.5, y: vy }; g2 = { x: vx, y: vy - 0.5 }; sweep = 1; }
       else { g1 = { x: vx - 0.5, y: vy }; g2 = { x: vx, y: vy - 0.5 }; sweep = 0; }
@@ -3835,6 +3897,42 @@ function makePreset(name, curW, curH) {
   };
 }
 
+// Default mirror-tab boot / shoe shape (8 single-panel cycles, 12 two-panel loops).
+const MIRROR_BOOT_SHAPE_NAMES = ['8 cycle boot', '8 cycle shoe v2', '8 cycle shoe'];
+const MIRROR_BOOT_COLORS = ['#d4242c', '#2aa0b4', '#ecdcb0', '#e4287c', '#2e9a5e', '#e8a020', '#1e40c8', '#6a2aa0'];
+
+function getDefaultMirrorBootShape() {
+  if (typeof TwoPanelLoops !== 'undefined' && TwoPanelLoops.shoeCells) {
+    const { cells, gw, gh } = TwoPanelLoops.shoeCells();
+    return {
+      name: '8 cycle boot',
+      gw,
+      gh,
+      cells: cells.map(r => [...r]),
+      cycles: 8,
+      colors: MIRROR_BOOT_COLORS.slice(),
+    };
+  }
+  return {
+    name: '8 cycle boot',
+    gw: 19,
+    gh: 11,
+    cells: [],
+    cycles: 8,
+    colors: MIRROR_BOOT_COLORS.slice(),
+  };
+}
+
+function findMirrorBootShape(shapes) {
+  const saved = shapes.find(s => /8\s*cycle\s*(boot|shoe)/i.test(s.name));
+  if (saved) return saved;
+  for (const name of MIRROR_BOOT_SHAPE_NAMES) {
+    const found = shapes.find(s => s.name.toLowerCase() === name.toLowerCase());
+    if (found) return found;
+  }
+  return getDefaultMirrorBootShape();
+}
+
 // ========== CELL-GRID SHAPE FUNCTIONS ==========
 function buildEdges(cells, gw, gh) {
   const hUnits = [];
@@ -4131,7 +4229,16 @@ const STR = {
     totalLen: "Fio total: ",
     balanced: p => `Fios equilibrados (cada um ~${p}% do comprimento).`,
     unbalanced: (a, b) => `Desigual: o fio mais curto tem ${a}% do comprimento e o mais longo ${b}%.`,
-    tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas",
+    tabDesenhar: "Desenhar", tabFios: "Fios", tabGuardadas: "Guardadas", tabEspelho: "Espelho",
+    mirrorTitle: "Como juntar as duas formas L",
+    mirrorHint: "Desenhe a forma L abaixo e escolha como as duas pe\u00e7as se juntam.",
+    mirrorLeft: "Esquerda", mirrorBottom: "Baixo", mirrorRight: "Direita", mirrorSingle: "Uma s\u00f3",
+    mirrorTwoPanelNote: "Jun\u00e7\u00e3o em baixo: fios ligados nos dois pain\u00e9is.",
+    mirrorTwoPanelOther: "O rastreio de fios ligados est\u00e1 dispon\u00edvel na jun\u00e7\u00e3o em baixo.",
+    mirrorFollow: "Seguir", mirrorCrossings: "cruzamentos",
+    savedShapesHdr: "Formas guardadas", savedPalettesHdr: "Combina\u00e7\u00f5es de cores",
+    shapeLoaded: n => `Forma \u201c${n}\u201d carregada`,
+    paletteApplied: n => `Cores \u201c${n}\u201d aplicadas`,
     playTitle: "Ver a montagem", playClose: "Fechar", playAgain: "Outra vez",
     loopTitle: "Repetir este fio",
     shuffle: "Baralhar", newCombo: "Nova combina\u00e7\u00e3o", saveCols: "Guardar cores",
@@ -4160,7 +4267,16 @@ const STR = {
     totalLen: "Total string: ",
     balanced: p => `Strings are balanced (each ~${p}% of the length).`,
     unbalanced: (a, b) => `Uneven: the shortest string is ${a}% of the length, the longest ${b}%.`,
-    tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved",
+    tabDesenhar: "Draw", tabFios: "Strings", tabGuardadas: "Saved", tabEspelho: "Mirror",
+    mirrorTitle: "How to join the two L-shapes",
+    mirrorHint: "Draw the L-shape below and choose how the two pieces join.",
+    mirrorLeft: "Left", mirrorBottom: "Bottom", mirrorRight: "Right", mirrorSingle: "Single",
+    mirrorTwoPanelNote: "Bottom join: connected loops across both panels.",
+    mirrorTwoPanelOther: "Connected loop trace is available for bottom join.",
+    mirrorFollow: "Follow", mirrorCrossings: "crossings",
+    savedShapesHdr: "Saved shapes", savedPalettesHdr: "Saved colour combos",
+    shapeLoaded: n => `Loaded \u201c${n}\u201d`,
+    paletteApplied: n => `Applied colours \u201c${n}\u201d`,
     playTitle: "Watch the laying", playClose: "Close", playAgain: "Replay",
     loopTitle: "Loop this string",
     shuffle: "Shuffle", newCombo: "New combo", saveCols: "Save colours",
@@ -4298,6 +4414,16 @@ function KnotMakerMobile() {
       return merged;
     });
   }, []);
+  // Ensure a mirror boot shape exists if the user has none saved yet.
+  useEffect(() => {
+    setSavedShapes(prev => {
+      if (prev.some(s => /8\s*cycle\s*(boot|shoe)/i.test(s.name))) return prev;
+      const merged = [...prev, getDefaultMirrorBootShape()];
+      try { localStorage.setItem('celtic.savedShapes', JSON.stringify(merged)); } catch {}
+      return merged;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // QR shape-transfer state
   const [qrOpen, setQrOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -4360,7 +4486,8 @@ function KnotMakerMobile() {
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const knotWrapRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('edit'); // null | 'edit' | 'fios' | 'shapes'
+  const [activeTab, setActiveTab] = useState('edit'); // null | 'edit' | 'fios' | 'shapes' | 'mirror'
+  const [mirrorMode, setMirrorMode] = useState(null); // null | 'left' | 'bottom' | 'right'
   const [lang, setLang] = useState(() => {
     try {
       const q = new URLSearchParams(window.location.search).get('lang');
@@ -4373,6 +4500,12 @@ function KnotMakerMobile() {
   const [playerOpen, setPlayerOpen] = useState(false);
   const playerBoxRef = useRef(null);
   const playerApiRef = useRef(null);
+  const twoPanelBoxRef = useRef(null);
+  const twoPanelApiRef = useRef(null);
+  const [mirrorTwoPanelSel, setMirrorTwoPanelSel] = useState(-1);
+  const [mirrorTwoPanelPaused, setMirrorTwoPanelPaused] = useState(true);
+  const [mirrorTwoPanelStatus, setMirrorTwoPanelStatus] = useState('');
+  const [mirrorTwoPanelCount, setMirrorTwoPanelCount] = useState(0);
   useEffect(() => { setPlayerOpen(false); }, [cells, gridW, gridH]);
   const [playerPaused, setPlayerPaused] = useState(false);
   const [playerSpeed, setPlayerSpeed] = useState(1);
@@ -4527,27 +4660,51 @@ function KnotMakerMobile() {
     setGridH(shape.gh);
     setSelGap(null);
     setShowAll(true);
-    setCycleColors({});
+    if (Array.isArray(shape.colors) && shape.colors.length > 0) {
+      const o = {};
+      shape.colors.forEach((c, i) => { if (c) o[i] = c; });
+      setCycleColors(o);
+    } else {
+      setCycleColors({});
+    }
     setVisibleCycles({});
   }, []);
+  const loadShapeFromChip = useCallback(shape => {
+    loadShape(shape);
+    setToast(T.shapeLoaded(shape.name));
+  }, [loadShape, T]);
+  const loadMirrorBootShape = useCallback((shapes) => {
+    loadShape(findMirrorBootShape(shapes));
+  }, [loadShape]);
   const saveCurrentShape = useCallback(() => {
     const name = window.prompt(T.namePrompt);
     if (!name?.trim()) return;
     const trimmed = name.trim();
+    const { cycles: shapeCycles } = getAllCycles(cells, gridW, gridH);
     const snap = {
       name: trimmed,
       gw: gridW,
       gh: gridH,
-      cells: cells.map(r => [...r])
+      cells: cells.map(r => [...r]),
+      cycles: shapeCycles.length,
+      colors: shapeCycles.map((_, i) => cycleColors[i] || COLORS[i % COLORS.length])
     };
     const next = [...savedShapes.filter(s => s.name !== trimmed), snap];
     persistShapes(next);
-  }, [cells, gridW, gridH, savedShapes, persistShapes]);
+  }, [cells, gridW, gridH, cycleColors, savedShapes, persistShapes]);
   const deleteShape = useCallback(name => {
     persistShapes(savedShapes.filter(s => s.name !== name));
   }, [savedShapes, persistShapes]);
   const exportShapes = useCallback(() => {
-    const blob = new Blob([JSON.stringify(savedShapes, null, 2)], {
+    const payload = savedShapes.map(s => {
+      const { cycles: shapeCycles } = getAllCycles(s.cells, s.gw, s.gh);
+      return {
+        ...s,
+        cycles: s.cycles ?? shapeCycles.length,
+        colors: s.colors ?? shapeCycles.map((_, i) => COLORS[i % COLORS.length])
+      };
+    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
@@ -4611,18 +4768,57 @@ function KnotMakerMobile() {
   const svgW = 600,
     svgH = 600;
   const pad = 40;
-  const cellSz = Math.min((svgW - 2 * pad) / W, (svgH - 2 * pad) / H) * 0.92;
-  const ox = (svgW - W * cellSz) / 2,
-    oy = (svgH - H * cellSz) / 2;
+  const mirrorDual = activeTab === 'mirror' && mirrorMode !== null;
+  const showMirrorTwoPanel = activeTab === 'mirror' && mirrorMode === 'bottom';
+  const twoPanelLoopCount = useMemo(() => {
+    if (typeof TwoPanelLoops === 'undefined') return 0;
+    try {
+      const isWallGap = g => g.isH && g.y === 0;
+      return TwoPanelLoops.connectedLoopsWithCornerTable(cells, gridW, gridH, isWallGap, {
+        concaveMode: 'cross',
+        convexMode: 'cross',
+      }).loops.length;
+    } catch {
+      return 0;
+    }
+  }, [cells, gridW, gridH]);
+  const colorStripCount = showMirrorTwoPanel && twoPanelLoopCount > 0 ? twoPanelLoopCount : cycles.length;
+  const cellSz = (() => {
+    const gapCells = 0; // seam closed: mirror halves abut so strings continue across the mirror line
+    const lw = mirrorDual && (mirrorMode === 'left' || mirrorMode === 'right') ? W * 2 + gapCells : W;
+    const lh = mirrorDual && mirrorMode === 'bottom' ? H * 2 + gapCells : H;
+    return Math.min((svgW - 2 * pad) / lw, (svgH - 2 * pad) / lh) * 0.92;
+  })();
+  const mirrorGap = 0; // reflection axis sits exactly on the shared edge so the mirror points overlap
+  const mirrorHalf = mirrorGap / 2;
+  const ox = (() => {
+    if (mirrorDual && mirrorMode === 'left') return svgW / 2;
+    if (mirrorDual && mirrorMode === 'right') return svgW / 2 - W * cellSz;
+    return (svgW - W * cellSz) / 2;
+  })();
+  const oy = (() => {
+    if (mirrorDual && mirrorMode === 'bottom') return svgH / 2 - H * cellSz;
+    return (svgH - H * cellSz) / 2;
+  })();
+  const mirrorBTransform = mirrorDual ? mirrorMode === 'left' ? (() => {
+    const px = ox - mirrorHalf;
+    return `translate(${px},0) scale(-1,1) translate(${-px},0)`;
+  })() : mirrorMode === 'right' ? (() => {
+    const px = ox + W * cellSz + mirrorHalf;
+    return `translate(${px},0) scale(-1,1) translate(${-px},0)`;
+  })() : (() => {
+    const py = oy + H * cellSz + mirrorHalf;
+    return `translate(0,${py}) scale(1,-1) translate(0,${-py})`;
+  })() : null;
   // ViewBox: zoom < 1 shows more area (zoom out), zoom > 1 shows less (zoom in).
   // On tablet portrait we frame the weave's own bounding box (not the full 600 square)
   // so a wide cloth fills the roomy preview instead of floating small. The 600 coordinate
   // system is untouched, so phone rendering is byte-identical.
   const framePad = cellSz * 0.62;
-  const frameX = isTabletPortrait ? ox - framePad : 0;
-  const frameY = isTabletPortrait ? oy - framePad : 0;
-  const frameW = isTabletPortrait ? W * cellSz + 2 * framePad : svgW;
-  const frameH = isTabletPortrait ? H * cellSz + 2 * framePad : svgH;
+  const frameX = isTabletPortrait ? (mirrorDual && (mirrorMode === 'left' || mirrorMode === 'right') ? ox - W * cellSz - mirrorGap - framePad : ox - framePad) : 0;
+  const frameY = isTabletPortrait ? (mirrorDual && mirrorMode === 'bottom' ? oy - mirrorGap - framePad : oy - framePad) : 0;
+  const frameW = isTabletPortrait ? (mirrorDual && (mirrorMode === 'left' || mirrorMode === 'right') ? 2 * W * cellSz + mirrorGap + 2 * framePad : W * cellSz + 2 * framePad) : svgW;
+  const frameH = isTabletPortrait ? (mirrorDual && mirrorMode === 'bottom' ? 2 * H * cellSz + mirrorGap + 2 * framePad : H * cellSz + 2 * framePad) : svgH;
   const vbW = frameW / zoom,
     vbH = frameH / zoom;
   const vbX = frameX + (frameW - vbW) / 2 - panX / zoom;
@@ -4763,6 +4959,55 @@ function KnotMakerMobile() {
     ...prev,
     [i]: color
   })), []);
+  useEffect(() => {
+    if (!showMirrorTwoPanel || !twoPanelBoxRef.current || typeof TwoPanelPlayer === 'undefined') return;
+    setMirrorTwoPanelPaused(true);
+    const isWallGap = g => g.isH && g.y === 0;
+    const api = TwoPanelPlayer.create(twoPanelBoxRef.current, {
+      cells: cells.map(r => [...r]),
+      gw: gridW,
+      gh: gridH,
+      isWallGap,
+      colors: [],
+      secondaryColors: [],
+      strandMode,
+      showWeave: true,
+      initialZoom: zoom,
+      selected: -1,
+      theme: {
+        panelFill: 'var(--panel-inner)',
+        wallGap: 'var(--bone-dim)',
+        portalGap: 'var(--accent-soft)',
+        seam: 'var(--accent)',
+        head: 'var(--accent-on-fill)',
+        weaveStroke: 'rgba(193,202,211,0.10)',
+        boundaryStroke: 'rgba(193,202,211,0.10)',
+      },
+      onTick: st => {
+        setMirrorTwoPanelCount(st.loopCount);
+        if (st.sel >= 0 && st.info) {
+          setMirrorTwoPanelStatus(`Loop ${st.sel + 1} · panel ${st.info.panel || '—'} · ${Math.round(st.t * 100)}%`);
+        } else if (st.sel < 0) {
+          setMirrorTwoPanelStatus(`All loops · ${Math.round(st.t * 100)}%`);
+        }
+      },
+    });
+    twoPanelApiRef.current = api;
+    return () => {
+      twoPanelApiRef.current = null;
+      api.destroy();
+    };
+  }, [showMirrorTwoPanel, cells, gridW, gridH]);
+  useEffect(() => {
+    twoPanelApiRef.current?.setStrandMode?.(strandMode);
+  }, [strandMode, showMirrorTwoPanel]);
+  useEffect(() => {
+    twoPanelApiRef.current?.setSelection?.(mirrorTwoPanelSel);
+  }, [mirrorTwoPanelSel, showMirrorTwoPanel]);
+  useEffect(() => {
+    if (!showMirrorTwoPanel) return;
+    twoPanelApiRef.current?.setZoom?.(zoom);
+  }, [zoom, showMirrorTwoPanel]);
   const setCycleSecondaryColor = useCallback((i, color) => setCycleSecondary(prev => ({
     ...prev,
     [i]: color
@@ -4785,6 +5030,15 @@ function KnotMakerMobile() {
       [i]: willBeVisible
     }));
   }, [isCycleVisible]);
+
+  useEffect(() => {
+    const api = twoPanelApiRef.current;
+    if (!api || !showMirrorTwoPanel) return;
+    const tpLoops = api.getLoops();
+    api.setColors(tpLoops.map((_, i) => getCycleColor(i)));
+    api.setSecondaryColors(tpLoops.map((_, i) => cycleSecondary[i] || null));
+    api.setVisible(tpLoops.map((_, i) => isCycleVisible(i)));
+  }, [showMirrorTwoPanel, cycleColors, cycleSecondary, strandMode, visibleCycles, showAll, cells, gridW, gridH, getCycleColor, isCycleVisible]);
 
   // Corner detection
   const cornerGapSet = useMemo(() => {
@@ -4885,7 +5139,7 @@ function KnotMakerMobile() {
             x: vx,
             y: vy + 0.5
           };
-          sweep = 0;
+          sweep = vy === 0 ? 1 : 0;
         } else if (bl) {
           g1 = {
             x: vx - 0.5,
@@ -5482,6 +5736,106 @@ function KnotMakerMobile() {
     setMarquee(null);
   }, [marquee]);
   const landscapeSplit = isLandscape;
+
+  const knotLayerEls = (keyPrefix, withGaps) => {
+    const els = [];
+    boundaryEdges.forEach((e, i) => els.push(/*#__PURE__*/React.createElement("line", {
+      key: `${keyPrefix}be${i}`,
+      x1: e.x1,
+      y1: e.y1,
+      x2: e.x2,
+      y2: e.y2,
+      stroke: "#2a2519",
+      strokeWidth: 1.5
+    })));
+    renderElements.forEach((el, i) => els.push(/*#__PURE__*/React.createElement("line", {
+      key: `${keyPrefix}re${i}`,
+      x1: el.x1,
+      y1: el.y1,
+      x2: el.x2,
+      y2: el.y2,
+      stroke: el.color,
+      strokeWidth: el.w,
+      strokeLinecap: "butt"
+    })));
+    cornerArcs.forEach((arc, i) => els.push(/*#__PURE__*/React.createElement("path", {
+      key: `${keyPrefix}ca${i}`,
+      d: `M${arc.sx1},${arc.sy1} A${arc.r},${arc.r} 0 0,${arc.sweep} ${arc.sx2},${arc.sy2}`,
+      fill: "none",
+      stroke: arc.color,
+      strokeWidth: sw,
+      strokeLinecap: "butt"
+    })));
+    renderElements.filter(el => el.type === 'strand' && (el.edgeStart || el.edgeEnd)).forEach((el, i) => {
+      const r = el.w / 2;
+      if (el.edgeStart) els.push(/*#__PURE__*/React.createElement("circle", {
+        key: `${keyPrefix}es${i}`,
+        cx: el.x1,
+        cy: el.y1,
+        r: r,
+        fill: el.color
+      }));
+      if (el.edgeEnd) els.push(/*#__PURE__*/React.createElement("circle", {
+        key: `${keyPrefix}ee${i}`,
+        cx: el.x2,
+        cy: el.y2,
+        r: r,
+        fill: el.color
+      }));
+    });
+    if (withGaps) gapDots.forEach(g => {
+      const sel = selGap === g.i;
+      const ci = cycles.findIndex(c => c.gaps.has(g.i));
+      const vis = ci >= 0 && isCycleVisible(ci);
+      const col = vis && ci >= 0 ? getCycleColor(ci) : "#2e2920";
+      els.push(/*#__PURE__*/React.createElement("g", {
+        key: `${keyPrefix}g${g.i}`
+      }, /*#__PURE__*/React.createElement("circle", {
+        cx: g.x,
+        cy: g.y,
+        r: gr * 2.5,
+        fill: "transparent",
+        style: {
+          cursor: "pointer"
+        },
+        onClick: () => clickGap(g.i)
+      }), /*#__PURE__*/React.createElement("circle", {
+        cx: g.x,
+        cy: g.y,
+        r: sel ? gr * 1.15 : gr * 0.65,
+        fill: col,
+        opacity: vis || sel ? 1 : 0.45,
+        style: {
+          pointerEvents: "none"
+        },
+        filter: sel ? "url(#glo)" : undefined
+      }), sel && /*#__PURE__*/React.createElement("circle", {
+        cx: g.x,
+        cy: g.y,
+        r: gr * 2,
+        fill: "none",
+        stroke: "var(--accent-soft)",
+        strokeWidth: 1.2,
+        opacity: 0.45,
+        style: {
+          pointerEvents: "none"
+        }
+      })));
+    });
+    if (showNails) nailPositions.forEach((n, i) => els.push(/*#__PURE__*/React.createElement("circle", {
+      key: `${keyPrefix}nail${i}`,
+      cx: toX(n.x),
+      cy: toY(n.y),
+      r: 4,
+      fill: n.type === 'corner' ? "#ff4444" : "#44ff44",
+      opacity: 0.8,
+      style: {
+        pointerEvents: "none"
+      }
+    })));
+    return els;
+  };
+
   const knotViewportEl = /*#__PURE__*/React.createElement("div", {
     ref: knotWrapRef,
     className: "knot-viewport",
@@ -5497,13 +5851,55 @@ function KnotMakerMobile() {
       touchAction: "none",
       position: "relative"
     }
-  }, playerOpen && /*#__PURE__*/React.createElement("div", {
+  }, !showMirrorTwoPanel && playerOpen && /*#__PURE__*/React.createElement("div", {
     ref: playerBoxRef,
     style: {
       position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
       zIndex: 5, background: bgColor
     }
-  }), playerOpen && /*#__PURE__*/React.createElement("div", {
+  }), showMirrorTwoPanel && /*#__PURE__*/React.createElement("div", {
+    ref: twoPanelBoxRef,
+    style: {
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      zIndex: 4, background: bgColor
+    }
+  }), showMirrorTwoPanel && /*#__PURE__*/React.createElement("div", {
+    className: "mirror-two-panel-bar"
+  }, /*#__PURE__*/React.createElement("span", null, T.mirrorTwoPanelNote), /*#__PURE__*/React.createElement("label", null, T.mirrorFollow, " ", /*#__PURE__*/React.createElement("select", {
+    value: mirrorTwoPanelSel,
+    onChange: e => {
+      setMirrorTwoPanelSel(+e.target.value);
+      setMirrorTwoPanelPaused(true);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: -1
+  }, T.all), Array.from({
+    length: mirrorTwoPanelCount
+  }, (_, i) => /*#__PURE__*/React.createElement("option", {
+    key: i,
+    value: i
+  }, T.fio, " ", i + 1)))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const a = twoPanelApiRef.current;
+      if (!a) return;
+      if (mirrorTwoPanelPaused) {
+        a.play();
+        setMirrorTwoPanelPaused(false);
+      } else {
+        a.pause();
+        setMirrorTwoPanelPaused(true);
+      }
+    },
+    className: "trans-btn trans-main"
+  }, mirrorTwoPanelPaused ? "\u25b6" : "| |"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      twoPanelApiRef.current?.restart?.();
+      setMirrorTwoPanelPaused(false);
+    },
+    className: "trans-btn"
+  }, "\u27f3"), /*#__PURE__*/React.createElement("span", {
+    className: "mirror-two-panel-status"
+  }, mirrorTwoPanelStatus)), !showMirrorTwoPanel && playerOpen && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)",
       zIndex: 12, width: "min(720px, calc(100% - 20px))",
@@ -5693,7 +6089,7 @@ function KnotMakerMobile() {
       color: "var(--accent-soft)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8,
       cursor: "pointer", fontFamily: "inherit", borderRadius: 4, textTransform: "uppercase"
     }
-  }, T.strand[strandMode]), playerOpen ? null : /*#__PURE__*/React.createElement("button", {
+  }, T.strand[strandMode]), !showMirrorTwoPanel && (playerOpen ? null : /*#__PURE__*/React.createElement("button", {
     onClick: () => setPlayerOpen(true),
     title: T.playTitle,
     style: {
@@ -5703,7 +6099,7 @@ function KnotMakerMobile() {
       fontFamily: "inherit", borderRadius: 4,
       display: "flex", alignItems: "center", justifyContent: "center"
     }
-  }, "\u25b6")), /*#__PURE__*/React.createElement("svg", {
+  }, "\u25b6"))), !showMirrorTwoPanel && /*#__PURE__*/React.createElement("svg", {
     width: "100%",
     height: "100%",
     viewBox: `${vbX} ${vbY} ${vbW} ${vbH}`,
@@ -5720,97 +6116,10 @@ function KnotMakerMobile() {
     in: "b"
   }), /*#__PURE__*/React.createElement("feMergeNode", {
     in: "SourceGraphic"
-  })))), boundaryEdges.map((e, i) => /*#__PURE__*/React.createElement("line", {
-    key: `be${i}`,
-    x1: e.x1,
-    y1: e.y1,
-    x2: e.x2,
-    y2: e.y2,
-    stroke: "#2a2519",
-    strokeWidth: 1.5
-  })), renderElements.map((el, i) => /*#__PURE__*/React.createElement("line", {
-    key: i,
-    x1: el.x1,
-    y1: el.y1,
-    x2: el.x2,
-    y2: el.y2,
-    stroke: el.color,
-    strokeWidth: el.w,
-    strokeLinecap: "butt"
-  })), cornerArcs.map((arc, i) => /*#__PURE__*/React.createElement("path", {
-    key: `ca${i}`,
-    d: `M${arc.sx1},${arc.sy1} A${arc.r},${arc.r} 0 0,${arc.sweep} ${arc.sx2},${arc.sy2}`,
-    fill: "none",
-    stroke: arc.color,
-    strokeWidth: sw,
-    strokeLinecap: "butt"
-  })), renderElements.filter(el => el.type === 'strand' && (el.edgeStart || el.edgeEnd)).map((el, i) => {
-    const r = el.w / 2;
-    const caps = [];
-    if (el.edgeStart) caps.push(/*#__PURE__*/React.createElement("circle", {
-      key: `es${i}`,
-      cx: el.x1,
-      cy: el.y1,
-      r: r,
-      fill: el.color
-    }));
-    if (el.edgeEnd) caps.push(/*#__PURE__*/React.createElement("circle", {
-      key: `ee${i}`,
-      cx: el.x2,
-      cy: el.y2,
-      r: r,
-      fill: el.color
-    }));
-    return caps;
-  }), gapDots.map(g => {
-    const sel = selGap === g.i;
-    const ci = cycles.findIndex(c => c.gaps.has(g.i));
-    const vis = ci >= 0 && isCycleVisible(ci);
-    const col = vis && ci >= 0 ? getCycleColor(ci) : "#2e2920";
-    return /*#__PURE__*/React.createElement("g", {
-      key: `g${g.i}`
-    }, /*#__PURE__*/React.createElement("circle", {
-      cx: g.x,
-      cy: g.y,
-      r: gr * 2.5,
-      fill: "transparent",
-      style: {
-        cursor: "pointer"
-      },
-      onClick: () => clickGap(g.i)
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: g.x,
-      cy: g.y,
-      r: sel ? gr * 1.15 : gr * 0.65,
-      fill: col,
-      opacity: vis || sel ? 1 : 0.45,
-      style: {
-        pointerEvents: "none"
-      },
-      filter: sel ? "url(#glo)" : undefined
-    }), sel && /*#__PURE__*/React.createElement("circle", {
-      cx: g.x,
-      cy: g.y,
-      r: gr * 2,
-      fill: "none",
-      stroke: "var(--accent-soft)",
-      strokeWidth: 1.2,
-      opacity: 0.45,
-      style: {
-        pointerEvents: "none"
-      }
-    }));
-  }), showNails && nailPositions.map((n, i) => /*#__PURE__*/React.createElement("circle", {
-    key: `nail${i}`,
-    cx: toX(n.x),
-    cy: toY(n.y),
-    r: 4,
-    fill: n.type === 'corner' ? "#ff4444" : "#44ff44",
-    opacity: 0.8,
-    style: {
-      pointerEvents: "none"
-    }
-  }))));
+  })))), knotLayerEls("a", true), mirrorDual && /*#__PURE__*/React.createElement("g", {
+    key: "shape-b",
+    transform: mirrorBTransform
+  }, knotLayerEls("b", false))));
   const statsBarEl = /*#__PURE__*/React.createElement("div", {
     className: "stats-bar",
     style: {
@@ -5854,12 +6163,12 @@ function KnotMakerMobile() {
       fontWeight: 700,
       whiteSpace: "nowrap"
     }
-  }, cycles.length), /*#__PURE__*/React.createElement("span", {
+  }, colorStripCount), /*#__PURE__*/React.createElement("span", {
     style: {
       color: "var(--bone-dim)",
       fontSize: 11
     }
-  }, cycles.length === 1 ? T.fio : T.fios), selGap !== null && active && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, colorStripCount === 1 ? T.fio : T.fios), selGap !== null && active && !showMirrorTwoPanel && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       color: "var(--hair)"
     }
@@ -5908,7 +6217,7 @@ function KnotMakerMobile() {
       paddingBottom: 3
     }
   }, cycleBalance.summary));
-  const currentCycleColors = () => cycles.map((_, ci2) => getCycleColor(ci2));
+  const currentCycleColors = () => Array.from({ length: colorStripCount }, (_, ci2) => getCycleColor(ci2));
   const assignColors = arr => {
     const o = {};
     arr.forEach((c2, ci2) => { o[ci2] = c2; });
@@ -5929,18 +6238,18 @@ function KnotMakerMobile() {
       const t2 = pool[i2]; pool[i2] = pool[j2]; pool[j2] = t2;
     }
     const n2 = 2 + Math.floor(Math.random() * 3);
-    assignColors(cycles.map((_, ci2) => pool[ci2 % n2]));
+    assignColors(Array.from({ length: colorStripCount }, (_, ci2) => pool[ci2 % n2]));
   };
-  const applyCombo = p2 => assignColors(cycles.map((_, ci2) => p2.colors[ci2 % p2.colors.length]));
+  const applyCombo = p2 => assignColors(Array.from({ length: colorStripCount }, (_, ci2) => p2.colors[ci2 % p2.colors.length]));
   const saveCombo = () => {
     const name = window.prompt(T.palNamePrompt);
     if (!name || !name.trim()) return;
     const seen = [];
     for (const c2 of currentCycleColors()) if (!seen.includes(c2)) seen.push(c2);
-    setPalettes(p2 => [...p2.filter(x2 => x2.name !== name.trim()), { name: name.trim(), colors: seen.slice(0, 8) }]);
+    setPalettes(p2 => [...p2.filter(x2 => x2.name !== name.trim()), { name: name.trim(), colors: seen.slice(0, colorStripCount) }]);
   };
   const deleteCombo = name => setPalettes(p2 => p2.filter(x2 => x2.name !== name));
-  const colourPickerEl = cycles.length > 0 && cycles.length <= 30 ? /*#__PURE__*/React.createElement("div", {
+  const colourPickerEl = colorStripCount > 0 && colorStripCount <= 30 ? /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "2px 12px 10px"
     }
@@ -5963,7 +6272,7 @@ function KnotMakerMobile() {
         setShowAll(false);
         setSelGap(null);
         const hidden = {};
-        cycles.forEach((_, i) => {
+        Array.from({ length: colorStripCount }, (_, i) => {
           hidden[i] = false;
         });
         setVisibleCycles(hidden);
@@ -5981,7 +6290,7 @@ function KnotMakerMobile() {
       fontSize: 10,
       letterSpacing: 1
     }
-  }, T.all), cycles.map((c, i) => {
+  }, T.all), Array.from({ length: colorStripCount }, (_, i) => i).map(i => {
     const col = getCycleColor(i);
     const vis = isCycleVisible(i);
     return /*#__PURE__*/React.createElement("div", {
@@ -5992,10 +6301,13 @@ function KnotMakerMobile() {
       }
     }, /*#__PURE__*/React.createElement("button", {
       "data-palette-trigger": true,
-      onClick: () => setPalettePopover(palettePopover?.i === i ? null : {
-        i,
-        kind: "primary"
-      }),
+      onClick: () => {
+        if (showMirrorTwoPanel) setMirrorTwoPanelSel(i);
+        setPalettePopover(palettePopover?.i === i ? null : {
+          i,
+          kind: "primary"
+        });
+      },
       className: "cycle-btn",
       style: {
         background: vis ? col : "transparent",
@@ -6032,10 +6344,18 @@ function KnotMakerMobile() {
       cursor: "pointer", fontFamily: "inherit"
     }
   }, pair[0]))), palettes.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }
+    style: { fontSize: 11, color: "var(--bone-dim)", letterSpacing: 0.5, marginTop: 10, marginBottom: 6, width: "100%" }
+  }, T.savedPalettesHdr), palettes.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 0 }
   }, palettes.map(p2 => /*#__PURE__*/React.createElement("div", {
     key: p2.name,
-    onClick: () => applyCombo(p2),
+    onClick: () => {
+      const shape = savedShapes.find(s => s.name === p2.name);
+      if (shape) loadShapeFromChip(shape); else {
+        applyCombo(p2);
+        setToast(T.paletteApplied(p2.name));
+      }
+    },
     style: {
       display: "inline-flex", alignItems: "center", gap: 7,
       padding: "6px 10px", border: "1px solid var(--hair)", borderRadius: 999,
@@ -6106,7 +6426,7 @@ function KnotMakerMobile() {
       }
     }, T.custom)));
   })()) : null;
-  const cycleStripEl = cycles.length > 0 && cycles.length <= 30 ? /*#__PURE__*/React.createElement("div", {
+  const cycleStripEl = colorStripCount > 0 && colorStripCount <= 30 ? /*#__PURE__*/React.createElement("div", {
     style: {
       borderBottom: "1px solid var(--hair)",
       background: "var(--ink-2)"
@@ -6127,13 +6447,119 @@ function KnotMakerMobile() {
       cursor: "pointer",
       letterSpacing: 0.5
     }
-  }, /*#__PURE__*/React.createElement("span", null, T.stripTitle, " (", cycles.length, ")"), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", null, T.stripTitle, " (", colorStripCount, ")"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 14
     }
   }, cycleStripOpen ? "▾" : "▸")), cycleStripOpen && colourPickerEl) : null;
-  const tabPanelsEl = /*#__PURE__*/React.createElement(React.Fragment, null, activeTab === 'edit' && /*#__PURE__*/React.createElement("div", {
-    className: "panel panel-edit",
+
+  const savedShapeChipsEl = savedShapes.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, savedShapes.map(s => /*#__PURE__*/React.createElement("span", {
+    key: s.name,
+    className: "knm-chip",
+    onClick: () => loadShapeFromChip(s)
+  }, /*#__PURE__*/React.createElement("span", null, s.name), /*#__PURE__*/React.createElement("button", {
+    className: "knm-chip-x",
+    onClick: e => {
+      e.stopPropagation();
+      if (window.confirm(T.deleteConfirm(s.name))) deleteShape(s.name);
+    }
+  }, "x")))) : null;
+  const mirrorSavedShapesEl = savedShapes.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      flexShrink: 0,
+      padding: "10px 12px 12px",
+      borderTop: "1px solid var(--hair)",
+      background: "var(--ink-2)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--bone-dim)",
+      letterSpacing: 0.5,
+      marginBottom: 8
+    }
+  }, T.savedShapesHdr), savedShapeChipsEl) : null;
+
+  const mirrorIcon = mode => {
+    const box = {
+      position: "absolute",
+      background: "var(--accent-fill)",
+      border: "1px solid var(--accent)"
+    };
+    if (mode === 'left') return /*#__PURE__*/React.createElement("div", {
+      className: "mirror-btn__icon"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { ...box, left: 3, top: 10, width: 18, height: 22 }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: { ...box, right: 3, top: 4, width: 22, height: 16 }
+    }));
+    if (mode === 'bottom') return /*#__PURE__*/React.createElement("div", {
+      className: "mirror-btn__icon"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { ...box, left: 8, top: 3, width: 28, height: 14 }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: { ...box, left: 8, bottom: 3, width: 28, height: 14 }
+    }));
+    return /*#__PURE__*/React.createElement("div", {
+      className: "mirror-btn__icon"
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { ...box, left: 3, top: 4, width: 22, height: 16 }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: { ...box, right: 3, top: 10, width: 18, height: 22 }
+    }));
+  };
+  const mirrorOptionBtn = (mode, label, compact) => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: `mirror-btn${compact ? " mirror-btn--compact" : ""}${mirrorMode === mode ? " active" : ""}`,
+    onClick: () => {
+      setMirrorMode(mode);
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
+    }
+  }, mirrorIcon(mode), /*#__PURE__*/React.createElement("span", null, label));
+  const mirrorControlsEl = /*#__PURE__*/React.createElement("div", {
+    className: "mirror-panel-head mirror-panel-head--compact"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: "var(--accent-soft)",
+      letterSpacing: 0.6,
+      marginBottom: 8
+    }
+  }, T.mirrorTitle), /*#__PURE__*/React.createElement("div", {
+    className: "mirror-options"
+  }, mirrorOptionBtn('left', T.mirrorLeft, true), mirrorOptionBtn('bottom', T.mirrorBottom, true), mirrorOptionBtn('right', T.mirrorRight, true), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: `mirror-btn mirror-btn--compact${mirrorMode === null ? " active" : ""}`,
+    onClick: () => {
+      setMirrorMode(null);
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mirror-btn__icon"
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      background: "var(--accent-fill)",
+      border: "1px solid var(--accent)",
+      left: 8,
+      top: 5,
+      width: 22,
+      height: 16
+    }
+  })), /*#__PURE__*/React.createElement("span", null, T.mirrorSingle))));
+  const tabPanelsEl = /*#__PURE__*/React.createElement(React.Fragment, null, (activeTab === 'edit' || activeTab === 'mirror') && /*#__PURE__*/React.createElement("div", {
+    className: "panel panel-edit" + (activeTab === 'mirror' ? " panel-edit-mirror" : ""),
     style: {
       padding: 12,
       background: "var(--ink-2)",
@@ -6141,7 +6567,15 @@ function KnotMakerMobile() {
       display: "flex",
       flexDirection: "column"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, activeTab === 'mirror' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--bone-dim)",
+      lineHeight: 1.45,
+      marginBottom: 8,
+      flexShrink: 0
+    }
+  }, T.mirrorHint), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 6
     }
@@ -6526,7 +6960,7 @@ function KnotMakerMobile() {
         border: `1px solid ${marquee.val ? "#4aaa78" : "#c85050"}`
       }
     });
-  })()))))), activeTab === 'shapes' && /*#__PURE__*/React.createElement("div", {
+  })()))), activeTab === 'mirror' && mirrorControlsEl, activeTab === 'mirror' && cycleStripEl, activeTab === 'mirror' && mirrorSavedShapesEl)), activeTab === 'shapes' && /*#__PURE__*/React.createElement("div", {
     className: "panel",
     style: {
       padding: 12,
@@ -6632,7 +7066,7 @@ function KnotMakerMobile() {
   }, savedShapes.map(s => /*#__PURE__*/React.createElement("span", {
     key: s.name,
     className: "knm-chip",
-    onClick: () => loadShape(s)
+    onClick: () => loadShapeFromChip(s)
   }, /*#__PURE__*/React.createElement("span", null, s.name), /*#__PURE__*/React.createElement("button", {
     className: "knm-chip-x",
     onClick: e => {
@@ -6796,9 +7230,9 @@ function KnotMakerMobile() {
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
     }
-  }, statsBarEl, tabPanelsEl, activeTab !== 'fios' && cycleStripEl), /*#__PURE__*/React.createElement("div", {
+  }, statsBarEl, tabPanelsEl, activeTab !== 'fios' && activeTab !== 'mirror' && cycleStripEl), /*#__PURE__*/React.createElement("div", {
     className: "land-split-knot"
-  }, knotViewportEl)) : activeTab === 'edit' ? /*#__PURE__*/React.createElement("div", {
+  }, knotViewportEl)) : activeTab === 'edit' || activeTab === 'mirror' ? /*#__PURE__*/React.createElement("div", {
     className: "edit-tab-scroll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "edit-portrait-main"
@@ -6828,7 +7262,16 @@ function KnotMakerMobile() {
   }, T.tabFios), /*#__PURE__*/React.createElement("button", {
     className: `tab-btn ${activeTab === 'shapes' ? 'active' : ''}`,
     onClick: () => setActiveTab(activeTab === 'shapes' ? null : 'shapes')
-  }, T.tabGuardadas)), qrModalEl, toastEl);
+  }, T.tabGuardadas), /*#__PURE__*/React.createElement("button", {
+    className: `tab-btn ${activeTab === 'mirror' ? 'active' : ''}`,
+    onClick: () => {
+      if (activeTab === 'mirror') setActiveTab(null); else {
+        setActiveTab('mirror');
+        if (mirrorMode === null) setMirrorMode('bottom');
+        loadMirrorBootShape(savedShapes);
+      }
+    }
+  }, T.tabEspelho)), qrModalEl, toastEl);
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(KnotMakerMobile, null));
 </script>

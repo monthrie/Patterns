@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two-panel loops — animated</title>
+<style>
+  :root { --ink:#0c0f12; --bone:#e9e4d8; --hair:#2a2f37; --panelbg:#11151a; --dim:#9aa3ad; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ink); color:var(--bone);
+         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; padding:18px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 4px; font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  .sub { color:var(--dim); margin:0 0 14px; }
+  .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  select, button { background:var(--panelbg); color:var(--bone); border:1px solid var(--hair);
+           border-radius:7px; padding:7px 11px; font:inherit; cursor:pointer; }
+  button.primary { border-color:#3b5bd6; color:#cdd7ff; }
+  input[type=range]{ width:140px; }
+  input[type=file]{ display:none; }
+  .status { font-variant-numeric:tabular-nums; padding:6px 12px; border:1px solid var(--hair);
+            border-radius:7px; background:var(--panelbg); min-width:280px; }
+  .status b{color:#fff}
+  .stage { background:var(--panelbg); border:1px solid var(--hair); border-radius:12px;
+           padding:14px; width:100%; max-width:100%; min-height:420px; overflow:auto; }
+  #player { width:100%; min-height:380px; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px; }
+  .chip { display:flex; align-items:center; gap:7px; padding:4px 9px; border-radius:20px;
+          border:1px solid var(--hair); cursor:pointer; background:var(--panelbg); }
+  .chip .sw { width:14px; height:14px; border-radius:50%; }
+  .chip.active { border-color:#3b5bd6; background:rgba(59,91,214,0.12); }
+  .saved-panel { background:var(--panelbg); border:1px solid var(--hair); border-radius:10px;
+                 padding:10px 12px 12px; margin-bottom:12px; }
+  .saved-hdr { font-size:11px; color:var(--dim); letter-spacing:0.5px; margin-bottom:8px; }
+  .saved-row { display:flex; flex-wrap:wrap; gap:8px; }
+  .knm-chip { display:inline-flex; align-items:center; gap:7px; padding:6px 10px;
+              border:1px solid var(--hair); border-radius:999px; cursor:pointer; background:#11151a; }
+  .knm-chip.active { border-color:#3b5bd6; background:rgba(59,91,214,0.12); }
+  .knm-chip .dots { display:inline-flex; }
+  .knm-chip .dots i { width:12px; height:12px; border-radius:50%; border:1px solid rgba(0,0,0,0.45);
+                       margin-left:-4px; display:inline-block; }
+  .knm-chip .dots i:first-child { margin-left:0; }
+  .note { color:var(--dim); margin-top:14px; max-width:900px;
+          font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  b.seam{color:#6fd6a0}
+  .toast { position:fixed; bottom:18px; right:18px; padding:10px 14px; background:#1b2027;
+           border:1px solid var(--hair); border-radius:8px; font-size:13px; opacity:0;
+           transition:opacity 0.2s; pointer-events:none; z-index:20; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<h1>Two-panel loops — animated draw</h1>
+<p class="sub" id="summary"></p>
+
+<div class="saved-panel" id="palette-panel" hidden>
+  <div class="saved-hdr">Saved colour combos</div>
+  <div class="saved-row" id="palette-chips"></div>
+</div>
+
+<div class="saved-panel" id="shape-panel" hidden>
+  <div class="saved-hdr">Saved shapes</div>
+  <div class="saved-row" id="shape-chips"></div>
+</div>
+
+<div class="controls">
+  <button id="import-btn" type="button" title="Import shapes JSON from index.html export">Import JSON</button>
+  <input id="import-file" type="file" accept=".json,application/json">
+  <label>Follow: <select id="pick"></select></label>
+  <button id="play" class="primary">▶ Play</button>
+  <button id="restart">⟲ Restart</button>
+  <label>Speed <input id="speed" type="range" min="0.02" max="0.4" step="0.01" value="0.1"></label>
+  <label>Zoom <button id="zoom-out" type="button" title="Smaller">−</button><input id="zoom" type="range" min="50" max="200" step="5" value="100"><button id="zoom-in" type="button" title="Larger">+</button> <span id="zoom-val">100</span>%</label>
+  <span class="status" id="status">—</span>
+</div>
+
+<div class="stage"><div id="player"></div></div>
+<div class="legend" id="legend"></div>
+
+<p class="note">
+  Loads the same saved shapes and colour combos as the
+  <a href="index.html" style="color:#cdd7ff">mirror page</a> in index.html
+  (<code>celtic.savedShapes</code>, <code>knot.palettes</code>).
+  Open both on the same address (e.g. <code>127.0.0.1:8765</code>).
+</p>
+
+<div class="toast" id="toast"></div>
+
+<script src="two-panel-loops.js"></script>
+<script src="two-panel-player.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const DEFAULT_COLORS = ['#d4242c','#2aa0b4','#ecdcb0','#e4287c','#2e9a5e','#e8a020','#1e40c8','#6a2aa0','#e84030','#8ab840','#c41878','#e68a96','#e8c838','#f4f1e8'];
+  const MIRROR_BOOT_COLORS = ['#d4242c','#2aa0b4','#ecdcb0','#e4287c','#2e9a5e','#e8a020','#1e40c8','#6a2aa0'];
+  const LAST_SHAPE_KEY = 'twoPanel.lastShape';
+  const LAST_PALETTE_KEY = 'twoPanel.lastPalette';
+  const BUNDLED_SHAPE_FILES = ['saved/celtic-shapes-2026-06-19 2.json'];
+  const isWallGap = g => g.isH && g.y === 0;
+
+  let savedShapes = [];
+  let palettes = [];
+  let currentShape = null;
+  let activePalette = null;
+  let loopColors = [];
+  let api = null;
+  let sel = -1;
+  let toastTimer = 0;
+
+  const $ = id => document.getElementById(id);
+
+  function escAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function escText(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  }
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function normalizeShape(s) {
+    return {
+      name: s.name,
+      gw: s.gw,
+      gh: s.gh,
+      cells: s.cells.map(r => [...r]),
+      cycles: s.cycles,
+      colors: Array.isArray(s.colors) ? s.colors.slice() : [],
+    };
+  }
+
+  function defaultBootShape() {
+    const { cells, gw, gh } = shoeCells();
+    return normalizeShape({
+      name: '8 cycle boot',
+      gw, gh,
+      cells,
+      cycles: 8,
+      colors: MIRROR_BOOT_COLORS.slice(),
+    });
+  }
+
+  function isPaletteOnlyShapeName(name) {
+    return /^will'?s?\s*boot$/i.test(name || '');
+  }
+
+  function dedupeShapes(shapes) {
+    const byName = new Map();
+    for (const s of shapes) {
+      if (s && s.name && Array.isArray(s.cells)) {
+        byName.set(s.name.toLowerCase(), normalizeShape(s));
+      }
+    }
+    return [...byName.values()];
+  }
+
+  function readStorage() {
+    let raw = [];
+    try { raw = JSON.parse(localStorage.getItem('celtic.savedShapes') || '[]'); }
+    catch { raw = []; }
+    savedShapes = dedupeShapes(raw).filter(s => !isPaletteOnlyShapeName(s.name));
+    try { palettes = JSON.parse(localStorage.getItem('knot.palettes') || '[]'); }
+    catch { palettes = []; }
+    if (!Array.isArray(palettes)) palettes = [];
+  }
+
+  async function fetchBundledFiles() {
+    const out = [];
+    if (location.protocol !== 'http:' && location.protocol !== 'https:') return out;
+    for (const file of BUNDLED_SHAPE_FILES) {
+      try {
+        const res = await fetch(encodeURI(file));
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data)) out.push(...data.filter(s => s && s.name && Array.isArray(s.cells)));
+      } catch {}
+    }
+    return out;
+  }
+
+  async function loadAllShapes() {
+    readStorage();
+    if (!savedShapes.length) {
+      const bundled = await fetchBundledFiles();
+      savedShapes = dedupeShapes(bundled.length ? bundled : [defaultBootShape()]);
+    }
+    // Remove mistaken palette-as-shape entries that earlier versions may have written.
+    const cleaned = savedShapes.filter(s => !isPaletteOnlyShapeName(s.name));
+    if (cleaned.length !== savedShapes.length) {
+      savedShapes = cleaned;
+      try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
+    }
+  }
+
+  function findBootShape(shapes) {
+    return shapes.find(s => /8\s*cycle\s*(boot|shoe)/i.test(s.name))
+      || shapes.find(s => /shoe|boot/i.test(s.name))
+      || shapes[0]
+      || defaultBootShape();
+  }
+
+  function pickInitialShape() {
+    const q = new URLSearchParams(location.search).get('shape');
+    if (q) {
+      const byUrl = savedShapes.find(s => s.name.toLowerCase() === q.toLowerCase());
+      if (byUrl) return byUrl;
+    }
+    try {
+      const last = localStorage.getItem(LAST_SHAPE_KEY);
+      if (last) {
+        const byLast = savedShapes.find(s => s.name === last);
+        if (byLast) return byLast;
+      }
+    } catch {}
+    return savedShapes.find(s => /shoes?\s*2\s*cycle/i.test(s.name))
+      || findBootShape(savedShapes);
+  }
+
+  function pickInitialPalette() {
+    try {
+      const last = localStorage.getItem(LAST_PALETTE_KEY);
+      if (last) {
+        const p = palettes.find(x => x.name === last);
+        if (p) return p;
+      }
+    } catch {}
+    return null;
+  }
+
+  function persistLastShape(name) {
+    try { localStorage.setItem(LAST_SHAPE_KEY, name); } catch {}
+  }
+
+  function persistLastPalette(name) {
+    try {
+      if (name) localStorage.setItem(LAST_PALETTE_KEY, name);
+      else localStorage.removeItem(LAST_PALETTE_KEY);
+    } catch {}
+  }
+
+  function colorsForLoops(loopCount, colors) {
+    const src = colors || [];
+    return Array.from({ length: loopCount }, (_, i) => src[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length]);
+  }
+
+  function resolveActiveColors(shape) {
+    if (activePalette && activePalette.colors && activePalette.colors.length) {
+      return activePalette.colors;
+    }
+    if (shape.colors && shape.colors.length) return shape.colors;
+    const pal = palettes.find(p => p.name === shape.name);
+    if (pal && pal.colors && pal.colors.length) return pal.colors;
+    return [];
+  }
+
+  function applyColorsToPlayer() {
+    if (!api || !currentShape) return;
+    const loops = api.getLoops();
+    loopColors = colorsForLoops(loops.length, resolveActiveColors(currentShape));
+    api.setColors(loopColors);
+    rebuildLegend(loops);
+  }
+
+  function updateSummary(shape, loopCount, lengths) {
+    const pal = activePalette ? ` · colours “${activePalette.name}”` : '';
+    $('summary').textContent =
+      `${loopCount} connected loops · lengths ${lengths.join(', ')} · shape “${shape.name}”${pal}`;
+  }
+
+  function rebuildLegend(loops) {
+    const legend = $('legend');
+    legend.innerHTML = loops.map((l, i) =>
+      `<span class="chip${i === sel ? ' active' : ''}" data-i="${i}">` +
+      `<span class="sw" style="background:${loopColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length]}"></span>` +
+      `Loop ${i + 1} (len ${l.length})</span>`
+    ).join('');
+    legend.querySelectorAll('.chip').forEach(c => {
+      c.onclick = () => {
+        $('pick').value = c.dataset.i;
+        onPickChange();
+      };
+    });
+  }
+
+  function rebuildPickOptions(loopCount) {
+    const pick = $('pick');
+    pick.innerHTML = '<option value="-1">All loops</option>' +
+      Array.from({ length: loopCount }, (_, i) => `<option value="${i}">Loop ${i + 1}</option>`).join('');
+    pick.value = String(sel >= loopCount ? -1 : sel);
+    if (sel >= loopCount) sel = -1;
+  }
+
+  function rebuildPaletteChips() {
+    const panel = $('palette-panel');
+    const chips = $('palette-chips');
+    if (!palettes.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    chips.innerHTML = palettes.map(p => {
+      const dots = (p.colors || []).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('');
+      const active = activePalette && activePalette.name === p.name ? ' active' : '';
+      return `<span class="knm-chip${active}" data-name="${escAttr(p.name)}">` +
+        `<span class="dots">${dots}</span>${escText(p.name)}</span>`;
+    }).join('');
+    chips.querySelectorAll('.knm-chip').forEach(el => {
+      el.onclick = () => onPaletteChip(el.dataset.name);
+    });
+  }
+
+  function rebuildShapeChips() {
+    const panel = $('shape-panel');
+    const chips = $('shape-chips');
+    if (!savedShapes.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    chips.innerHTML = savedShapes.map(s => {
+      const active = currentShape && currentShape.name === s.name ? ' active' : '';
+      return `<span class="knm-chip${active}" data-name="${escAttr(s.name)}">${escText(s.name)}</span>`;
+    }).join('');
+    chips.querySelectorAll('.knm-chip').forEach(el => {
+      el.onclick = () => loadShapeByName(el.dataset.name);
+    });
+  }
+
+  function mountPlayer(shape) {
+    if (api) { api.destroy(); api = null; }
+    currentShape = shape;
+    persistLastShape(shape.name);
+
+    api = TwoPanelPlayer.create($('player'), {
+      cells: shape.cells.map(r => [...r]),
+      gw: shape.gw,
+      gh: shape.gh,
+      isWallGap,
+      colors: [],
+      showWeave: true,
+      selected: sel,
+      speed: parseFloat($('speed').value),
+      initialZoom: parseFloat($('zoom').value) / 100,
+      onTick: st => {
+        if (st.sel >= 0 && st.info) {
+          $('status').innerHTML = `Loop ${st.sel + 1} · on panel <b>${st.info.panel || '—'}</b> · ${Math.round(st.t * 100)}%`;
+        } else if (st.sel < 0) {
+          $('status').innerHTML = `All loops · ${Math.round(st.t * 100)}%`;
+        }
+        $('play').textContent = st.playing ? '⏸ Pause' : '▶ Play';
+      },
+    });
+
+    const loops = api.getLoops();
+    applyColorsToPlayer();
+    rebuildPickOptions(loops.length);
+    updateSummary(shape, loops.length, loops.map(l => l.length));
+    rebuildShapeChips();
+  }
+
+  function loadShapeByName(name, keepPalette) {
+    const shape = savedShapes.find(s => s.name === name);
+    if (!shape) { toast('Shape not found'); return; }
+    if (!keepPalette) {
+      const matchingPal = palettes.find(p => p.name === name);
+      activePalette = matchingPal || null;
+      persistLastPalette(activePalette?.name || null);
+    }
+    mountPlayer(shape);
+    rebuildPaletteChips();
+    toast(`Shape: ${shape.name}`);
+  }
+
+  function onPaletteChip(name) {
+    const p = palettes.find(x => x.name === name);
+    if (!p) return;
+    const matchingShape = savedShapes.find(s => s.name === name);
+    activePalette = p;
+    persistLastPalette(name);
+    if (matchingShape) {
+      loadShapeByName(matchingShape.name, true);
+    } else if (api && currentShape) {
+      applyColorsToPlayer();
+      updateSummary(currentShape, api.getLoops().length, api.getLoops().map(l => l.length));
+      rebuildPaletteChips();
+      toast(`Colours: ${name}`);
+    } else {
+      loadShapeByName(findBootShape(savedShapes).name, true);
+      toast(`Colours: ${name}`);
+    }
+  }
+
+  function onPickChange() {
+    sel = +$('pick').value;
+    api?.setSelection(sel);
+    if (api) rebuildLegend(api.getLoops());
+  }
+
+  function mergeImportedShapes(data) {
+    if (!Array.isArray(data)) throw new Error('JSON must be an array');
+    const valid = data.filter(s =>
+      s && typeof s.name === 'string' && Array.isArray(s.cells) &&
+      Number.isInteger(s.gw) && Number.isInteger(s.gh));
+    savedShapes = dedupeShapes([...savedShapes, ...valid]);
+    try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
+    return valid.length;
+  }
+
+  $('pick').onchange = onPickChange;
+  $('play').onclick = function () {
+    if (!api) return;
+    const st = api.getState();
+    if (st.playing) api.pause(); else api.play();
+  };
+  $('restart').onclick = () => { api?.restart(); };
+  $('speed').oninput = e => api?.setSpeed(parseFloat(e.target.value));
+
+  function setZoomPct(pct) {
+    pct = Math.max(50, Math.min(200, pct));
+    $('zoom').value = String(pct);
+    $('zoom-val').textContent = String(pct);
+    api?.setZoom(pct / 100);
+  }
+  $('zoom').oninput = e => setZoomPct(+e.target.value);
+  $('zoom-in').onclick = () => setZoomPct(+($('zoom').value) + 10);
+  $('zoom-out').onclick = () => setZoomPct(+($('zoom').value) - 10);
+
+  $('import-btn').onclick = () => $('import-file').click();
+  $('import-file').onchange = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const n = mergeImportedShapes(JSON.parse(reader.result));
+        rebuildShapeChips();
+        toast(`Imported ${n} shape${n === 1 ? '' : 's'}`);
+        if (!savedShapes.find(s => s.name === currentShape?.name)) {
+          loadShapeByName(findBootShape(savedShapes).name);
+        }
+      } catch (err) {
+        toast('Import failed: ' + err.message);
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  window.addEventListener('storage', e => {
+    if (e.key === 'celtic.savedShapes' || e.key === 'knot.palettes') refreshFromStorage();
+  });
+  window.addEventListener('focus', refreshFromStorage);
+
+  async function refreshFromStorage() {
+    const prevShape = currentShape?.name;
+    const prevPal = activePalette?.name;
+    await loadAllShapes();
+    activePalette = palettes.find(p => p.name === prevPal) || pickInitialPalette();
+    rebuildPaletteChips();
+    rebuildShapeChips();
+    const shape = savedShapes.find(s => s.name === prevShape) || pickInitialShape();
+    mountPlayer(shape);
+    if (activePalette) applyColorsToPlayer();
+    rebuildPaletteChips();
+  }
+
+  async function init() {
+    if (location.protocol === 'file:') {
+      toast('Open via live-server (same URL as index.html) to sync saved data');
+    }
+    await loadAllShapes();
+    activePalette = pickInitialPalette();
+    rebuildPaletteChips();
+    rebuildShapeChips();
+    const shape = pickInitialShape();
+    mountPlayer(shape);
+    if (activePalette) applyColorsToPlayer();
+    rebuildPaletteChips();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
