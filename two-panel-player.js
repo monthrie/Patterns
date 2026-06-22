@@ -53,8 +53,10 @@
       concaveMode: 'cross',
       convexMode: 'cross',
     });
-    const loops = model.loops.map(path =>
-      path.map(ev => ({ panel: ev.panel, x: ev.x, y: ev.y })));
+    if (!model || !Array.isArray(model.loops)) throw new Error('Invalid loop model');
+    const loops = (model.loops || [])
+      .filter(path => Array.isArray(path) && path.length > 1)
+      .map(path => path.map(ev => ({ panel: ev.panel, x: ev.x, y: ev.y })));
     const gaps = model.gaps;
     const edges = model.edges || L.buildEdges(cells, gw, gh);
 
@@ -92,6 +94,16 @@
     const Yp = (y, panel) => PAD + (panel === 'A' ? y : 2 * gh - y) * CELL;
     const lineW = () => CELL * (strandMode === 'full' ? 0.707 : strandMode === 'string' ? 0.12 : 0.45);
     const strandGap = () => strandMode === 'string' ? CELL * 0.16 : lineW() / 2;
+
+    // Panel B is the y-mirror twin: over/under parity flips so the weave continues across the seam.
+    function bsWeaveUnder(kOrKi, mOrMi, panel) {
+      const under = (kOrKi + mOrMi + gw) % 2 === 1;
+      return panel === 'B' ? !under : under;
+    }
+    function fsWeaveUnder(kOrKi, mOrMi, panel) {
+      const under = (kOrKi + mOrMi + gw) % 2 === 0;
+      return panel === 'B' ? !under : under;
+    }
 
     function buildCornerArcs() {
       const arcs = [];
@@ -164,15 +176,8 @@
       if (!inDx || !inDy) return null;
       const gi = gapIdxAt(b.x, b.y);
       if (gi < 0) return null;
-      if (!L.shouldConcaveNotchThroatToggle(a.x, a.y, b.x, b.y, inDx, inDy, gi, gaps, isWallGap, NOTCH_THROATS)) return null;
-      const sum = a.x + a.y;
-      for (const th of NOTCH_THROATS) {
-        if (inDx !== th.inDx || inDy !== th.inDy || a.y <= th.yMin) continue;
-        const yAtVx = sum - th.vx;
-        if (yAtVx <= th.yMin || yAtVx >= th.yMax) continue;
-        return { x: th.vx, y: yAtVx, vx: th.vx, vy: th.vy };
-      }
-      return null;
+      return L.concaveNotchThroatCrossPoint(
+        a.x, a.y, b.x, b.y, inDx, inDy, gi, gaps, isWallGap, NOTCH_THROATS);
     }
 
     function needsMirrorLoop(a, b) {
@@ -233,13 +238,54 @@
         for (let i = 0; i < path.length; i++) {
           const a = path[i], b = path[(i + 1) % path.length];
           if (!countsForCrossingMap(a, b)) continue;
+          const panel = a.panel;
           const { bsSet, fsSet } = segmentCrossings(a, b);
-          for (const k of bsSet) allBS.add(k);
-          for (const k of fsSet) allFS.add(k);
+          for (const k of bsSet) allBS.add(`${panel},${k}`);
+          for (const k of fsSet) allFS.add(`${panel},${k}`);
         }
       }
       return { forBS: allFS, forFS: allBS };
     })();
+
+    /** Interior crossing -> { bs: {li, arc}, fs: {li, arc} } laying order per diagonal family. */
+    function buildPassMap() {
+      const map = new Map();
+      loops.forEach((path, li) => {
+        const n = path.length;
+        for (let seg = 0; seg < n; seg++) {
+          const p1 = path[seg], p2 = path[(seg + 1) % n];
+          if (!countsForCrossingMap(p1, p2)) continue;
+          const sdx = Math.sign(p2.x - p1.x), sdy = Math.sign(p2.y - p1.y);
+          if (sdx === 0 || sdy === 0) continue;
+          const axis = sdx === sdy ? 'bs' : 'fs';
+          const panel = p1.panel;
+          const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+          const visit = (ix, iy) => {
+            if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < gh - 0.01) {
+              const key = `${panel},${ix.toFixed(2)},${iy.toFixed(2)}`;
+              let e = map.get(key);
+              if (!e) { e = {}; map.set(key, e); }
+              if (!e[axis]) e[axis] = { li, arc: seg + Math.hypot(ix - p1.x, iy - p1.y) };
+            }
+          };
+          if (axis === 'bs') {
+            const kVal = p1.y - p1.x;
+            for (let mi = -1; mi <= gw + gh; mi++) {
+              const mVal = mi + 0.5;
+              visit((mVal - kVal) / 2, (mVal + kVal) / 2);
+            }
+          } else {
+            const mVal = p1.y + p1.x;
+            for (let ki = -gw; ki <= gh; ki++) {
+              const kVal2 = ki + 0.5;
+              visit((mVal - kVal2) / 2, (mVal + kVal2) / 2);
+            }
+          }
+        }
+      });
+      return map;
+    }
+    const passMap = buildPassMap();
 
     function renderWeaveSegment(sx0, sy0, sx1, sy1, ux, uy, cuts, stroke, swW) {
       const gap = CELL * 0.16;
@@ -285,7 +331,7 @@
             const mVal = m + 0.5;
             const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
             if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < gh - 0.01) {
-              if ((k + m + gw) % 2 === 1) cuts.push({ sx: X(ix), sy: toY(iy) });
+              if (bsWeaveUnder(k, m, panel)) cuts.push({ sx: X(ix), sy: toY(iy) });
             }
           }
           lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts });
@@ -316,7 +362,7 @@
             const kVal2 = k + 0.5;
             const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
             if (ix > x0 + 0.01 && ix < x1 - 0.01 && iy > 0.01 && iy < gh - 0.01) {
-              if ((k + m + gw) % 2 === 0) cuts.push({ sx: X(ix), sy: toY(iy) });
+              if (fsWeaveUnder(k, m, panel)) cuts.push({ sx: X(ix), sy: toY(iy) });
             }
           }
           lines.push({ sx0, sy0, sx1, sy1, ux, uy, cuts });
@@ -333,7 +379,12 @@
       return s;
     }
 
-    function renderGridStrand(a, b, panel, col, w, op, partial) {
+    function loopColor(i) {
+      if (strandMode === 'string') return '#8fa3ad';
+      return colors[i] || colors[i % colors.length] || '#a3b8c4';
+    }
+
+    function renderGridStrand(a, b, panel, col, w, op, partial, li, segIdx) {
       const p1 = { x: a.x, y: a.y }, p2 = { x: b.x, y: b.y };
       const p1gi = gapIdxAt(p1.x, p1.y), p2gi = gapIdxAt(p2.x, p2.y);
       const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -360,30 +411,43 @@
       if (len < 0.5) return '';
       const ux = ddx / len, uy = ddy / len;
       const isBS = sdx === sdy;
+      const other = isBS ? 'fs' : 'bs';
+      const segArc0 = segIdx != null ? segIdx : 0;
       const cuts = [];
       const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+      const tryCut = (ix, iy, underHere) => {
+        if (!(ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < gh - 0.01)) return;
+        if (!underHere) return;
+        const key = `${panel},${ix.toFixed(2)},${iy.toFixed(2)}`;
+        if (!crossingMap[isBS ? 'forBS' : 'forFS'].has(key)) return;
+        const entry = passMap.get(key);
+        const partner = entry && entry[other];
+        if (!partner) return;
+        const myArc = segArc0 + Math.hypot(ix - p1.x, iy - p1.y);
+        const partnerFirst = partner.li < li || (partner.li === li && partner.arc < myArc - 1e-9);
+        // All-loops view: bridge with partner colour where over-strand already drawn.
+        // Single-loop focus: keep one solid colour for the followed loop.
+        const fillerCol = sel < 0 && partnerFirst ? loopColor(partner.li) : col;
+        cuts.push({
+          sx: X(ix), sy: Yp(iy, panel),
+          filler: strandMode === 'full',
+          fillerCol,
+        });
+      };
 
       if (isBS) {
         const kVal = p1.y - p1.x;
         const ki = Math.round(kVal - 0.5);
         for (let mi = -1; mi <= gw + gh; mi++) {
           const mVal = mi + 0.5;
-          const ix = (mVal - kVal) / 2, iy = (mVal + kVal) / 2;
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < gh - 0.01) {
-            if ((ki + mi + gw) % 2 === 1 && crossingMap.forBS.has(`${ix.toFixed(2)},${iy.toFixed(2)}`))
-              cuts.push({ sx: X(ix), sy: Yp(iy, panel) });
-          }
+          tryCut((mVal - kVal) / 2, (mVal + kVal) / 2, bsWeaveUnder(ki, mi, panel));
         }
       } else {
         const mVal = p1.y + p1.x;
         const mi = Math.round(mVal - 0.5);
         for (let ki = -gw; ki <= gh; ki++) {
           const kVal2 = ki + 0.5;
-          const ix = (mVal - kVal2) / 2, iy = (mVal + kVal2) / 2;
-          if (ix > minX + 0.01 && ix < maxX - 0.01 && iy > 0.01 && iy < gh - 0.01) {
-            if ((ki + mi + gw) % 2 === 0 && crossingMap.forFS.has(`${ix.toFixed(2)},${iy.toFixed(2)}`))
-              cuts.push({ sx: X(ix), sy: Yp(iy, panel) });
-          }
+          tryCut((mVal - kVal2) / 2, (mVal + kVal2) / 2, fsWeaveUnder(ki, mi, panel));
         }
       }
       cuts.sort((a, b) => ((a.sx - sx1) * ux + (a.sy - sy1) * uy) - ((b.sx - sx1) * ux + (b.sy - sy1) * uy));
@@ -393,8 +457,11 @@
         const gsx = cut.sx - ux * gap, gsy = cut.sy - uy * gap;
         const proj = (gsx - cx) * ux + (gsy - cy) * uy;
         if (proj > 0.5) s += strandPiece(cx, cy, gsx, gsy, col, w, op, isFirst && p1Edge, false);
-        cx = cut.sx + ux * gap;
-        cy = cut.sy + uy * gap;
+        const gex = cut.sx + ux * gap, gey = cut.sy + uy * gap;
+        if (cut.filler) {
+          s += strandPiece(gsx - ux * 1.1, gsy - uy * 1.1, gex + ux * 1.1, gey + uy * 1.1, cut.fillerCol, w, op, false, false);
+        }
+        cx = gex; cy = gey;
         isFirst = false;
       }
       const projEnd = (sx2 - cx) * ux + (sy2 - cy) * uy;
@@ -441,7 +508,7 @@
       return `<circle cx="${jx}" cy="${jy}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${0.9 * sc()}" opacity="${op}"/>`;
     }
 
-    function drawSegment(a, b, col, w, op, partial, pass) {
+    function drawSegment(a, b, col, w, op, partial, pass, li, segIdx) {
       const useStrand = strandMode !== 'string';
       const empty = { strands: '', arcs: '' };
       const notch = matchNotchThroatCross(a, b);
@@ -456,7 +523,7 @@
         const leg1 = Math.hypot(xm - x1, ym - y1), leg2 = Math.hypot(x2 - xm, y2 - ym2), total = leg1 + leg2;
         const drawLeg = (p1, p2, panel, es, ee, frac) => {
           if (useStrand && isDiagonalWeaveSeg(p1, p2) && frac >= 1)
-            return renderGridStrand(p1, p2, panel, col, w, op, 1);
+            return renderGridStrand(p1, p2, panel, col, w, op, 1, li, segIdx);
           const sx1 = X(p1.x), sy1 = Yp(p1.y, panel);
           const sx2 = X(p2.x), sy2 = Yp(p2.y, panel);
           if (frac >= 1) {
@@ -507,7 +574,7 @@
 
       if (a.panel === b.panel) {
         if (pass === 'arcs') return empty;
-        return { strands: renderGridStrand(a, b, a.panel, col, w, op, partial), arcs: '' };
+        return { strands: renderGridStrand(a, b, a.panel, col, w, op, partial, li, segIdx), arcs: '' };
       }
 
       if (pass === 'arcs') return empty;
@@ -516,7 +583,7 @@
       let strands = '';
       const drawLeg = () => {
         if (useStrand && isDiagonalWeaveSeg(a, b)) {
-          return renderGridStrand(a, b, a.panel, col, w, op, partial);
+          return renderGridStrand(a, b, a.panel, col, w, op, partial, li, segIdx);
         }
         if (partial >= 1) {
           return useStrand
@@ -563,13 +630,10 @@
       return { x: x1 + (x2 - x1) * f, y: y1 + (y2 - y1) * f, panel: f >= 1 ? b.panel : a.panel };
     }
 
-    function loopColor(i) {
-      if (strandMode === 'string') return '#8fa3ad';
-      return colors[i] || colors[i % colors.length] || '#a3b8c4';
-    }
-
     function drawLoop(li, frac, dim, pass) {
-      const path = loops[li], n = path.length;
+      const path = loops[li];
+      if (!path || !path.length) return { strands: '', arcs: '', head: null, panel: null, crossings: 0 };
+      const n = path.length;
       const col = loopColor(li);
       const col2 = (!dim && strandMode !== 'string') ? (secondaryColors[li] || null) : null;
       const op = dim ? 0.06 : 1;
@@ -587,7 +651,7 @@
         if (i < k) partial = 1;
         else if (i === k && k < n) partial = fr;
         if (partial <= 0) continue;
-        const seg = drawSegment(a, b, c, w, op, partial, pass);
+        const seg = drawSegment(a, b, c, w, op, partial, pass, li, i);
         strands += seg.strands;
         arcs += seg.arcs;
         if (i === k && k < n) {
@@ -607,22 +671,15 @@
       return s;
     }
 
-    function weaveLayerA() {
-      if (!showWeave) return '';
+    function weaveLayer(panel) {
+      if (!showWeave || strandMode === 'full') return '';
       const stroke = theme.weaveStroke;
       const swW = 1.2 * sc();
       let s = '';
-      for (const line of buildWeaveLines('A')) {
+      for (const line of buildWeaveLines(panel)) {
         s += renderWeaveSegment(line.sx0, line.sy0, line.sx1, line.sy1, line.ux, line.uy, line.cuts, stroke, swW);
       }
       return s;
-    }
-
-    // Mirror panel-A weave across the seam — same as index.html mirrorBTransform for bottom join.
-    function mirrorWeaveForB(weaveA) {
-      if (!weaveA) return '';
-      const seamY = Yp(gh, 'A');
-      return `<g transform="translate(0,${seamY}) scale(1,-1) translate(0,${-seamY})">${weaveA}</g>`;
     }
 
     function boundaryLayer(panel) {
@@ -653,8 +710,7 @@
 
     function background() {
       let s = shapeLayer('A') + shapeLayer('B');
-      const weaveA = weaveLayerA();
-      s += weaveA + mirrorWeaveForB(weaveA);
+      s += weaveLayer('A') + weaveLayer('B');
       s += boundaryLayer('A') + boundaryLayer('B');
       s += `<line x1="${X(0)}" y1="${Yp(gh, 'A')}" x2="${X(gw)}" y2="${Yp(gh, 'A')}" stroke="${theme.seam}" stroke-width="${1.5 * sc()}" stroke-dasharray="1 4" opacity="0.7"/>`;
       return s;
@@ -677,16 +733,18 @@
       };
       if (sel < 0) {
         loops.forEach((_, li) => {
+          if (!loops[li] || !loops[li].length) return;
           if (!isLoopVisible(li)) return;
           const d = addLoop(li, t, false);
           if (d.head) s += `<circle cx="${d.head.x}" cy="${d.head.y}" r="${Math.max(4.5 * sc(), lineW() * 0.35)}" fill="${theme.head}"/>`;
         });
       } else {
         loops.forEach((_, li) => {
+          if (!loops[li] || !loops[li].length) return;
           if (!isLoopVisible(li)) return;
           if (li !== sel) addLoop(li, 1, true);
         });
-        if (isLoopVisible(sel)) {
+        if (sel >= 0 && sel < loops.length && loops[sel] && loops[sel].length && isLoopVisible(sel)) {
           const d = addLoop(sel, t, false); info = d;
           if (d.head) {
             const hr = Math.max(6 * sc(), lineW() * 0.45);
@@ -739,9 +797,9 @@
     if (opts.autoplay) { playing = true; t = 0; }
 
     const api = {
-      play() { playing = true; if (t >= 1) t = 0; },
-      pause() { playing = false; },
-      restart() { t = 0; playing = true; },
+      play() { playing = true; if (t >= 1) t = 0; render(); },
+      pause() { playing = false; last = 0; render(); },
+      restart() { t = 0; playing = true; last = 0; render(); },
       setSpeed(v) { speed = v; },
       setSelection(i) { sel = i; t = 1; playing = false; render(); },
       setColors(c) { colors = (c || []).slice(); render(); },

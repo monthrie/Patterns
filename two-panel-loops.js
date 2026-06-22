@@ -85,6 +85,54 @@ function getInitialDir(g) {
   return g.interiorRight ? { dx: 1, dy: -1 } : { dx: -1, dy: 1 };
 }
 
+function bootStepRow(cells, gh) {
+  for (let y = 0; y < gh; y++) if (cells[y].every(Boolean)) return y;
+  return gh;
+}
+
+function shortRowsAtBottom(cells, gw, gh, westShort) {
+  let count = 0;
+  for (let y = gh - 1; y >= 0; y--) {
+    const row = cells[y];
+    const isShort = westShort
+      ? row.slice(0, 8).every(Boolean) && !row.slice(8).every(Boolean)
+      : row.slice(11).every(Boolean) && !row.slice(0, 11).every(Boolean);
+    if (isShort) count++; else break;
+  }
+  return count;
+}
+
+// Wall seeds on horizontal edges: default toward the nearer vertical edge, but
+// low-step LH boots and their vertical flips need std launch on the top wall,
+// while a shallow west bottom wall (one short row, gh <= 9) needs +dx launch.
+function getWallSeedLaunchDir(g, gw, isWallGap, cells, gh) {
+  if (!isWallGap(g) || !g.isH) return getInitialDir(g);
+  const std = getInitialDir(g);
+  if (!cells || gh == null) {
+    if (g.interiorBelow)
+      return g.x <= gw - g.x ? { dx: -1, dy: 1 } : { dx: 1, dy: 1 };
+    return g.x <= gw - g.x ? { dx: -1, dy: -1 } : { dx: 1, dy: -1 };
+  }
+  const edges = buildEdges(cells, gw, gh);
+  const hit = nextHit(g.x, g.y, std.dx, std.dy, edges);
+  const west = g.x <= gw - g.x;
+  const step = bootStepRow(cells, gh);
+  if (g.interiorBelow) {
+    if (west) {
+      const farBottom = hit && Math.abs(hit.y - gh) < 0.01 && hit.x >= 15;
+      if (step >= 2 || (step < 2 && gh >= 11) || farBottom) return { dx: -1, dy: 1 };
+    }
+    return std;
+  }
+  if (west) {
+    const westShort = cells[gh - 1]?.slice(0, 8).every(Boolean) && !cells[gh - 1]?.slice(8).every(Boolean);
+    const shortBottom = westShort ? shortRowsAtBottom(cells, gw, gh, true) : 0;
+    if (shortBottom === 1 && gh <= 9) return { dx: 1, dy: -1 };
+    return { dx: -1, dy: -1 };
+  }
+  return { dx: 1, dy: -1 };
+}
+
 function pointToGapIdx(px, py, gaps) {
   for (let i = 0; i < gaps.length; i++)
     if (Math.abs(px - gaps[i].x) < 0.1 && Math.abs(py - gaps[i].y) < 0.1) return i;
@@ -119,50 +167,181 @@ function nextHit(x, y, dx, dy, edges) {
 
 const OTHER = { A: 'B', B: 'A' };
 
+function cellFilled(cells, gw, gh, cx, cy) {
+  return cx >= 0 && cx < gw && cy >= 0 && cy < gh && !!cells[cy]?.[cx];
+}
+
 /*
- * Concave notch "throat" at a reentrant corner (e.g. the 12×4 sole block): a (1,-1)
- * diagonal that crosses the vertical step edge x = vx at y ∈ (vy, vy+1) passes through
- * the removed nail zone. Toggle panel once when the ray skips the flank gap and lands
- * on a wall gap beyond — only loops whose x+y = tx satisfy tx − vx ∈ (vy, vy+1) qualify.
- *
- * buildConcaveBridges (below) is the older flank-gap straight-through model (Part III).
+ * Concave notch throat — local frame at each reentrant nail (vx, vy).
+ * A sum-preserving bridge diagonal (|dx|=|dy|=1, dx+dy=0) that pierces the
+ * step edge without hitting either flank gap first may earn an extra panel
+ * toggle at the next wall gap on the same diagonal. Bridge direction and flank
+ * coords come from cornerFlanks. Rays must start outside the short column's
+ * footprint (not in the sole band adjacent to the step).
  */
 function buildConcaveNotchThroats(cells, gw, gh) {
   const throats = [];
-  const f = (cx, cy) => cx >= 0 && cx < gw && cy >= 0 && cy < gh && !!cells[cy][cx];
+  const f = (cx, cy) => cellFilled(cells, gw, gh, cx, cy);
   for (let vy = 0; vy <= gh; vy++) for (let vx = 0; vx <= gw; vx++) {
     const tl = f(vx - 1, vy - 1), tr = f(vx, vy - 1), bl = f(vx - 1, vy), br = f(vx, vy);
     if (tl + tr + bl + br !== 3) continue;
-    if (!tl) throats.push({ vx, vy, yMin: vy, yMax: vy + 1, flankX: vx - 0.5, flankY: vy, inDx: 1, inDy: -1 });
-    else if (!tr) throats.push({ vx, vy, yMin: vy, yMax: vy + 1, flankX: vx + 0.5, flankY: vy, inDx: -1, inDy: -1 });
-    else if (!bl) throats.push({ vx, vy, yMin: vy, yMax: vy + 1, flankX: vx - 0.5, flankY: vy, inDx: 1, inDy: 1 });
-    else throats.push({ vx, vy, yMin: vy, yMax: vy + 1, flankX: vx + 0.5, flankY: vy, inDx: -1, inDy: 1 });
+    let q;
+    if (!tl) q = 'tl';
+    else if (!tr) q = 'tr';
+    else if (!bl) q = 'bl';
+    else q = 'br';
+    const [a, b] = cornerFlanks(vx, vy, 'concave', q);
+    const bridgeDx = Math.sign(b[0] - a[0]);
+    const bridgeDy = Math.sign(b[1] - a[1]);
+    const axis = (q === 'tl' || q === 'tr') ? 'v' : 'h';
+    const shortSide = (q === 'tl' || q === 'bl') ? 'east' : 'west';
+    const shortWidth = shortColumnWidthBelow(cells, vy, vx, shortSide);
+    throats.push({
+      vx, vy, q, axis,
+      bridgeDx, bridgeDy, shortSide, shortWidth,
+      yMin: vy,
+      yMax: vy + 1,
+      xMin: vx,
+      xMax: vx + 1,
+      flankA: { x: a[0], y: a[1] },
+      flankB: { x: b[0], y: b[1] },
+    });
   }
   return throats;
 }
 
-function concaveNotchFlankOnRay(fromX, fromY, inDx, inDy, throat) {
-  if (inDx !== throat.inDx || inDy !== throat.inDy) return false;
-  const tx = Math.abs(inDx) > 1e-9 ? (throat.flankX - fromX) / inDx : Infinity;
-  const ty = Math.abs(inDy) > 1e-9 ? (throat.flankY - fromY) / inDy : Infinity;
+/** UI / debug: void cell + two flank gaps per concave nail (for shape-editor overlay). */
+function buildConcaveNotchAnnotations(cells, gw, gh) {
+  const notches = [];
+  const f = (cx, cy) => cellFilled(cells, gw, gh, cx, cy);
+  for (let vy = 0; vy <= gh; vy++) for (let vx = 0; vx <= gw; vx++) {
+    const tl = f(vx - 1, vy - 1), tr = f(vx, vy - 1), bl = f(vx - 1, vy), br = f(vx, vy);
+    if (tl + tr + bl + br !== 3) continue;
+    let q;
+    if (!tl) q = 'tl';
+    else if (!tr) q = 'tr';
+    else if (!bl) q = 'bl';
+    else q = 'br';
+    const [a, b] = cornerFlanks(vx, vy, 'concave', q);
+    let voidCx, voidCy;
+    if (q === 'tl') { voidCx = vx - 1; voidCy = vy - 1; }
+    else if (q === 'tr') { voidCx = vx; voidCy = vy - 1; }
+    else if (q === 'bl') { voidCx = vx - 1; voidCy = vy; }
+    else { voidCx = vx; voidCy = vy; }
+    notches.push({
+      vx, vy, q,
+      voidCell: { cx: voidCx, cy: voidCy },
+      flankA: { x: a[0], y: a[1] },
+      flankB: { x: b[0], y: b[1] },
+      bridgeDx: Math.sign(b[0] - a[0]),
+      bridgeDy: Math.sign(b[1] - a[1]),
+    });
+  }
+  return notches;
+}
+
+function shortColumnWidthBelow(cells, vy, vx, side) {
+  let minX = Infinity, maxX = -Infinity;
+  for (let y = 0; y < vy; y++) for (let x = 0; x < cells[0].length; x++) {
+    if (!cells[y][x]) continue;
+    if (side === 'east' && x >= vx) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+    else if (side === 'west' && x < vx) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+  }
+  return minX > maxX ? 0 : maxX - minX + 1;
+}
+
+function throatOriginOutsideShortColumn(fromX, fromY, throat) {
+  if (throat.shortWidth <= 0) return true;
+  if (throat.shortSide === 'east')
+    return fromX > throat.vx - throat.shortWidth + 1e-6;
+  return fromX >= throat.vx + throat.shortWidth - 1 - 1e-6;
+}
+
+function throatCrossingT(fromX, fromY, inDx, inDy, throat) {
+  if (throat.axis === 'v') {
+    if (Math.abs(inDx) < 1e-9) return Infinity;
+    return (throat.vx - fromX) / inDx;
+  }
+  if (Math.abs(inDy) < 1e-9) return Infinity;
+  return (throat.vy - fromY) / inDy;
+}
+
+function rayHitsGapOnPath(fromX, fromY, inDx, inDy, px, py) {
+  const tx = Math.abs(inDx) > 1e-9 ? (px - fromX) / inDx : Infinity;
+  const ty = Math.abs(inDy) > 1e-9 ? (py - fromY) / inDy : Infinity;
   const t = Math.min(tx, ty);
   return t > 1e-6 && t < Infinity
-    && Math.abs(fromX + inDx * t - throat.flankX) < 0.01
-    && Math.abs(fromY + inDy * t - throat.flankY) < 0.01;
+    && Math.abs(fromX + inDx * t - px) < 0.01
+    && Math.abs(fromY + inDy * t - py) < 0.01;
+}
+
+function rayHitsFlankBeforeThroat(fromX, fromY, inDx, inDy, throat) {
+  const tThroat = throatCrossingT(fromX, fromY, inDx, inDy, throat);
+  if (tThroat <= 1e-6 || !isFinite(tThroat)) return false;
+  for (const flank of [throat.flankA, throat.flankB]) {
+    if (!rayHitsGapOnPath(fromX, fromY, inDx, inDy, flank.x, flank.y)) continue;
+    const tx = Math.abs(inDx) > 1e-9 ? (flank.x - fromX) / inDx : Infinity;
+    const ty = Math.abs(inDy) > 1e-9 ? (flank.y - fromY) / inDy : Infinity;
+    const tFlank = Math.min(tx, ty);
+    if (tFlank < tThroat - 1e-6) return true;
+  }
+  return false;
+}
+
+function throatRayInvariant(inDx, inDy, x, y) {
+  if (inDx + inDy === 0) return { kind: 'sum', value: x + y };
+  if (inDx - inDy === 0) return { kind: 'diff', value: x - y };
+  return null;
+}
+
+function matchesConcaveThroatRay(fromX, fromY, inDx, inDy, throat) {
+  if (Math.abs(inDx) !== 1 || Math.abs(inDy) !== 1) return false;
+  if (inDx !== throat.bridgeDx || inDy !== throat.bridgeDy) return false;
+  if (!throatOriginOutsideShortColumn(fromX, fromY, throat)) return false;
+
+  const t = throatCrossingT(fromX, fromY, inDx, inDy, throat);
+  if (t <= 1e-6 || !isFinite(t)) return false;
+
+  if (throat.axis === 'v') {
+    const yCross = fromY + inDy * t;
+    if (yCross <= throat.yMin + 1e-6 || yCross >= throat.yMax - 1e-6) return false;
+  } else {
+    const xCross = fromX + inDx * t;
+    const westPad = (throat.q === 'br' && throat.shortSide === 'west') ? 0.51 : 0;
+    if (xCross < throat.xMin - westPad + 1e-6 || xCross > throat.xMax - 1e-6) return false;
+  }
+
+  if (rayHitsFlankBeforeThroat(fromX, fromY, inDx, inDy, throat)) return false;
+  return true;
 }
 
 function shouldConcaveNotchThroatToggle(fromX, fromY, toX, toY, inDx, inDy, gi, gaps, isWallGap, throats) {
   if (gi < 0 || !isWallGap(gaps[gi])) return false;
-  const sum = fromX + fromY;
-  if (Math.abs(toX + toY - sum) > 0.05) return false;
+  const invFrom = throatRayInvariant(inDx, inDy, fromX, fromY);
+  const invTo = throatRayInvariant(inDx, inDy, toX, toY);
+  if (!invFrom || !invTo || invFrom.kind !== invTo.kind
+      || Math.abs(invTo.value - invFrom.value) > 0.05) return false;
   for (const t of throats) {
-    if (inDx !== t.inDx || inDy !== t.inDy || fromY <= t.yMin) continue;
-    const yAtVx = sum - t.vx;
-    if (yAtVx <= t.yMin || yAtVx >= t.yMax) continue;
-    if (concaveNotchFlankOnRay(fromX, fromY, inDx, inDy, t)) continue;
-    return true;
+    if (matchesConcaveThroatRay(fromX, fromY, inDx, inDy, t)) return true;
   }
   return false;
+}
+
+function concaveNotchThroatCrossPoint(fromX, fromY, toX, toY, inDx, inDy, gi, gaps, isWallGap, throats) {
+  if (!shouldConcaveNotchThroatToggle(fromX, fromY, toX, toY, inDx, inDy, gi, gaps, isWallGap, throats))
+    return null;
+  const inv = throatRayInvariant(inDx, inDy, fromX, fromY);
+  if (!inv) return null;
+  for (const t of throats) {
+    if (!matchesConcaveThroatRay(fromX, fromY, inDx, inDy, t)) continue;
+    if (t.axis === 'v') {
+      const y = inv.kind === 'sum' ? inv.value - t.vx : t.vx - inv.value;
+      return { x: t.vx, y, vx: t.vx, vy: t.vy };
+    }
+    const x = inv.kind === 'sum' ? inv.value - t.vy : inv.value + t.vy;
+    return { x, y: t.vy, vx: t.vx, vy: t.vy };
+  }
+  return null;
 }
 
 function wallFirstSeedOrder(gaps, isWallGap) {
@@ -187,7 +366,7 @@ function gapIndexSeedOrder(gaps) {
 
 function buildConcaveBridges(cells, gw, gh, gaps) {
   const set = new Set();
-  const f = (cx, cy) => cx >= 0 && cx < gw && cy >= 0 && cy < gh && !!cells[cy][cx];
+  const f = (cx, cy) => cellFilled(cells, gw, gh, cx, cy);
   const gidx = (x, y) => { for (let i = 0; i < gaps.length; i++) if (Math.abs(gaps[i].x - x) < 0.01 && Math.abs(gaps[i].y - y) < 0.01) return i; return -1; };
   for (let vy = 0; vy <= gh; vy++) for (let vx = 0; vx <= gw; vx++) {
     const tl = f(vx - 1, vy - 1), tr = f(vx, vy - 1), bl = f(vx - 1, vy), br = f(vx, vy);
@@ -215,7 +394,7 @@ function findGapIdxByXY(gaps, x, y) {
 }
 
 function classifyCorner(cells, gw, gh, vx, vy) {
-  const f = (cx, cy) => cx >= 0 && cx < gw && cy >= 0 && cy < gh && !!cells[cy][cx];
+  const f = (cx, cy) => cellFilled(cells, gw, gh, cx, cy);
   const tl = f(vx - 1, vy - 1), tr = f(vx, vy - 1), bl = f(vx - 1, vy), br = f(vx, vy);
   const sum = (tl ? 1 : 0) + (tr ? 1 : 0) + (bl ? 1 : 0) + (br ? 1 : 0);
   if (sum !== 1 && sum !== 3) return null;
@@ -290,25 +469,10 @@ function defaultReflectDirAtGap(g, inDx, inDy) {
 
 function isSeamGap(g, gh) { return g.isH && g.y === gh; }
 
-function isVerticalSideGap(g, gw) {
-  return !g.isH && (Math.abs(g.x) < 0.01 || Math.abs(g.x - gw) < 0.01);
-}
-
-// Convex portal–portal corner with a vertical side flank (x=0 or x=gw) + horizontal flank.
-function classifyVerticalSideCorner(gaps, iA, iB, gw) {
-  for (const [sideGi, otherGi] of [[iA, iB], [iB, iA]]) {
-    if (isVerticalSideGap(gaps[sideGi], gw) && gaps[otherGi].isH)
-      return { sideGi, otherGi };
-  }
-  return null;
-}
-
 /*
- * At convex portal–portal corners with a vertical side flank (left/right wall) and a
- * horizontal flank (seam or step top), suppress one portal toggle so the corner
- * toggles panel exactly once:
- *   - side-first: suppress at side flank when outgoing hits the horizontal flank
- *   - horizontal-first: suppress at horizontal flank when outgoing hits the side
+ * At every convex portal–portal corner, suppress panel toggle on the first flank of a
+ * corner cut-through: if reflecting off this gap sends the ray to the partner flank at
+ * the same nail, do not toggle here (the partner flank toggles when leaving the corner).
  * Returns Set of "gi|inDx|inDy" keys.
  */
 function buildConvexSeamCornerToggleSuppress(cells, gw, gh, gaps, isWallGap, edges) {
@@ -322,21 +486,14 @@ function buildConvexSeamCornerToggleSuppress(cells, gw, gh, gaps, isWallGap, edg
     if (iA < 0 || iB < 0) continue;
     if (isWallGap(gaps[iA]) || isWallGap(gaps[iB])) continue;
 
-    const pair = classifyVerticalSideCorner(gaps, iA, iB, gw);
-    if (!pair) continue;
-    const { sideGi, otherGi } = pair;
-    const side = gaps[sideGi], other = gaps[otherGi];
-
-    for (const inDx of [-1, 1]) for (const inDy of [-1, 1]) {
-      const sideOut = defaultReflectDirAtGap(side, inDx, inDy);
-      const hSide = nextHit(side.x, side.y, sideOut.dx, sideOut.dy, edges);
-      if (hSide && Math.abs(hSide.x - other.x) < 0.1 && Math.abs(hSide.y - other.y) < 0.1)
-        suppress.add(sideGi + '|' + inDx + '|' + inDy);
-
-      const otherOut = defaultReflectDirAtGap(other, inDx, inDy);
-      const hOther = nextHit(other.x, other.y, otherOut.dx, otherOut.dy, edges);
-      if (hOther && Math.abs(hOther.x - side.x) < 0.1 && Math.abs(hOther.y - side.y) < 0.1)
-        suppress.add(otherGi + '|' + inDx + '|' + inDy);
+    for (const [gi, partner] of [[iA, gaps[iB]], [iB, gaps[iA]]]) {
+      const g = gaps[gi];
+      for (const inDx of [-1, 1]) for (const inDy of [-1, 1]) {
+        const out = defaultReflectDirAtGap(g, inDx, inDy);
+        const h = nextHit(g.x, g.y, out.dx, out.dy, edges);
+        if (h && Math.abs(h.x - partner.x) < 0.1 && Math.abs(h.y - partner.y) < 0.1)
+          suppress.add(gi + '|' + inDx + '|' + inDy);
+      }
     }
   }
   return suppress;
@@ -400,6 +557,21 @@ function buildPortalCornerBidirectionalChoiceSpace(cells, gw, gh, gaps, isWallGa
   return choices;
 }
 
+// Drop failed trace seeds (length 1 poisons visited) and short fragment loops.
+function keepTracedLoop(pathLen, gapCount, lstar) {
+  if (pathLen <= 1) return false;
+  const targetLen = (2 * gapCount) / lstar;
+  return pathLen >= targetLen * 0.5;
+}
+
+function discardTracedLoop(path, visited, key) {
+  for (const e of path) visited.delete(key(e.panel, e.gapIdx));
+}
+
+function filterValidLoops(loops) {
+  return loops.filter(p => Array.isArray(p) && p.length > 1);
+}
+
 /*
  * connectedLoops(cells, gw, gh, isWallGap)
  *   isWallGap(gap) -> true if the gap lies on a WALL edge (reflect, no toggle);
@@ -415,6 +587,7 @@ function connectedLoops(cells, gw, gh, isWallGap) {
   const visited = new Set();                       // "panel:gapIdx" used once
   const key = (panel, gi) => panel + ':' + gi;
   const loops = [];
+  const lstar = parityPrediction(cells, gw, gh, isWallGap).Lstar;
 
   for (const startPanel of ['A', 'B']) {
     for (let g0 = 0; g0 < gaps.length; g0++) {
@@ -449,10 +622,12 @@ function connectedLoops(cells, gw, gh, isWallGap) {
         visited.add(key(panel, gi));
         path.push({ panel, gapIdx: gi, x, y });
       }
-      loops.push(path);
+      if (keepTracedLoop(path.length, gaps.length, lstar)) loops.push(path);
+      else discardTracedLoop(path, visited, key);
     }
   }
-  return { loops, gaps, edges, count: loops.length };
+  const valid = filterValidLoops(loops);
+  return { loops: valid, gaps, edges, count: valid.length };
 }
 
 function connectedLoopsWithCornerTable(cells, gw, gh, isWallGap, options = {}) {
@@ -474,12 +649,15 @@ function connectedLoopsWithCornerTable(cells, gw, gh, isWallGap, options = {}) {
 
   const bootstrap = options.bootstrap || 'wallFirst';
   const seeds = bootstrap === 'wallFirst' ? wallFirstSeedOrder(gaps, isWallGap) : gapIndexSeedOrder(gaps);
+  const lstar = parityPrediction(cells, gw, gh, isWallGap).Lstar;
 
   for (const { startPanel, g0 } of seeds) {
     if (visited.has(key(startPanel, g0))) continue;
 
     const start = gaps[g0];
-    const launch = getInitialDir(start);
+    const launch = bootstrap === 'wallFirst'
+      ? getWallSeedLaunchDir(start, gw, isWallGap, cells, gh)
+      : getInitialDir(start);
     let panel = startPanel, x = start.x, y = start.y, dx = launch.dx, dy = launch.dy;
     let prevHitState = null;
     const path = [{ panel, gapIdx: g0, x, y }];
@@ -521,13 +699,15 @@ function connectedLoopsWithCornerTable(cells, gw, gh, isWallGap, options = {}) {
       visited.add(key(panel, gi));
       path.push({ panel, gapIdx: gi, x, y });
     }
-    loops.push(path);
+    if (keepTracedLoop(path.length, gaps.length, lstar)) loops.push(path);
+    else discardTracedLoop(path, visited, key);
   }
 
   const merges = [];
   for (const [s, n] of predCount.entries()) if (n > 1) merges.push({ state: s, indegree: n });
+  const valid = filterValidLoops(loops);
   return {
-    loops, gaps, edges, count: loops.length, table, corners,
+    loops: valid, gaps, edges, count: valid.length, table, corners,
     diagnostics: { transitions, predCount, merges, escapes }
   };
 }
@@ -884,14 +1064,18 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 
 const twoPanelExports = {
-  buildEdges, buildGaps, getInitialDir, connectedLoops, connectedLoopsWithCornerTable,
+  buildEdges, buildGaps, getInitialDir, getWallSeedLaunchDir,
+  connectedLoops, connectedLoopsWithCornerTable,
   originalLoops, parityPrediction, shoeCells, shoeTopWall, buildPortalCornerTransitionTable,
   topWallSequenceByLoop, validateColorPattern, canonicalPattern,
   buildPortalCornerChoiceSpace, searchPortalCornerRuleSets,
   buildPortalCornerBidirectionalChoiceSpace, searchBidirectionalPortalCornerRuleSets,
   uniqueTowardCornerStates, connectedLoopsWithPortalRewire, searchPortalStatePermutations,
   isSeamGap, buildConvexSeamCornerToggleSuppress, shouldPortalToggle,
-  buildConcaveNotchThroats, shouldConcaveNotchThroatToggle, wallFirstSeedOrder, gapIndexSeedOrder
+  buildConcaveNotchThroats, buildConcaveNotchAnnotations,
+  shouldConcaveNotchThroatToggle, concaveNotchThroatCrossPoint,
+  wallFirstSeedOrder, gapIndexSeedOrder,
+  parityPrediction, keepTracedLoop, filterValidLoops
 };
 
 if (typeof module !== 'undefined') {

@@ -23,15 +23,31 @@
   .stage { background:var(--panelbg); border:1px solid var(--hair); border-radius:12px;
            padding:14px; width:100%; max-width:100%; min-height:420px; overflow:auto; }
   #player { width:100%; min-height:380px; }
-  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0 0 10px; }
+  .legend-hint { margin:0 0 12px; }
   .chip { display:flex; align-items:center; gap:7px; padding:4px 9px; border-radius:20px;
           border:1px solid var(--hair); cursor:pointer; background:var(--panelbg); }
-  .chip .sw { width:14px; height:14px; border-radius:50%; }
+  .chip .sw { width:14px; height:14px; border-radius:50%; border:1px solid rgba(0,0,0,0.35); }
+  .chip input[type=color] { width:22px; height:22px; padding:0; border:none; border-radius:50%;
+          background:transparent; cursor:pointer; flex-shrink:0; }
+  .chip input[type=color]::-webkit-color-swatch-wrapper { padding:0; }
+  .chip input[type=color]::-webkit-color-swatch { border:1px solid rgba(255,255,255,0.25); border-radius:50%; }
   .chip.active { border-color:#3b5bd6; background:rgba(59,91,214,0.12); }
+  .chip .dim { color:var(--dim); font-size:12px; }
   .saved-panel { background:var(--panelbg); border:1px solid var(--hair); border-radius:10px;
                  padding:10px 12px 12px; margin-bottom:12px; }
   .saved-hdr { font-size:11px; color:var(--dim); letter-spacing:0.5px; margin-bottom:8px; }
+  .saved-hdr-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+                   gap:8px; margin-bottom:8px; }
+  .saved-hdr-row .saved-hdr { margin-bottom:0; }
+  .saved-hdr-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .saved-hdr-actions button { font-size:11px; padding:6px 10px; letter-spacing:0.4px;
+                              text-transform:uppercase; }
+  .saved-hdr-actions button.accent { border-color:#3b5bd6; color:#cdd7ff; }
+  .saved-empty { font-size:12px; color:var(--dim); font-style:italic; }
   .saved-row { display:flex; flex-wrap:wrap; gap:8px; }
+  .knm-chip .knm-chip-x { color:#c85050; font-size:14px; line-height:1; margin-left:2px;
+                          background:none; border:none; cursor:pointer; padding:0 0 0 4px; }
   .knm-chip { display:inline-flex; align-items:center; gap:7px; padding:6px 10px;
               border:1px solid var(--hair); border-radius:999px; cursor:pointer; background:#11151a; }
   .knm-chip.active { border-color:#3b5bd6; background:rgba(59,91,214,0.12); }
@@ -46,47 +62,191 @@
            border:1px solid var(--hair); border-radius:8px; font-size:13px; opacity:0;
            transition:opacity 0.2s; pointer-events:none; z-index:20; }
   .toast.show { opacity:1; }
+
+  /* Collapsible draw panel (mirror-page edit UX) */
+  .draw-panel { background:var(--panelbg); border:1px solid var(--hair); border-radius:10px;
+                margin-bottom:12px; overflow:hidden; }
+  .draw-panel > summary { list-style:none; cursor:pointer; display:flex; align-items:center;
+                          justify-content:space-between; gap:10px; padding:10px 12px;
+                          font-size:12px; letter-spacing:0.6px; text-transform:uppercase;
+                          color:var(--dim); user-select:none; }
+  .draw-panel > summary::-webkit-details-marker { display:none; }
+  .draw-panel > summary .draw-panel__dims { color:#cdd7ff; font-weight:600; }
+  .draw-panel > summary .draw-panel__hint { font-size:10px; text-transform:none; letter-spacing:0; }
+  .draw-panel__actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .draw-panel-body { padding:0 12px 12px; border-top:1px solid var(--hair); }
+  .shape-editor-hint { font-size:11px; color:var(--dim); line-height:1.45; margin:10px 0 8px; }
+  .shape-editor-help-btn { background:transparent; border:1px solid var(--hair); color:#cdd7ff;
+                           width:28px; height:28px; border-radius:50%; font-size:14px; font-weight:700;
+                           cursor:pointer; font-family:inherit; }
+  .shape-editor-help-box { margin:10px 0 8px; padding:10px 12px; background:rgba(59,91,214,0.08);
+                           border:1px solid var(--hair); border-radius:8px; font-size:12px;
+                           line-height:1.6; color:var(--dim); }
+  .shape-editor-help-box p { margin:0 0 6px; }
+  .shape-editor-help-box p:last-child { margin-bottom:0; }
+  .grid-size-toolbar { margin-bottom:8px; }
+  .grid-size-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px;
+                   margin-bottom:8px; padding:8px 10px; background:var(--ink);
+                   border:1px solid var(--hair); border-radius:6px; }
+  .grid-size-stepper-wrap { display:flex; align-items:center; gap:4px; }
+  .grid-size-lbl { font-size:11px; color:var(--dim); letter-spacing:1px; }
+  .grid-size-action { padding:7px 12px; background:transparent; border:1px solid var(--hair);
+                      color:var(--dim); font:inherit; font-size:11px; letter-spacing:0.8px;
+                      cursor:pointer; text-transform:uppercase; border-radius:6px; margin-left:auto; }
+  .grid-size-action:first-of-type { margin-left:auto; }
+  .grid-size-bar .grid-size-action { margin-left:0; }
+  .grid-size-bar .grid-size-action ~ .grid-size-action { margin-left:0; }
+  .grid-size-spacer { flex:1 1 8px; }
+  .editor-viewport-frame { display:flex; flex-direction:column; align-items:stretch;
+                           padding:4px; background:#0e1218; border:1px solid var(--hair);
+                           border-radius:8px; max-width:100%; overflow:visible; }
+  .grid-transform-bar { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end;
+                        padding:8px 6px 4px; flex-shrink:0; }
+  .grid-transform-btn { padding:6px 10px; font:inherit; font-size:11px; color:#cdd7ff;
+                        background:#0e1218; border:1px solid var(--hair);
+                        border-radius:6px; cursor:pointer; letter-spacing:0.2px; }
+  .grid-transform-btn:hover { border-color:#4a6ae8; }
+  .stepper { display:flex; align-items:center; border-radius:8px; overflow:hidden;
+             border:1px solid var(--hair); }
+  .stepper button { width:36px; height:36px; font-size:18px; background:var(--panelbg);
+                    border:none; color:#cdd7ff; cursor:pointer; font-weight:700; font-family:inherit; }
+  .stepper input { width:44px; height:36px; text-align:center; font-size:14px; font-weight:700;
+                   color:var(--bone); background:#11151a; border:none;
+                   border-left:1px solid var(--hair); border-right:1px solid var(--hair);
+                   font-family:inherit; -moz-appearance:textfield; padding:0; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button {
+    -webkit-appearance:none; margin:0; }
+  .editor-scroll-wrap { overflow:visible; border:1px solid var(--hair); border-radius:6px;
+                        background:#080b0f; }
+  .shape-editor-actions { margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; }
+  .shape-editor-save { padding:10px 16px; background:#3b5bd6; color:#fff; border:1px solid #4a6ae8;
+                       font:inherit; font-size:13px; font-weight:600; letter-spacing:1px;
+                       cursor:pointer; text-transform:uppercase; border-radius:7px; }
+  .strand-btn { min-width:72px; text-transform:capitalize; letter-spacing:0.3px; }
+  .strand-btn.active { border-color:#3b5bd6; color:#cdd7ff; background:rgba(59,91,214,0.12); }
+  .wall-legend { display:flex; flex-wrap:wrap; gap:10px 16px; font-size:11px; color:var(--dim);
+                 margin:8px 0 0; }
+  .wall-legend span { display:inline-flex; align-items:center; gap:6px; }
+  .wall-legend i { width:22px; height:4px; border-radius:2px; display:inline-block; }
+  .wall-legend i.portal { height:0; border-top:1.5px dashed #e8a020; background:transparent; }
+  .wall-legend i.wall { height:2.5px; background:#f4f1e8; border-radius:1px; }
+  .wall-legend i.notch-void { background:rgba(192,132,252,0.45); border:1px solid #c084fc; border-radius:2px; height:10px; width:10px; }
+  .wall-legend i.notch-flank { height:10px; width:10px; border-radius:50%; border:2px solid #22d3ee; background:rgba(0,0,0,0.4); }
+  .wall-legend i.notch-throat { height:0; width:16px; border-top:2px dashed #fde047; background:transparent; }
+  .wall-legend label.notch-toggle { cursor:pointer; user-select:none; }
+  .draw-editor-row { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px; }
+  .draw-editor-main { flex:1 1 280px; min-width:0; }
+  .notch-diagram-panel { flex:0 0 260px; max-width:100%; padding:10px 12px;
+                         background:var(--ink); border:1px solid var(--hair); border-radius:8px; }
+  .notch-diagram-panel[hidden] { display:none !important; }
+  .notch-diagram-title { margin:0 0 8px; font-size:11px; letter-spacing:0.6px;
+                         text-transform:uppercase; color:var(--dim); font-weight:600; }
+  .notch-diagram-empty { margin:0; font-size:12px; line-height:1.5; color:var(--dim); }
+  .notch-diagram-notch { margin-bottom:12px; }
+  .notch-diagram-notch:last-child { margin-bottom:0; }
+  .notch-diagram-notch-cap { margin:8px 0 0; font-size:11px; line-height:1.45; color:var(--dim); }
+  .storage-status { font-size:11px; color:var(--dim); line-height:1.5; margin:0 0 10px; padding:8px 10px;
+                     background:rgba(59,91,214,0.06); border:1px solid var(--hair); border-radius:8px; }
+  .storage-status code { color:#cdd7ff; }
+  .saved-from { font-size:10px; color:var(--dim); font-weight:400; text-transform:none; letter-spacing:0; }
 </style>
 </head>
 <body>
 <h1>Two-panel loops — animated draw</h1>
 <p class="sub" id="summary"></p>
 
-<div class="saved-panel" id="palette-panel" hidden>
-  <div class="saved-hdr">Saved colour combos</div>
+<p class="storage-status" id="storage-status">Checking saved data…</p>
+
+<details class="draw-panel" id="draw-panel">
+  <summary>
+    <span>Draw shape <span class="draw-panel__dims" id="draw-panel-dims">—</span></span>
+    <span class="draw-panel__actions">
+      <button type="button" id="draw-help-btn" class="shape-editor-help-btn" aria-label="Help">?</button>
+      <span class="draw-panel__hint" id="draw-panel-hint">Show</span>
+    </span>
+  </summary>
+  <div class="draw-panel-body">
+    <div id="draw-help-box" class="shape-editor-help-box" hidden>
+      <p>Set W and H on the row below, or press Fill for a solid rectangle.</p>
+      <p>Drag across the grid to add or remove cells — the preview updates live.</p>
+      <p><b>Outline edges:</b> click any outer edge to toggle <b>wall</b> (strand reflects, stays on panel) vs <b>portal</b> (passes to the mirror panel). Unmarked edges are all portals.</p>
+      <p>Edge numbers show segment lengths. Use Save shape + colours to keep shape and loop colours together.</p>
+      <p><b>Notch guide:</b> tick the checkbox below to show a zoomed diagram beside the grid — purple = void/cavity, A/B = flank portal gaps, yellow dashed = throat diagonal (patch 2).</p>
+      <p><b>Flip ↔ / ↕:</b> mirror the shape on the grid; wall edges move with it (same physical edge of the boot). <b>Reset</b> restores the orientation from when you last loaded a saved shape or chip.</p>
+    </div>
+    <div class="draw-editor-row">
+      <div class="draw-editor-main">
+        <div id="shape-editor-root"></div>
+      </div>
+      <aside id="notch-diagram-panel" class="notch-diagram-panel" hidden>
+        <h3 class="notch-diagram-title">Notch anatomy</h3>
+        <div id="notch-diagram-root"></div>
+      </aside>
+    </div>
+    <div class="wall-legend">
+      <span><i class="portal"></i> Portal — click edge to mark as wall</span>
+      <span><i class="wall"></i> Wall — click to clear</span>
+      <label class="notch-toggle"><input type="checkbox" id="show-notch-guide"> Notch guide</label>
+      <span><i class="notch-void"></i> Notch cavity / void</span>
+      <span><i class="notch-flank"></i> Flank A/B gaps</span>
+      <span><i class="notch-throat"></i> Throat diagonal</span>
+    </div>
+  </div>
+</details>
+
+<div class="saved-panel" id="shape-panel">
+  <div class="saved-hdr">Saved shapes <span class="saved-from">(index.html → save shape)</span></div>
+  <div class="saved-row" id="shape-chips"></div>
+</div>
+
+<div class="saved-panel" id="palette-panel">
+  <div class="saved-hdr">Saved colour combos <span class="saved-from">(index.html → save colours)</span></div>
   <div class="saved-row" id="palette-chips"></div>
 </div>
 
-<div class="saved-panel" id="shape-panel" hidden>
-  <div class="saved-hdr">Saved shapes</div>
-  <div class="saved-row" id="shape-chips"></div>
+<div class="saved-panel" id="preset-panel">
+  <div class="saved-hdr-row">
+    <span class="saved-hdr">Saved shape + colours <span class="saved-from">(this page only)</span></span>
+    <span class="saved-hdr-actions">
+      <button type="button" id="save-preset-btn" class="accent">Save shape + colours</button>
+      <button type="button" id="export-json-btn">Export JSON</button>
+    </span>
+  </div>
+  <div class="saved-row" id="preset-chips"></div>
 </div>
 
 <div class="controls">
   <button id="import-btn" type="button" title="Import shapes JSON from index.html export">Import JSON</button>
   <input id="import-file" type="file" accept=".json,application/json">
   <label>Follow: <select id="pick"></select></label>
-  <button id="play" class="primary">▶ Play</button>
-  <button id="restart">⟲ Restart</button>
+  <button id="play" type="button" class="primary">▶ Play</button>
+  <button id="restart" type="button">⟲ Restart</button>
   <label>Speed <input id="speed" type="range" min="0.02" max="0.4" step="0.01" value="0.1"></label>
   <label>Zoom <button id="zoom-out" type="button" title="Smaller">−</button><input id="zoom" type="range" min="50" max="200" step="5" value="100"><button id="zoom-in" type="button" title="Larger">+</button> <span id="zoom-val">100</span>%</label>
+  <button id="shuffle-colors" type="button" title="Randomise loop colours">Shuffle colours</button>
+  <button id="strand-mode" type="button" class="strand-btn" title="Cycle strand style: thin → thick → line">Strand: thin</button>
+  <label><input id="show-weave" type="checkbox" checked> Weave</label>
   <span class="status" id="status">—</span>
 </div>
 
-<div class="stage"><div id="player"></div></div>
 <div class="legend" id="legend"></div>
+<p class="sub legend-hint">Click a colour swatch to edit that loop. Changes are saved per shape in this browser.</p>
+
+<div class="stage"><div id="player"></div></div>
 
 <p class="note">
-  Loads the same saved shapes and colour combos as the
-  <a href="index.html" style="color:#cdd7ff">mirror page</a> in index.html
-  (<code>celtic.savedShapes</code>, <code>knot.palettes</code>).
-  Open both on the same address (e.g. <code>127.0.0.1:8765</code>).
+  Saves live in this browser only. Open index and this page at the <b>exact same address</b>
+  (same hostname <i>and</i> port — e.g. always <code>localhost:8765</code>, never mix
+  <code>127.0.0.1</code> and <code>localhost</code>). Drawing on the grid is auto-saved as a
+  draft; use <b>Save shape + colours</b> to keep a named preset.
 </p>
 
 <div class="toast" id="toast"></div>
 
 <script src="two-panel-loops.js"></script>
+<script src="notch-diagram.js"></script>
 <script src="two-panel-player.js"></script>
+<script src="shape-editor.js?v=3"></script>
 <script>
 (function () {
   'use strict';
@@ -95,19 +255,48 @@
   const MIRROR_BOOT_COLORS = ['#d4242c','#2aa0b4','#ecdcb0','#e4287c','#2e9a5e','#e8a020','#1e40c8','#6a2aa0'];
   const LAST_SHAPE_KEY = 'twoPanel.lastShape';
   const LAST_PALETTE_KEY = 'twoPanel.lastPalette';
+  const COLORS_BY_SHAPE_KEY = 'twoPanel.colorsByShape';
+  const PRESETS_KEY = 'twoPanel.savedPresets';
+  const LAST_PRESET_KEY = 'twoPanel.lastPreset';
+  const SHOW_WEAVE_KEY = 'twoPanel.showWeave';
+  const STRAND_MODE_KEY = 'twoPanel.strandMode';
+  const DRAW_PANEL_OPEN_KEY = 'twoPanel.drawPanelOpen';
+  const NOTCH_GUIDE_KEY = 'twoPanel.showNotchGuide';
+  const EDITOR_DRAFT_KEY = 'twoPanel.editorDraft';
   const BUNDLED_SHAPE_FILES = ['saved/celtic-shapes-2026-06-19 2.json'];
-  const isWallGap = g => g.isH && g.y === 0;
+  const STRAND_LABELS = { thin: 'thin', full: 'thick', string: 'line' };
+  const STRAND_CYCLE = ['thin', 'full', 'string'];
 
   let savedShapes = [];
+  let presets = [];
   let palettes = [];
   let currentShape = null;
+  let activePreset = null;
   let activePalette = null;
   let loopColors = [];
+  let showWeave = true;
+  let strandMode = 'thin';
   let api = null;
+  let editor = null;
+  let editorSyncing = false;
   let sel = -1;
   let toastTimer = 0;
+  let bootReady = false;
+  let refreshPending = false;
+  let draftTimer = 0;
 
   const $ = id => document.getElementById(id);
+
+  function getPlayerApi() {
+    return $('player')?._twoPanelApi || api || null;
+  }
+
+  let playButtonPlaying = null;
+  function syncPlayButton(playing) {
+    if (playButtonPlaying === playing) return;
+    playButtonPlaying = playing;
+    $('play').textContent = playing ? '⏸ Pause' : '▶ Play';
+  }
 
   function escAttr(s) {
     return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -126,7 +315,7 @@
   }
 
   function normalizeShape(s) {
-    return {
+    const out = {
       name: s.name,
       gw: s.gw,
       gh: s.gh,
@@ -134,10 +323,51 @@
       cycles: s.cycles,
       colors: Array.isArray(s.colors) ? s.colors.slice() : [],
     };
+    if (Array.isArray(s.wallEdges)) out.wallEdges = s.wallEdges.slice();
+    return out;
+  }
+
+  function wallEdgesForShape(shape) {
+    if (Array.isArray(shape?.wallEdges)) return shape.wallEdges.slice();
+    return null;
+  }
+
+  function isWallGapForShape(shape) {
+    return ShapeEditor.buildIsWallGap(
+      shape.cells,
+      shape.gw,
+      shape.gh,
+      wallEdgesForShape(shape),
+    );
+  }
+
+  function syncStrandButton() {
+    $('strand-mode').textContent = `Strand: ${STRAND_LABELS[strandMode] || strandMode}`;
+    $('strand-mode').classList.toggle('active', strandMode !== 'thin');
+  }
+
+  function readStrandMode() {
+    try {
+      const v = localStorage.getItem(STRAND_MODE_KEY);
+      if (STRAND_CYCLE.includes(v)) return v;
+    } catch {}
+    return 'thin';
+  }
+
+  function persistStrandMode(mode) {
+    try { localStorage.setItem(STRAND_MODE_KEY, mode); } catch {}
+  }
+
+  function cycleStrandMode() {
+    const i = STRAND_CYCLE.indexOf(strandMode);
+    strandMode = STRAND_CYCLE[(i + 1) % STRAND_CYCLE.length];
+    persistStrandMode(strandMode);
+    syncStrandButton();
+    api?.setStrandMode(strandMode);
   }
 
   function defaultBootShape() {
-    const { cells, gw, gh } = shoeCells();
+    const { cells, gw, gh } = TwoPanelLoops.shoeCells();
     return normalizeShape({
       name: '8 cycle boot',
       gw, gh,
@@ -161,11 +391,120 @@
     return [...byName.values()];
   }
 
+  function readPresets() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter(p => p && p.name && Array.isArray(p.cells)) : [];
+    } catch { return []; }
+  }
+
+  function persistPresets(list) {
+    presets = list;
+    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(list)); } catch {}
+  }
+
+  function persistLastPreset(name) {
+    activePreset = name ? presets.find(p => p.name === name) || null : null;
+    try {
+      if (name) localStorage.setItem(LAST_PRESET_KEY, name);
+      else localStorage.removeItem(LAST_PRESET_KEY);
+    } catch {}
+  }
+
+  function twoPanelLoopInfo(cells, gw, gh, shape) {
+    try {
+      const isWallGap = isWallGapForShape(shape || { cells, gw, gh, wallEdges: null });
+      const model = TwoPanelLoops.connectedLoopsWithCornerTable(cells, gw, gh, isWallGap, {
+        concaveMode: 'cross',
+        convexMode: 'cross',
+      });
+      const loops = model.loops || [];
+      return { twoPanelLoops: loops.length, loopLengths: loops.map(l => l.length) };
+    } catch {
+      return { twoPanelLoops: 0, loopLengths: [] };
+    }
+  }
+
+  function enrichShapeForExport(shape, colorsOverride) {
+    const { cycles } = ShapeEditor.getAllCycles(shape.cells, shape.gw, shape.gh);
+    const { twoPanelLoops, loopLengths } = twoPanelLoopInfo(shape.cells, shape.gw, shape.gh, shape);
+    const colors = (colorsOverride && colorsOverride.length)
+      ? colorsOverride.slice()
+      : (shape.colors && shape.colors.length ? shape.colors.slice() : []);
+    const out = {
+      name: shape.name,
+      gw: shape.gw,
+      gh: shape.gh,
+      cells: shape.cells.map(r => [...r]),
+      cycles: shape.cycles ?? cycles.length,
+      colors,
+      twoPanelLoops,
+      loopLengths,
+    };
+    if (Array.isArray(shape.wallEdges)) out.wallEdges = shape.wallEdges.slice();
+    return out;
+  }
+
+  function normalizePreset(p) {
+    const shape = normalizeShape(p);
+    const { twoPanelLoops, loopLengths } = twoPanelLoopInfo(shape.cells, shape.gw, shape.gh);
+    return {
+      ...shape,
+      colors: Array.isArray(p.colors) ? p.colors.slice() : shape.colors,
+      twoPanelLoops: p.twoPanelLoops ?? twoPanelLoops,
+      loopLengths: p.loopLengths || loopLengths,
+    };
+  }
+
+  function dedupePresets(list) {
+    const byName = new Map();
+    for (const p of list) {
+      if (p && p.name && Array.isArray(p.cells)) byName.set(p.name.toLowerCase(), normalizePreset(p));
+    }
+    return [...byName.values()];
+  }
+
+  function buildCurrentSnapshot(name) {
+    const state = editor?.getState() || {
+      cells: currentShape?.cells || [],
+      gw: currentShape?.gw || 18,
+      gh: currentShape?.gh || 10,
+    };
+    const base = shapeFromEditor(state, name);
+    const colors = (loopColors.length ? loopColors : resolveActiveColors(base)).slice();
+    return enrichShapeForExport({ ...base, colors }, colors);
+  }
+
+  function syncPresetToSharedStorage(snap) {
+    savedShapes = dedupeShapes([...savedShapes.filter(s => s.name !== snap.name), normalizeShape(snap)]);
+    try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
+    writeColorsForShape(snap.name, snap.colors);
+  }
+
+  function migrateLegacyToPresetsIfNeeded() {
+    if (presets.length) return false;
+    const colorsByShape = readColorsByShape();
+    const candidates = [];
+    for (const s of savedShapes) {
+      if (isPaletteOnlyShapeName(s.name)) continue;
+      const pal = palettes.find(p => p.name === s.name);
+      const colors = colorsByShape[s.name]
+        || (s.colors?.length ? s.colors : null)
+        || (pal?.colors?.length ? pal.colors : null);
+      if (!colors?.length) continue;
+      candidates.push(normalizePreset({ ...s, colors }));
+    }
+    if (!candidates.length) return false;
+    persistPresets(dedupePresets(candidates));
+    return true;
+  }
+
   function readStorage() {
     let raw = [];
     try { raw = JSON.parse(localStorage.getItem('celtic.savedShapes') || '[]'); }
     catch { raw = []; }
     savedShapes = dedupeShapes(raw).filter(s => !isPaletteOnlyShapeName(s.name));
+    presets = dedupePresets(readPresets());
     try { palettes = JSON.parse(localStorage.getItem('knot.palettes') || '[]'); }
     catch { palettes = []; }
     if (!Array.isArray(palettes)) palettes = [];
@@ -197,6 +536,7 @@
       savedShapes = cleaned;
       try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
     }
+    migrateLegacyToPresetsIfNeeded();
   }
 
   function findBootShape(shapes) {
@@ -223,6 +563,17 @@
       || findBootShape(savedShapes);
   }
 
+  function pickInitialPreset() {
+    try {
+      const last = localStorage.getItem(LAST_PRESET_KEY);
+      if (last) {
+        const p = presets.find(x => x.name === last);
+        if (p) return p;
+      }
+    } catch {}
+    return null;
+  }
+
   function pickInitialPalette() {
     try {
       const last = localStorage.getItem(LAST_PALETTE_KEY);
@@ -245,12 +596,40 @@
     } catch {}
   }
 
+  function readColorsByShape() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLORS_BY_SHAPE_KEY) || '{}');
+      return raw && typeof raw === 'object' ? raw : {};
+    } catch { return {}; }
+  }
+
+  function writeColorsForShape(shapeName, colors) {
+    try {
+      const all = readColorsByShape();
+      all[shapeName] = colors.slice();
+      localStorage.setItem(COLORS_BY_SHAPE_KEY, JSON.stringify(all));
+    } catch {}
+  }
+
+  function clearColorsForShape(shapeName) {
+    try {
+      const all = readColorsByShape();
+      delete all[shapeName];
+      localStorage.setItem(COLORS_BY_SHAPE_KEY, JSON.stringify(all));
+    } catch {}
+  }
+
   function colorsForLoops(loopCount, colors) {
     const src = colors || [];
     return Array.from({ length: loopCount }, (_, i) => src[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length]);
   }
 
   function resolveActiveColors(shape) {
+    const saved = readColorsByShape()[shape.name];
+    if (saved && saved.length) return saved;
+    if (activePreset && activePreset.name === shape.name && activePreset.colors?.length) {
+      return activePreset.colors;
+    }
     if (activePalette && activePalette.colors && activePalette.colors.length) {
       return activePalette.colors;
     }
@@ -268,24 +647,93 @@
     rebuildLegend(loops);
   }
 
+  function setLoopColor(i, hex) {
+    if (!api || !currentShape || i < 0) return;
+    loopColors[i] = hex;
+    api.setColors(loopColors);
+    writeColorsForShape(currentShape.name, loopColors);
+    rebuildLegend(api.getLoops());
+  }
+
+  function shuffleLoopColors() {
+    if (!api || !currentShape) return;
+    const loops = api.getLoops();
+    const pool = DEFAULT_COLORS.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    loopColors = colorsForLoops(loops.length, pool);
+    api.setColors(loopColors);
+    writeColorsForShape(currentShape.name, loopColors);
+    activePalette = null;
+    persistLastPalette(null);
+    rebuildLegend(loops);
+    rebuildPaletteChips();
+    toast('Colours shuffled');
+  }
+
   function updateSummary(shape, loopCount, lengths) {
+    const preset = activePreset && activePreset.name === shape.name ? ` · preset “${activePreset.name}”` : '';
     const pal = activePalette ? ` · colours “${activePalette.name}”` : '';
     $('summary').textContent =
-      `${loopCount} connected loops · lengths ${lengths.join(', ')} · shape “${shape.name}”${pal}`;
+      `${loopCount} connected loops · lengths ${lengths.join(', ')} · shape “${shape.name}”${preset}${pal}`;
+  }
+
+  function rebuildPresetChips() {
+    const panel = $('preset-panel');
+    const chips = $('preset-chips');
+    panel.hidden = false;
+    if (!presets.length) {
+      const hasLegacy = savedShapes.some(s =>
+        !isPaletteOnlyShapeName(s.name) && (
+          readColorsByShape()[s.name]?.length ||
+          s.colors?.length ||
+          palettes.some(p => p.name === s.name && p.colors?.length)
+        ));
+      chips.innerHTML = hasLegacy
+        ? '<span class="saved-empty">No combined presets yet — pick a saved shape or colour combo below, or use Save shape + colours.</span>'
+        : '<span class="saved-empty">No saved presets yet — use Save shape + colours above.</span>';
+      return;
+    }
+    chips.innerHTML = presets.map(p => {
+      const dots = (p.colors || []).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('');
+      const active = activePreset && activePreset.name === p.name ? ' active' : '';
+      return `<span class="knm-chip${active}" data-name="${escAttr(p.name)}">` +
+        `<span class="dots">${dots}</span>${escText(p.name)}` +
+        `<button type="button" class="knm-chip-x" data-del="${escAttr(p.name)}" title="Delete">×</button></span>`;
+    }).join('');
+    chips.querySelectorAll('.knm-chip').forEach(el => {
+      el.onclick = e => {
+        if (e.target.closest('.knm-chip-x')) return;
+        loadPreset(el.dataset.name);
+      };
+    });
+    chips.querySelectorAll('.knm-chip-x').forEach(btn => {
+      btn.onclick = e => {
+        e.stopPropagation();
+        deletePreset(btn.dataset.del);
+      };
+    });
   }
 
   function rebuildLegend(loops) {
     const legend = $('legend');
-    legend.innerHTML = loops.map((l, i) =>
-      `<span class="chip${i === sel ? ' active' : ''}" data-i="${i}">` +
-      `<span class="sw" style="background:${loopColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length]}"></span>` +
-      `Loop ${i + 1} (len ${l.length})</span>`
-    ).join('');
+    legend.innerHTML = loops.map((l, i) => {
+      const col = loopColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+      return `<span class="chip${i === sel ? ' active' : ''}" data-i="${i}">` +
+        `<input type="color" class="chip-color" data-i="${i}" value="${col}" title="Loop ${i + 1} colour">` +
+        `Loop ${i + 1} <span class="dim">(${l.length})</span></span>`;
+    }).join('');
     legend.querySelectorAll('.chip').forEach(c => {
-      c.onclick = () => {
+      c.onclick = e => {
+        if (e.target.closest('input[type=color]')) return;
         $('pick').value = c.dataset.i;
         onPickChange();
       };
+    });
+    legend.querySelectorAll('.chip-color').forEach(inp => {
+      inp.oninput = e => setLoopColor(+e.target.dataset.i, e.target.value);
     });
   }
 
@@ -300,8 +748,12 @@
   function rebuildPaletteChips() {
     const panel = $('palette-panel');
     const chips = $('palette-chips');
-    if (!palettes.length) { panel.hidden = true; return; }
+    if (!panel || !chips) return;
     panel.hidden = false;
+    if (!palettes.length) {
+      chips.innerHTML = '<span class="saved-empty">None yet — on index.html use <b>Save colours</b> in the colour strip.</span>';
+      return;
+    }
     chips.innerHTML = palettes.map(p => {
       const dots = (p.colors || []).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('');
       const active = activePalette && activePalette.name === p.name ? ' active' : '';
@@ -316,8 +768,12 @@
   function rebuildShapeChips() {
     const panel = $('shape-panel');
     const chips = $('shape-chips');
-    if (!savedShapes.length) { panel.hidden = true; return; }
+    if (!panel || !chips) return;
     panel.hidden = false;
+    if (!savedShapes.length) {
+      chips.innerHTML = '<span class="saved-empty">None in storage — save on index.html or use <b>Save shape + colours</b> here.</span>';
+      return;
+    }
     chips.innerHTML = savedShapes.map(s => {
       const active = currentShape && currentShape.name === s.name ? ' active' : '';
       return `<span class="knm-chip${active}" data-name="${escAttr(s.name)}">${escText(s.name)}</span>`;
@@ -327,47 +783,276 @@
     });
   }
 
-  function mountPlayer(shape) {
-    if (api) { api.destroy(); api = null; }
-    currentShape = shape;
-    persistLastShape(shape.name);
+  function readShowWeave() {
+    try {
+      const v = localStorage.getItem(SHOW_WEAVE_KEY);
+      if (v === '0' || v === 'false') return false;
+      if (v === '1' || v === 'true') return true;
+    } catch {}
+    return true;
+  }
 
-    api = TwoPanelPlayer.create($('player'), {
+  function persistShowWeave(on) {
+    try { localStorage.setItem(SHOW_WEAVE_KEY, on ? '1' : '0'); } catch {}
+  }
+
+  function updateStorageStatus() {
+    const el = $('storage-status');
+    if (!el) return;
+    let shapesN = 0, palsN = 0, presetsN = 0, hasDraft = false;
+    try { shapesN = JSON.parse(localStorage.getItem('celtic.savedShapes') || '[]').length; } catch {}
+    try { palsN = JSON.parse(localStorage.getItem('knot.palettes') || '[]').length; } catch {}
+    try { presetsN = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]').length; } catch {}
+    try { hasDraft = !!localStorage.getItem(EDITOR_DRAFT_KEY); } catch {}
+    const host = location.hostname || 'file';
+    const port = location.port ? `:${location.port}` : '';
+    const draftNote = hasDraft ? ' · <b>unsaved grid draft</b> (recoverable on reload)' : '';
+    el.innerHTML =
+      `Browser storage at <code>${escText(host)}${escText(port)}</code>: ` +
+      `${shapesN} shape(s), ${palsN} colour combo(s), ${presetsN} preset(s) on this page${draftNote}.`;
+  }
+
+  function persistEditorDraft(state) {
+    if (!state?.cells?.length) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(EDITOR_DRAFT_KEY, JSON.stringify({
+          name: currentShape?.name || 'Untitled',
+          gw: state.gw,
+          gh: state.gh,
+          cells: state.cells.map(r => [...r]),
+          wallEdges: Array.isArray(state.wallEdges) ? [...state.wallEdges] : [],
+          savedAt: Date.now(),
+        }));
+        updateStorageStatus();
+      } catch {}
+    }, 400);
+  }
+
+  function clearEditorDraft() {
+    clearTimeout(draftTimer);
+    try { localStorage.removeItem(EDITOR_DRAFT_KEY); } catch {}
+    updateStorageStatus();
+  }
+
+  function readEditorDraft() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(EDITOR_DRAFT_KEY) || 'null');
+      if (!raw || !Array.isArray(raw.cells) || !raw.cells.length) return null;
+      return raw;
+    } catch { return null; }
+  }
+
+  function cellsMatch(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let y = 0; y < a.length; y++) {
+      if (!a[y] || !b[y] || a[y].length !== b[y].length) return false;
+      for (let x = 0; x < a[y].length; x++) if (!!a[y][x] !== !!b[y][x]) return false;
+    }
+    return true;
+  }
+
+  function offerDraftRestore() {
+    const draft = readEditorDraft();
+    if (!draft) return null;
+    const cur = currentShape;
+    if (cur && cur.gw === draft.gw && cur.gh === draft.gh && cellsMatch(cur.cells, draft.cells)) {
+      return null;
+    }
+    const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : 'recent session';
+    const ok = window.confirm(
+      `Recover unsaved grid draft (${draft.gw}×${draft.gh}) from ${when}?\n\nCancel keeps the currently loaded shape.`);
+    return ok ? draft : null;
+  }
+
+  function shapeFromEditor(state, name) {
+    const { cycles } = ShapeEditor.getAllCycles(state.cells, state.gw, state.gh);
+    const shape = normalizeShape({
+      name: name || currentShape?.name || 'Untitled',
+      gw: state.gw,
+      gh: state.gh,
+      cells: state.cells.map(r => [...r]),
+      cycles: cycles.length,
+      colors: currentShape?.colors || [],
+      wallEdges: state.wallEdges || [],
+    });
+    return shape;
+  }
+
+  function refreshNotchDiagram(cells, gw, gh) {
+    const panel = $('notch-diagram-panel');
+    const root = $('notch-diagram-root');
+    const checkbox = $('show-notch-guide');
+    if (!panel || !root) return;
+    const on = !!checkbox?.checked;
+    panel.hidden = !on;
+    if (!on) return;
+    NotchDiagram?.render(root, cells?.length ? cells : null, gw, gh);
+  }
+
+  function syncEditorFromShape(shape) {
+    if (!editor || !shape) return;
+    editorSyncing = true;
+    const wallEdges = wallEdgesForShape(shape);
+    editor.setState({
       cells: shape.cells.map(r => [...r]),
       gw: shape.gw,
       gh: shape.gh,
-      isWallGap,
-      colors: [],
-      showWeave: true,
-      selected: sel,
-      speed: parseFloat($('speed').value),
-      initialZoom: parseFloat($('zoom').value) / 100,
-      onTick: st => {
-        if (st.sel >= 0 && st.info) {
-          $('status').innerHTML = `Loop ${st.sel + 1} · on panel <b>${st.info.panel || '—'}</b> · ${Math.round(st.t * 100)}%`;
-        } else if (st.sel < 0) {
-          $('status').innerHTML = `All loops · ${Math.round(st.t * 100)}%`;
-        }
-        $('play').textContent = st.playing ? '⏸ Pause' : '▶ Play';
-      },
+      wallEdges: wallEdges !== null ? wallEdges : ShapeEditor.legacyTopWallEdgeKeys(shape.cells, shape.gw, shape.gh),
     });
+    $('draw-panel-dims').textContent = `${shape.gw}×${shape.gh}`;
+    editor.setDimsLabel($('draw-panel-dims'));
+    editorSyncing = false;
+    refreshNotchDiagram(shape.cells, shape.gw, shape.gh);
+  }
+
+  function onEditorChange(state) {
+    if (editorSyncing) return;
+    $('draw-panel-dims').textContent = `${state.gw}×${state.gh}`;
+    persistEditorDraft(state);
+    refreshNotchDiagram(state.cells, state.gw, state.gh);
+    const draft = shapeFromEditor(state, currentShape?.name);
+    mountPlayer(draft, { skipEditorSync: true });
+  }
+
+  function saveShapeAndColours() {
+    const name = window.prompt('Name for shape + colours:', activePreset?.name || currentShape?.name || '');
+    if (!name?.trim()) return;
+    const trimmed = name.trim();
+    const snap = buildCurrentSnapshot(trimmed);
+    persistPresets([...presets.filter(p => p.name !== trimmed), snap]);
+    syncPresetToSharedStorage(snap);
+    clearEditorDraft();
+    loadPreset(trimmed);
+    rebuildPresetChips();
+    rebuildShapeChips();
+    toast(`Saved “${trimmed}” with ${snap.colors.length} loop colours`);
+  }
+
+  function loadPreset(name, opts) {
+    opts = opts || {};
+    const p = presets.find(x => x.name === name);
+    if (!p) { if (!opts.silent) toast('Preset not found'); return; }
+    activePreset = p;
+    activePalette = null;
+    persistLastPreset(name);
+    persistLastPalette(null);
+    writeColorsForShape(p.name, p.colors || []);
+    syncEditorFromShape(p);
+    mountPlayer(normalizeShape(p), { skipEditorSync: true });
+    rebuildPresetChips();
+    rebuildPaletteChips();
+    rebuildShapeChips();
+    if (!opts.silent) toast(`Loaded “${name}”`);
+  }
+
+  function deletePreset(name) {
+    if (!window.confirm(`Delete saved preset “${name}”?`)) return;
+    persistPresets(presets.filter(p => p.name !== name));
+    if (activePreset?.name === name) {
+      activePreset = null;
+      persistLastPreset(null);
+    }
+    rebuildPresetChips();
+    toast(`Deleted “${name}”`);
+  }
+
+  function exportJson() {
+    const source = presets.length ? presets : savedShapes.map(s =>
+      enrichShapeForExport(s, readColorsByShape()[s.name] || s.colors));
+    if (!source.length) { toast('Nothing to export'); return; }
+    const payload = source.map(s => enrichShapeForExport(normalizeShape(s), s.colors));
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `celtic-shapes-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${payload.length} preset${payload.length === 1 ? '' : 's'}`);
+  }
+
+  function saveEditorShape() {
+    const state = editor?.getState();
+    if (!state) return;
+    const name = window.prompt('Shape name:', currentShape?.name || '');
+    if (!name?.trim()) return;
+    const trimmed = name.trim();
+    const snap = shapeFromEditor(state, trimmed);
+    snap.colors = resolveActiveColors(currentShape || snap).slice();
+    savedShapes = [...savedShapes.filter(s => s.name !== trimmed), snap];
+    try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
+    writeColorsForShape(trimmed, snap.colors);
+    clearEditorDraft();
+    rebuildShapeChips();
+    loadShapeByName(trimmed, true);
+    toast(`Saved shape “${trimmed}”`);
+  }
+
+  function mountPlayer(shape, opts) {
+    opts = opts || {};
+    const host = $('player');
+    const wasPlaying = getPlayerApi()?.getState?.()?.playing;
+    const prev = host._twoPanelApi || api;
+    if (prev) prev.destroy();
+    host._twoPanelApi = null;
+    api = null;
+    currentShape = shape;
+    persistLastShape(shape.name);
+
+    try {
+      api = TwoPanelPlayer.create(host, {
+        cells: shape.cells.map(r => [...r]),
+        gw: shape.gw,
+        gh: shape.gh,
+        isWallGap: isWallGapForShape(shape),
+        colors: [],
+        showWeave,
+        strandMode,
+        selected: sel,
+        speed: parseFloat($('speed').value),
+        initialZoom: parseFloat($('zoom').value) / 100,
+        onTick: st => {
+          if (st.sel >= 0 && st.info) {
+            $('status').innerHTML = `Loop ${st.sel + 1} · on panel <b>${st.info.panel || '—'}</b> · ${Math.round(st.t * 100)}%`;
+          } else if (st.sel < 0) {
+            $('status').innerHTML = `All loops · ${Math.round(st.t * 100)}%`;
+          }
+          syncPlayButton(st.playing);
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      host.innerHTML = '<p class=\"sub\" style=\"padding:24px\">Loop model failed for this shape — try adjusting walls or grid size.</p>';
+      toast('Loop trace failed');
+      return;
+    }
+    host._twoPanelApi = api;
 
     const loops = api.getLoops();
     applyColorsToPlayer();
     rebuildPickOptions(loops.length);
     updateSummary(shape, loops.length, loops.map(l => l.length));
     rebuildShapeChips();
+    rebuildPresetChips();
+    if (!opts.skipEditorSync) syncEditorFromShape(shape);
+    if (wasPlaying) api.play();
+    else syncPlayButton(false);
   }
 
   function loadShapeByName(name, keepPalette) {
     const shape = savedShapes.find(s => s.name === name);
     if (!shape) { toast('Shape not found'); return; }
+    activePreset = presets.find(p => p.name === name) || null;
+    persistLastPreset(activePreset?.name || null);
     if (!keepPalette) {
       const matchingPal = palettes.find(p => p.name === name);
       activePalette = matchingPal || null;
       persistLastPalette(activePalette?.name || null);
     }
     mountPlayer(shape);
+    rebuildPresetChips();
     rebuildPaletteChips();
     toast(`Shape: ${shape.name}`);
   }
@@ -376,11 +1061,15 @@
     const p = palettes.find(x => x.name === name);
     if (!p) return;
     const matchingShape = savedShapes.find(s => s.name === name);
+    activePreset = null;
+    persistLastPreset(null);
     activePalette = p;
     persistLastPalette(name);
+    if (matchingShape) clearColorsForShape(matchingShape.name);
     if (matchingShape) {
       loadShapeByName(matchingShape.name, true);
     } else if (api && currentShape) {
+      clearColorsForShape(currentShape.name);
       applyColorsToPlayer();
       updateSummary(currentShape, api.getLoops().length, api.getLoops().map(l => l.length));
       rebuildPaletteChips();
@@ -402,18 +1091,32 @@
     const valid = data.filter(s =>
       s && typeof s.name === 'string' && Array.isArray(s.cells) &&
       Number.isInteger(s.gw) && Number.isInteger(s.gh));
-    savedShapes = dedupeShapes([...savedShapes, ...valid]);
+    const importedPresets = valid.map(s => normalizePreset(s));
+    presets = dedupePresets([...presets, ...importedPresets]);
+    persistPresets(presets);
+    savedShapes = dedupeShapes([...savedShapes, ...valid.map(normalizeShape)]);
     try { localStorage.setItem('celtic.savedShapes', JSON.stringify(savedShapes)); } catch {}
+    for (const p of importedPresets) {
+      if (p.colors?.length) writeColorsForShape(p.name, p.colors);
+    }
+    rebuildPresetChips();
     return valid.length;
   }
 
   $('pick').onchange = onPickChange;
   $('play').onclick = function () {
-    if (!api) return;
-    const st = api.getState();
-    if (st.playing) api.pause(); else api.play();
+    const a = getPlayerApi();
+    if (!a) return;
+    if (a.getState().playing) a.pause();
+    else a.play();
+    this.blur();
   };
-  $('restart').onclick = () => { api?.restart(); };
+  $('restart').onclick = () => getPlayerApi()?.restart();
+  $('show-weave').onchange = e => {
+    showWeave = e.target.checked;
+    persistShowWeave(showWeave);
+    api?.setShowWeave(showWeave);
+  };
   $('speed').oninput = e => api?.setSpeed(parseFloat(e.target.value));
 
   function setZoomPct(pct) {
@@ -425,6 +1128,10 @@
   $('zoom').oninput = e => setZoomPct(+e.target.value);
   $('zoom-in').onclick = () => setZoomPct(+($('zoom').value) + 10);
   $('zoom-out').onclick = () => setZoomPct(+($('zoom').value) - 10);
+  $('shuffle-colors').onclick = shuffleLoopColors;
+  $('strand-mode').onclick = cycleStrandMode;
+  $('save-preset-btn').onclick = saveShapeAndColours;
+  $('export-json-btn').onclick = exportJson;
 
   $('import-btn').onclick = () => $('import-file').click();
   $('import-file').onchange = e => {
@@ -435,7 +1142,8 @@
       try {
         const n = mergeImportedShapes(JSON.parse(reader.result));
         rebuildShapeChips();
-        toast(`Imported ${n} shape${n === 1 ? '' : 's'}`);
+        rebuildPresetChips();
+        toast(`Imported ${n} preset${n === 1 ? '' : 's'}`);
         if (!savedShapes.find(s => s.name === currentShape?.name)) {
           loadShapeByName(findBootShape(savedShapes).name);
         }
@@ -448,35 +1156,142 @@
   };
 
   window.addEventListener('storage', e => {
-    if (e.key === 'celtic.savedShapes' || e.key === 'knot.palettes') refreshFromStorage();
+    if (e.key === 'celtic.savedShapes' || e.key === 'knot.palettes' ||
+        e.key === COLORS_BY_SHAPE_KEY || e.key === PRESETS_KEY) refreshFromStorage();
   });
   window.addEventListener('focus', refreshFromStorage);
 
   async function refreshFromStorage() {
-    const prevShape = currentShape?.name;
-    const prevPal = activePalette?.name;
-    await loadAllShapes();
-    activePalette = palettes.find(p => p.name === prevPal) || pickInitialPalette();
-    rebuildPaletteChips();
-    rebuildShapeChips();
-    const shape = savedShapes.find(s => s.name === prevShape) || pickInitialShape();
-    mountPlayer(shape);
-    if (activePalette) applyColorsToPlayer();
-    rebuildPaletteChips();
+    if (!bootReady || refreshPending) return;
+    refreshPending = true;
+    try {
+      const prevShape = currentShape?.name;
+      const prevPreset = activePreset?.name;
+      const prevPal = activePalette?.name;
+      await loadAllShapes();
+      activePreset = presets.find(p => p.name === prevPreset) || pickInitialPreset();
+      persistLastPreset(activePreset?.name || null);
+      activePalette = palettes.find(p => p.name === prevPal) || pickInitialPalette();
+      rebuildPresetChips();
+      rebuildPaletteChips();
+      rebuildShapeChips();
+      if (activePreset) {
+        if (activePreset.name === prevPreset && getPlayerApi()) return;
+        loadPreset(activePreset.name, { silent: true });
+        return;
+      }
+      const shape = savedShapes.find(s => s.name === prevShape) || pickInitialShape();
+      if (getPlayerApi() && currentShape?.name === shape.name) return;
+      mountPlayer(shape);
+      if (activePalette) applyColorsToPlayer();
+      rebuildPaletteChips();
+    } finally {
+      refreshPending = false;
+    }
+  }
+
+  function initDrawPanel() {
+    const panel = $('draw-panel');
+    const hint = $('draw-panel-hint');
+    const helpBtn = $('draw-help-btn');
+    const helpBox = $('draw-help-box');
+    try {
+      const v = localStorage.getItem(DRAW_PANEL_OPEN_KEY);
+      panel.open = v === null ? true : v === '1';
+    } catch { panel.open = true; }
+    const syncHint = () => {
+      hint.textContent = panel.open ? 'Hide' : 'Show';
+    };
+    syncHint();
+    helpBtn.onclick = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      helpBox.hidden = !helpBox.hidden;
+    };
+    panel.addEventListener('toggle', () => {
+      syncHint();
+      try { localStorage.setItem(DRAW_PANEL_OPEN_KEY, panel.open ? '1' : '0'); } catch {}
+      if (panel.open) editor?.fitGrid?.();
+    });
+
+    const notchGuideEl = $('show-notch-guide');
+    let showNotchGuide = false;
+    try { showNotchGuide = localStorage.getItem(NOTCH_GUIDE_KEY) === '1'; } catch {}
+    if (notchGuideEl) {
+      notchGuideEl.checked = showNotchGuide;
+      notchGuideEl.onchange = () => {
+        showNotchGuide = notchGuideEl.checked;
+        try { localStorage.setItem(NOTCH_GUIDE_KEY, showNotchGuide ? '1' : '0'); } catch {}
+        const st = editor?.getState?.();
+        if (st) refreshNotchDiagram(st.cells, st.gw, st.gh);
+      };
+    }
+
+    editor = ShapeEditor.create($('shape-editor-root'), {
+      hint: 'Draw your shape, then click outer edges to mark walls (reflect) vs portals (mirror).',
+      saveLabel: 'Save shape',
+      cells: [],
+      gw: 18,
+      gh: 10,
+      wallEdges: [],
+      onChange: onEditorChange,
+      onSave: saveEditorShape,
+    });
+    editor.setDimsLabel($('draw-panel-dims'));
+    refreshNotchDiagram([], 18, 10);
   }
 
   async function init() {
     if (location.protocol === 'file:') {
       toast('Open via live-server (same URL as index.html) to sync saved data');
     }
+    showWeave = readShowWeave();
+    strandMode = readStrandMode();
+    syncStrandButton();
+    $('show-weave').checked = showWeave;
+
     await loadAllShapes();
-    activePalette = pickInitialPalette();
+    updateStorageStatus();
+    rebuildPresetChips();
     rebuildPaletteChips();
     rebuildShapeChips();
+
+    try {
+      initDrawPanel();
+    } catch (err) {
+      console.error(err);
+      toast('Draw grid failed to load — saved shapes above should still work');
+    }
+
+    activePreset = pickInitialPreset();
+    persistLastPreset(activePreset?.name || null);
+    activePalette = pickInitialPalette();
+
+    if (activePreset) {
+      loadPreset(activePreset.name, { silent: true });
+      requestAnimationFrame(() => editor?.fitGrid?.());
+      bootReady = true;
+      return;
+    }
+
     const shape = pickInitialShape();
-    mountPlayer(shape);
+    syncEditorFromShape(shape);
+    mountPlayer(shape, { skipEditorSync: true });
+
+    const restored = offerDraftRestore();
+    if (restored) {
+      const draftShape = shapeFromEditor(restored, restored.name || shape.name);
+      syncEditorFromShape(draftShape);
+      mountPlayer(draftShape, { skipEditorSync: true });
+      toast(`Restored draft grid (${restored.gw}×${restored.gh})`);
+    }
+
+    requestAnimationFrame(() => editor?.fitGrid?.());
     if (activePalette) applyColorsToPlayer();
     rebuildPaletteChips();
+    rebuildShapeChips();
+    updateStorageStatus();
+    bootReady = true;
   }
 
   init();
