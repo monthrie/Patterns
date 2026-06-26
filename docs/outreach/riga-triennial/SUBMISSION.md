@@ -16,6 +16,14 @@ The eligible 2025 masterpiece and the most extraordinary construction (wearable,
 
 *Alternative considered:* the shoes — their full making is filmed (the 10-min timelapse) and they show the 2-loop/12-loop range, so they are the best-documented *process*. If the jury values a fully-documented making over single-object impact, shoes are the fallback. But the jacket wins on impact and "I have never seen anything like it." **Decision pending only on whether we can show the jacket's construction in close-up (see shoot list).**
 
+## Process-documentation reality (2026-06, Wilmon) — and the revised approach
+**No photos exist of the jacket's actual making** (it predates documentation). No submission-ready making-film of any single coherent piece either (shoe timelapses + the Apr-8 mat photo sequence exist, but were not shot as the jacket's process). This shapes the strategy:
+- **The two highest-value "process" images need NO reconstruction** — the knot-structure macro and the invisible-join macro are close-ups of the FINISHED jacket. Just good macro photography of the object in hand. This is where Ieva's "knot structure and construction" close-ups come from.
+- **Ieva did not require process images to be of the submitted piece** ("making process *if possible*"). The technique is identical across pieces, so making-in-progress images can legitimately come from the general technique documentation (board + paper, cord being laid, flat panel on nails, flat→3D). They illustrate the method that made the jacket.
+- **Optional honest "reconstruction" = a method demonstration**: sit João at the bench and photograph a short staged sequence (empty board + paper → first cord → mid-weave → a join being made). Standard craft-catalogue practice, presented as method illustration, NOT as the jacket's original making. 3-4 clean shots would be the strongest process set; makeable any bench day.
+- **The coherent project, then = finished jacket + a constructed set of detail/method images + a detailed written description.** The description (Ieva: "particularly important") carries the narrative that ties the images into one technique. This is achievable now without any new making-film.
+- *Alternative if full coherence is wanted:* weave + fully photograph ONE new piece start-to-finish before 1 Sep (e.g. a small piece, or the planned 45×60). More work/risk; only if the detail+method approach feels thin.
+
 ## Photo set (mapped to Ieva's guidance: overall + structure + process)
 Required by rules: 1 full work photo + 1 detail + 1 artist photo. Ieva invites MORE (a coherent set). Plan:
 1. **Overall, full** — the jacket worn and/or flat, publication grade. (`candidate-images/01-jacket-worn.jpeg` is a placeholder; needs a proper shoot.)
