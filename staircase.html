@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extremes — the staircase and the ring</title>
+<meta name="theme-color" content="#090c0f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #090c0f; --ink-2: #121a22; --hair: #1e2832;
+    --bone: #c1cad3; --dim: #6d7884; --accent: #a3b8c4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink); color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 56px 20px 120px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+  p { font-size: 13.5px; line-height: 1.8; color: var(--bone); margin: 14px 0; }
+  p.dim { color: var(--dim); }
+  strong { color: var(--accent); font-weight: 600; }
+  .player { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin: 26px 0 10px; aspect-ratio: 7/6; }
+  .prov {
+    font-size: 12px; color: var(--dim); border: 1px dashed var(--hair); border-radius: 8px;
+    padding: 12px 14px; margin: 14px 0; line-height: 2;
+  }
+  .prov b { color: var(--accent); font-weight: 500; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Staircase</h1>
+  <p class="dim">13 cells. 5 strings. The most fragmented board of its size that exists —
+  verified against all 238,591 possible 13-cell shapes.</p>
+
+  <div class="player" id="stair"></div>
+
+  <div class="prov">
+    <b>T1-AQUFxxxxgAVtOsA</b><br>
+    13 cells · 5 loops · every loop bounces on exactly 4 nails<br>
+    max loops for 13 cells = ⌊(13+2)/3⌋ = 5 · record-holder is unique<br>
+    first traced 2026-06-10 · never woven
+  </div>
+
+  <p>A square needs <strong>25 cells</strong> to carry five strings. The staircase does it
+  with <strong>13</strong> — each three-cell step of the stair cages exactly one loop, a
+  little four-bounce diamond. Add a step, gain a loop, forever.</p>
+  <p>The same law caps every small board: no shape with up to 14 cells beats
+  <strong>⌊(n+2)/3⌋</strong> loops, and at 7, 10 and 13 cells the record-holder is this
+  staircase and nothing else.</p>
+  <p class="dim">Five loops = five colours. This board has never been woven by anyone.
+  But notice: <strong>its loops never cross.</strong> Maximum fragmentation means zero weave —
+  five separate diamonds resting on a board. As cloth, it falls apart. The mathematical
+  extreme is the craft minimum.</p>
+
+  <h1 style="margin-top:64px">The Ring</h1>
+  <p class="dim">The opposite extreme. Of all 63,600 possible 12-cell boards, this is the
+  most interwoven: two loops crossing each other at 8 of its 12 cells.</p>
+
+  <div class="player" id="ring" style="aspect-ratio: 4/5; max-width: 380px;"></div>
+
+  <div class="prov">
+    <b>T1-AQMF9t4CbQ</b><br>
+    12 cells · 2 loops · 8 of 12 cells are between-loop crossings<br>
+    a board with a hole — the open-problem territory<br>
+    most interlaced 12-cell board · verified against all 63,600
+  </div>
+
+  <p>The staircase wins by keeping its loops apart; the ring binds two cords through
+  every wall of the hole. <strong>Crossings are what fuse loops</strong> — so fragmentation
+  and weave fight each other, and the boards worth weaving live at this end.</p>
+
+  <h1 style="margin-top:64px">The Trio</h1>
+  <p class="dim">Best mutually-woven threesome at 12 cells: three loops, every pair crossing.</p>
+
+  <div class="player" id="trio" style="aspect-ratio: 1/1; max-width: 420px;"></div>
+
+  <div class="prov">
+    <b>T1-AQQENv8DOcA</b><br>
+    12 cells · 3 loops · every pair of loops crosses · 6 between-loop crossings
+  </div>
+</div>
+
+<script src="src/engine.js"></script>
+<script src="src/player.js"></script>
+<script>
+window.addEventListener('error', e => { document.title = 'ERRO: ' + (e.message || '?'); });
+const rows = ['##...','###..','.###.','..###','...##'];
+const cells = rows.map(r => [...r].map(c => c === '#'));
+TearPlayer.create(document.getElementById('stair'), {
+  cells, gw: 5, gh: 5,
+  colors: ['#d4242c', '#2aa0b4', '#e8c838', '#6a2aa0', '#2e9a5e'],
+  autoplay: 'visible', loop: true, speedFactor: 0.55,
+});
+const ringCells = ['###','#.#','#.#','#.#','###'].map(r => [...r].map(c => c === '#'));
+TearPlayer.create(document.getElementById('ring'), {
+  cells: ringCells, gw: 3, gh: 5,
+  colors: ['#d4242c', '#2aa0b4'],
+  autoplay: true, loop: true, speedFactor: 0.55,
+});
+const trioCells = ['..##','.##.','####','####'].map(r => [...r].map(c => c === '#'));
+TearPlayer.create(document.getElementById('trio'), {
+  cells: trioCells, gw: 4, gh: 4,
+  colors: ['#e8c838', '#c41878', '#2e9a5e'],
+  autoplay: true, loop: true, speedFactor: 0.55,
+});
+</script>
+</body>
+</html>

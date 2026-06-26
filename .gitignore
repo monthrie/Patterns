@@ -22,3 +22,6 @@ docs/interviews/contact-sheets/
 
 # NOTE: docs/outreach/riga-triennial/candidate-images/ is intentionally NOT ignored
 # (small curated email kit, version-controlled deliberately after a data loss)
+
+# nested git worktree — never commit
+.worktrees/
