@@ -6228,7 +6228,7 @@ function KnotMakerMobile() {
   }, "-"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "2",
-    max: "100",
+    max: "999",
     value: editingW ? editW : gridW,
     onFocus: e => {
       setEditingW(true);
@@ -6241,14 +6241,14 @@ function KnotMakerMobile() {
     onBlur: e => {
       setEditingW(false);
       const v = parseInt(editW, 10);
-      if (!isNaN(v) && v >= 2 && v <= 100) resizeGrid(v, gridH);
+      if (!isNaN(v) && v >= 2 && v <= 999) resizeGrid(v, gridH);
     },
     onKeyDown: e => {
       if (e.key === 'Enter') e.target.blur();
     }
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (gridW < 100) resizeGrid(gridW + 1, gridH);
+      if (gridW < 999) resizeGrid(gridW + 1, gridH);
     }
   }, "+"))), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6271,7 +6271,7 @@ function KnotMakerMobile() {
   }, "-"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "2",
-    max: "100",
+    max: "999",
     value: editingH ? editH : gridH,
     onFocus: e => {
       setEditingH(true);
@@ -6284,14 +6284,14 @@ function KnotMakerMobile() {
     onBlur: e => {
       setEditingH(false);
       const v = parseInt(editH, 10);
-      if (!isNaN(v) && v >= 2 && v <= 100) resizeGrid(gridW, v);
+      if (!isNaN(v) && v >= 2 && v <= 999) resizeGrid(gridW, v);
     },
     onKeyDown: e => {
       if (e.key === 'Enter') e.target.blur();
     }
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (gridH < 100) resizeGrid(gridW, gridH + 1);
+      if (gridH < 999) resizeGrid(gridW, gridH + 1);
     }
   }, "+")))), /*#__PURE__*/React.createElement("div", {
     style: {
