@@ -1,0 +1,3 @@
+# rendered binaries are regenerable from the shapes/ specs + drivers; keepers live in the vault Assets/
+out/*.png
+out/*.svg
