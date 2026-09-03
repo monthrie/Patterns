@@ -1,0 +1,137 @@
+{
+  "sampler": "connectivity-preserving Metropolis (uniform over fixed polyominoes)",
+  "target": "uniform-fixed (validated vs free-uniform exact; diff < 0.2pp and shrinking)",
+  "samplesPerSize": 250000,
+  "chains": 1,
+  "workers": 6,
+  "seed": 4242,
+  "generated": "2026-06-15",
+  "sizes": {
+    "12": {
+      "sampledDistribution": {
+        "1": 152448,
+        "2": 87176,
+        "3": 10221,
+        "4": 157
+      },
+      "sampledL1Fraction": 0.6097871217030264,
+      "exactL1Fraction": 0.6097798742138365,
+      "deltaPP": 0.001,
+      "meanL": 1.4323525411796705,
+      "maxL": 4,
+      "totalSamples": 250002,
+      "acceptanceRate": 0.9120597035223719,
+      "thin": 12,
+      "burnin": 7200,
+      "seconds": 29.3,
+      "exactDistribution": {
+        "1": 38782,
+        "2": 22142,
+        "3": 2630,
+        "4": 46
+      }
+    },
+    "13": {
+      "sampledDistribution": {
+        "1": 145222,
+        "2": 91263,
+        "3": 13168,
+        "4": 349
+      },
+      "sampledL1Fraction": 0.5808833529331765,
+      "exactL1Fraction": 0.5814091897850296,
+      "deltaPP": -0.053,
+      "meanL": 1.474580203358373,
+      "maxL": 4,
+      "totalSamples": 250002,
+      "acceptanceRate": 0.9152031399133422,
+      "thin": 13,
+      "burnin": 8450,
+      "seconds": 39,
+      "exactDistribution": {
+        "1": 138719,
+        "2": 87006,
+        "3": 12549,
+        "4": 316,
+        "5": 1
+      }
+    },
+    "14": {
+      "sampledDistribution": {
+        "1": 138500,
+        "2": 94905,
+        "3": 16053,
+        "4": 544
+      },
+      "sampledL1Fraction": 0.5539955680354557,
+      "exactL1Fraction": 0.553622012237644,
+      "deltaPP": 0.037,
+      "meanL": 1.5145678834569323,
+      "maxL": 4,
+      "totalSamples": 250002,
+      "acceptanceRate": 0.9181737974667631,
+      "thin": 14,
+      "burnin": 9800,
+      "seconds": 64.6,
+      "exactDistribution": {
+        "1": 499351,
+        "2": 342659,
+        "3": 57797,
+        "4": 2157,
+        "5": 7
+      }
+    },
+    "15": {
+      "sampledDistribution": {
+        "1": 131503,
+        "2": 98519,
+        "3": 19060,
+        "4": 920
+      },
+      "sampledL1Fraction": 0.5260077919376644,
+      "exactL1Fraction": 0.527664058815564,
+      "deltaPP": -0.166,
+      "meanL": 1.5575915392676858,
+      "maxL": 4,
+      "totalSamples": 250002,
+      "acceptanceRate": 0.9210872979682829,
+      "thin": 15,
+      "burnin": 11250,
+      "seconds": 54.1,
+      "exactDistribution": {
+        "1": 1808081,
+        "2": 1343606,
+        "3": 261901,
+        "4": 12896,
+        "5": 92
+      }
+    }
+  },
+  "calibration": [
+    {
+      "n": 12,
+      "sampledL1": 0.6097871217030264,
+      "exactL1": 0.6097798742138365,
+      "deltaPP": 0.001
+    },
+    {
+      "n": 13,
+      "sampledL1": 0.5808833529331765,
+      "exactL1": 0.5814091897850296,
+      "deltaPP": -0.053
+    },
+    {
+      "n": 14,
+      "sampledL1": 0.5539955680354557,
+      "exactL1": 0.553622012237644,
+      "deltaPP": 0.037
+    },
+    {
+      "n": 15,
+      "sampledL1": 0.5260077919376644,
+      "exactL1": 0.527664058815564,
+      "deltaPP": -0.166
+    }
+  ],
+  "calibrationPassed": true
+}

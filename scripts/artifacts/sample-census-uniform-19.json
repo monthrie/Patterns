@@ -1,0 +1,33 @@
+{
+  "sampler": "connectivity-preserving Metropolis (uniform over fixed polyominoes)",
+  "target": "uniform-fixed (validated vs free-uniform exact; diff < 0.2pp and shrinking)",
+  "samplesPerSize": 500000,
+  "chains": 8,
+  "workers": 1,
+  "seed": 12345,
+  "generated": "2026-06-15",
+  "sizes": {
+    "19": {
+      "sampledDistribution": {
+        "1": 218055,
+        "2": 211521,
+        "3": 63569,
+        "4": 6648,
+        "5": 207
+      },
+      "sampledL1Fraction": 0.43611,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 1.718862,
+      "maxL": 5,
+      "totalSamples": 500000,
+      "acceptanceRate": 0.9304201052631579,
+      "thin": 19,
+      "burnin": 18050,
+      "seconds": 372.4,
+      "exactDistribution": null
+    }
+  },
+  "calibration": [],
+  "calibrationPassed": false
+}

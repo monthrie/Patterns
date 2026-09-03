@@ -1,0 +1,113 @@
+{
+  "maxN": 8,
+  "elapsedSeconds": 0,
+  "rectChecks": 11,
+  "rectFails": 0,
+  "scaleChecks": 56,
+  "scaleFails": 0,
+  "sizes": {
+    "1": {
+      "free": 1,
+      "fixed": 1,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 1
+      },
+      "primeFraction": 1,
+      "meanL": 1,
+      "maxL": 1
+    },
+    "2": {
+      "free": 1,
+      "fixed": 2,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 1
+      },
+      "primeFraction": 1,
+      "meanL": 1,
+      "maxL": 1
+    },
+    "3": {
+      "free": 2,
+      "fixed": 6,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 2
+      },
+      "primeFraction": 1,
+      "meanL": 1,
+      "maxL": 1
+    },
+    "4": {
+      "free": 5,
+      "fixed": 19,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 4,
+        "2": 1
+      },
+      "primeFraction": 0.8,
+      "meanL": 1.2,
+      "maxL": 2
+    },
+    "5": {
+      "free": 12,
+      "fixed": 63,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 11,
+        "2": 1
+      },
+      "primeFraction": 0.9166666666666666,
+      "meanL": 1.0833333333333333,
+      "maxL": 2
+    },
+    "6": {
+      "free": 35,
+      "fixed": 216,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 28,
+        "2": 7
+      },
+      "primeFraction": 0.8,
+      "meanL": 1.2,
+      "maxL": 2
+    },
+    "7": {
+      "free": 108,
+      "fixed": 760,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 86,
+        "2": 21,
+        "3": 1
+      },
+      "primeFraction": 0.7962962962962963,
+      "meanL": 1.212962962962963,
+      "maxL": 3
+    },
+    "8": {
+      "free": 369,
+      "fixed": 2725,
+      "freeOk": true,
+      "fixedOk": true,
+      "distribution": {
+        "1": 273,
+        "2": 93,
+        "3": 3
+      },
+      "primeFraction": 0.7398373983739838,
+      "meanL": 1.2682926829268293,
+      "maxL": 3
+    }
+  }
+}

@@ -1,3 +1,14 @@
 build/
 node_modules/
 .playwright-mcp/
+
+# large media and local files (kept on disk, not in git)
+media/
+batchonevideos/
+docs/photos/
+*.zip
+.env
+.DS_Store
+.worktrees/
+.claude/worktrees/
+.claude/settings.local.json

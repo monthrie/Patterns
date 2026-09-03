@@ -1,0 +1,111 @@
+{
+  "sampler": "eden-growth",
+  "samples": 50000,
+  "generated": "2026-06-15",
+  "sizes": {
+    "12": {
+      "sampledDistribution": {
+        "1": 18135,
+        "2": 24042,
+        "3": 7538,
+        "4": 285
+      },
+      "sampledL1Fraction": 0.3627,
+      "exactL1Fraction": 0.6097798742138365,
+      "deltaPP": -24.71,
+      "meanL": 1.79946,
+      "maxL": 4,
+      "seconds": 0.6
+    },
+    "13": {
+      "sampledDistribution": {
+        "1": 16676,
+        "2": 24106,
+        "3": 8719,
+        "4": 497,
+        "5": 2
+      },
+      "sampledL1Fraction": 0.33352,
+      "exactL1Fraction": 0.5814091897850296,
+      "deltaPP": -24.79,
+      "meanL": 1.86086,
+      "maxL": 5,
+      "seconds": 0.6
+    },
+    "14": {
+      "sampledDistribution": {
+        "1": 15701,
+        "2": 23784,
+        "3": 9599,
+        "4": 910,
+        "5": 6
+      },
+      "sampledL1Fraction": 0.31402,
+      "exactL1Fraction": 0.553622012237644,
+      "deltaPP": -23.96,
+      "meanL": 1.91472,
+      "maxL": 5,
+      "seconds": 0.6
+    },
+    "15": {
+      "sampledDistribution": {
+        "1": 14504,
+        "2": 23582,
+        "3": 10661,
+        "4": 1240,
+        "5": 13
+      },
+      "sampledL1Fraction": 0.29008,
+      "exactL1Fraction": 0.527664058815564,
+      "deltaPP": -23.76,
+      "meanL": 1.97352,
+      "maxL": 5,
+      "seconds": 0.7
+    },
+    "16": {
+      "sampledDistribution": {
+        "1": 13575,
+        "2": 23053,
+        "3": 11613,
+        "4": 1723,
+        "5": 36
+      },
+      "sampledL1Fraction": 0.2715,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 2.03184,
+      "maxL": 5,
+      "seconds": 0.7
+    },
+    "17": {
+      "sampledDistribution": {
+        "1": 12669,
+        "2": 22812,
+        "3": 12297,
+        "4": 2133,
+        "5": 89
+      },
+      "sampledL1Fraction": 0.25338,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 2.08322,
+      "maxL": 5,
+      "seconds": 0.8
+    },
+    "18": {
+      "sampledDistribution": {
+        "1": 11926,
+        "2": 22222,
+        "3": 13063,
+        "4": 2647,
+        "5": 142
+      },
+      "sampledL1Fraction": 0.23852,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 2.13714,
+      "maxL": 5,
+      "seconds": 0.8
+    }
+  }
+}

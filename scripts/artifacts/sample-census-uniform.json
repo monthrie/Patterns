@@ -1,0 +1,160 @@
+{
+  "sampler": "connectivity-preserving Metropolis MCMC, target = uniform over FIXED polyominoes",
+  "move": "remove a uniformly-random non-cut (removable) cell c; add a uniformly-random empty cell s adjacent to the remaining cluster; Metropolis accept with alpha=min(1, |R(P)|/|R(P')|). Provably uniform-stationary (verified exactly on n=5: all 63 fixed pentominoes, and n=6: all 216 fixed hexominoes).",
+  "loopNumber": "TearEngine.getAllCycles(cells,gw,gh).cycles.length on a recentered [y][x] grid",
+  "generated": "2026-06-15",
+  "calibrationRuns": {
+    "n12-15": {
+      "file": "sample-census-uniform-cal-big.json",
+      "samples": 250000,
+      "workers": 6,
+      "seed": 4242
+    },
+    "n16-18": {
+      "file": "sample-census-uniform-prod.json",
+      "samples": 1000000,
+      "workers": 8,
+      "seed": 20260615
+    }
+  },
+  "calibration": [
+    {
+      "n": 12,
+      "samples": 250002,
+      "sampledL1": 0.6097871217030264,
+      "exactL1": 0.6097798742138365,
+      "deltaPP": 0.001
+    },
+    {
+      "n": 13,
+      "samples": 250002,
+      "sampledL1": 0.5808833529331765,
+      "exactL1": 0.5814091897850296,
+      "deltaPP": -0.053
+    },
+    {
+      "n": 14,
+      "samples": 250002,
+      "sampledL1": 0.5539955680354557,
+      "exactL1": 0.553622012237644,
+      "deltaPP": 0.037
+    },
+    {
+      "n": 15,
+      "samples": 250002,
+      "sampledL1": 0.5260077919376644,
+      "exactL1": 0.527664058815564,
+      "deltaPP": -0.166
+    },
+    {
+      "n": 16,
+      "samples": 1000000,
+      "sampledL1": 0.503232,
+      "exactL1": 0.5028191590423154,
+      "deltaPP": 0.041
+    }
+  ],
+  "estimates": {
+    "16": {
+      "samples": 1000000,
+      "sampledDistribution": {
+        "1": 503232,
+        "2": 401804,
+        "3": 89271,
+        "4": 5646,
+        "5": 47
+      },
+      "sampledFractions": {
+        "1": 0.503232,
+        "2": 0.401804,
+        "3": 0.089271,
+        "4": 0.005646,
+        "5": 0.000047
+      },
+      "L1fraction": 0.503232,
+      "L1_stderr_pp": 0.05,
+      "meanL": 1.59747,
+      "maxL_sampled": 5,
+      "impliedL1count": 6581900,
+      "freePolyominoes": 13079255,
+      "acceptanceRate": 0.9236,
+      "thin": 16,
+      "burnin": 12800,
+      "seconds": 219.4,
+      "exactL1fraction": 0.5028191590423154,
+      "exactDistribution": {
+        "1": 6576500,
+        "2": 5264430,
+        "3": 1164267,
+        "4": 73226,
+        "5": 831,
+        "6": 1
+      }
+    },
+    "17": {
+      "samples": 1000000,
+      "sampledDistribution": {
+        "1": 479876,
+        "2": 409840,
+        "3": 102359,
+        "4": 7791,
+        "5": 134
+      },
+      "sampledFractions": {
+        "1": 0.479876,
+        "2": 0.40984,
+        "3": 0.102359,
+        "4": 0.007791,
+        "5": 0.000134
+      },
+      "L1fraction": 0.479876,
+      "L1_stderr_pp": 0.05,
+      "meanL": 1.63847,
+      "maxL_sampled": 5,
+      "impliedL1count": 24045583,
+      "freePolyominoes": 50107909,
+      "acceptanceRate": 0.9261,
+      "thin": 17,
+      "burnin": 14450,
+      "seconds": 231.5,
+      "exactL1fraction": null,
+      "exactDistribution": null
+    },
+    "18": {
+      "samples": 1000000,
+      "sampledDistribution": {
+        "1": 455942,
+        "2": 418606,
+        "3": 114601,
+        "4": 10610,
+        "5": 241
+      },
+      "sampledFractions": {
+        "1": 0.455942,
+        "2": 0.418606,
+        "3": 0.114601,
+        "4": 0.01061,
+        "5": 0.000241
+      },
+      "L1fraction": 0.455942,
+      "L1_stderr_pp": 0.0498,
+      "meanL": 1.6806,
+      "maxL_sampled": 5,
+      "impliedL1count": 87824484,
+      "freePolyominoes": 192622052,
+      "acceptanceRate": 0.9283,
+      "thin": 18,
+      "burnin": 16200,
+      "seconds": 311.2,
+      "exactL1fraction": null,
+      "exactDistribution": null
+    }
+  },
+  "calibrationPassed": true,
+  "decayRatios": {
+    "f1(16)/f1(15)": 0.9567,
+    "f1(17)/f1(16)": 0.9536,
+    "f1(18)/f1(17)": 0.9501,
+    "exact_f1_16_over_15": 0.9529
+  }
+}

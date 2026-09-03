@@ -1,0 +1,87 @@
+{
+  "sampler": "connectivity-preserving Metropolis (uniform over fixed polyominoes)",
+  "target": "uniform-fixed (validated vs free-uniform exact; diff < 0.2pp and shrinking)",
+  "samplesPerSize": 1000000,
+  "chains": 1,
+  "workers": 8,
+  "seed": 20260615,
+  "generated": "2026-06-15",
+  "sizes": {
+    "16": {
+      "sampledDistribution": {
+        "1": 503232,
+        "2": 401804,
+        "3": 89271,
+        "4": 5646,
+        "5": 47
+      },
+      "sampledL1Fraction": 0.503232,
+      "exactL1Fraction": 0.5028191590423154,
+      "deltaPP": 0.041,
+      "meanL": 1.597472,
+      "maxL": 5,
+      "totalSamples": 1000000,
+      "acceptanceRate": 0.923621625,
+      "thin": 16,
+      "burnin": 12800,
+      "seconds": 219.4,
+      "exactDistribution": {
+        "1": 6576500,
+        "2": 5264430,
+        "3": 1164267,
+        "4": 73226,
+        "5": 831,
+        "6": 1
+      }
+    },
+    "17": {
+      "sampledDistribution": {
+        "1": 479876,
+        "2": 409840,
+        "3": 102359,
+        "4": 7791,
+        "5": 134
+      },
+      "sampledL1Fraction": 0.479876,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 1.638467,
+      "maxL": 5,
+      "totalSamples": 1000000,
+      "acceptanceRate": 0.926051,
+      "thin": 17,
+      "burnin": 14450,
+      "seconds": 231.5,
+      "exactDistribution": null
+    },
+    "18": {
+      "sampledDistribution": {
+        "1": 455942,
+        "2": 418606,
+        "3": 114601,
+        "4": 10610,
+        "5": 241
+      },
+      "sampledL1Fraction": 0.455942,
+      "exactL1Fraction": null,
+      "deltaPP": null,
+      "meanL": 1.680602,
+      "maxL": 5,
+      "totalSamples": 1000000,
+      "acceptanceRate": 0.9282542777777778,
+      "thin": 18,
+      "burnin": 16200,
+      "seconds": 311.2,
+      "exactDistribution": null
+    }
+  },
+  "calibration": [
+    {
+      "n": 16,
+      "sampledL1": 0.503232,
+      "exactL1": 0.5028191590423154,
+      "deltaPP": 0.041
+    }
+  ],
+  "calibrationPassed": true
+}

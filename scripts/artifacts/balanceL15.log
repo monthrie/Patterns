@@ -1,0 +1,112 @@
+Balanced-cord census up to n=15 ...
+Done in 418.4s. total=2n fails:0 integrality fails:0 rect-gcd fails:0
+All OEIS counts match (enumeration sound).
+
+=== Balanced-cord spectrum ===
+n | free (ok?) | fixed (ok?) | monolinear | multi-cord | balanced | bal-rect | bal-nonrect | longestMulti | maxImbalance
+--|--|--|--|--|--|--|--|--|--
+1 | 1 ✓ | 1 ✓ | 1 | 0 | 0 | 0 | 0 | 0 | 1.000
+2 | 1 ✓ | 2 ✓ | 1 | 0 | 0 | 0 | 0 | 0 | 1.000
+3 | 2 ✓ | 6 ✓ | 2 | 0 | 0 | 0 | 0 | 0 | 1.000
+4 | 5 ✓ | 19 ✓ | 4 | 1 | 1 | 1 | 0 | 4 | 1.000
+5 | 12 ✓ | 63 ✓ | 11 | 1 | 0 | 0 | 0 | 6 | 1.500
+6 | 35 ✓ | 216 ✓ | 28 | 7 | 2 | 0 | 2 | 8 | 2.000
+7 | 108 ✓ | 760 ✓ | 86 | 22 | 0 | 0 | 0 | 10 | 2.500
+8 | 369 ✓ | 2725 ✓ | 273 | 96 | 16 | 1 | 15 | 12 | 3.000
+9 | 1285 ✓ | 9910 ✓ | 915 | 370 | 3 | 1 | 2 | 14 | 3.500
+10 | 4655 ✓ | 36446 ✓ | 3126 | 1529 | 152 | 0 | 152 | 16 | 4.000
+11 | 17073 ✓ | 135268 ✓ | 10948 | 6125 | 0 | 0 | 0 | 18 | 4.500
+12 | 63600 ✓ | 505861 ✓ | 38782 | 24818 | 1717 | 1 | 1716 | 20 | 5.000
+13 | 238591 ✓ | 1903890 ✓ | 138719 | 99872 | 0 | 0 | 0 | 22 | 5.500
+14 | 901971 ✓ | 7204874 ✓ | 499351 | 402620 | 19129 | 0 | 19129 | 24 | 6.000
+15 | 3426576 ✓ | 27394666 ✓ | 1808081 | 1618495 | 2411 | 0 | 2411 | 26 | 6.500
+
+balanced multi-cord count (n=1..15):  0, 0, 0, 1, 0, 2, 0, 16, 3, 152, 0, 1717, 0, 19129, 2411
+balanced NON-rect count   (n=1..15):  0, 0, 0, 0, 0, 2, 0, 15, 2, 152, 0, 1716, 0, 19129, 2411
+longest cord (multi-cord) (n=1..15):  0, 0, 0, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26
+max imbalance hi/lo       (n=1..15):  1, 1, 1, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5
+
+=== Balanced boards by loop count L ===
+n=4: L=2:1
+n=6: L=2:2
+n=8: L=2:16
+n=9: L=3:3
+n=10: L=2:152
+n=12: L=2:1651  L=3:65  L=4:1
+n=14: L=2:19129
+n=15: L=3:2411
+
+=== Sample non-rect balanced witnesses (capped 60/n) ===
+
+n=6 (2 total) e.g. L=2 cords 6,6 tree=false
+#.
+##
+##
+#.
+
+n=8 (15 total) e.g. L=2 cords 8,8 tree=false
+#.
+#.
+##
+##
+#.
+#.
+
+n=9 (2 total) e.g. L=3 cords 6,6,6 tree=false
+.#.
+##.
+###
+.##
+.#.
+
+n=10 (152 total) e.g. L=2 cords 10,10 tree=false
+#.
+#.
+#.
+##
+##
+#.
+#.
+#.
+
+n=12 (1716 total) e.g. L=2 cords 12,12 tree=false
+#.
+#.
+#.
+#.
+##
+##
+#.
+#.
+#.
+#.
+
+n=14 (19129 total) e.g. L=2 cords 14,14 tree=false
+#.
+#.
+#.
+#.
+#.
+##
+##
+#.
+#.
+#.
+#.
+#.
+
+n=15 (2411 total) e.g. L=3 cords 10,10,10 tree=false
+#.
+#.
+#.
+##
+##
+#.
+##
+##
+#.
+#.
+#.
+
+Wrote scripts/artifacts/cord-balance-census-15.json
+EXIT:0

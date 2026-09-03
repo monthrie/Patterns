@@ -1,0 +1,6 @@
+{
+  "name": "red-cyan-cream",
+  "rect": [18, 27],
+  "colors": ["#c01830", "#c01830", "#c01830", "#28a8c8", "#28a8c8", "#28a8c8", "#ecdfae", "#ecdfae", "#ecdfae"],
+  "bg": "#f4f1e8"
+}
